@@ -17,7 +17,7 @@ lpcOverlay = False
 # Stream Parameters
 #############################
 DEVICE = 0
-CHUNK = 1024*4
+CHUNK = 1024*2*2*2
 WINDOW = np.hamming(CHUNK)
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -122,9 +122,11 @@ if not headless:
         plt.title('Real Time Audio (Hz)')
         plt.legend()
         axFreq.set_xticks(np.linspace(0, NFFT/2, 5))
+        # axFreq.set_xscale('log')
         labels = ['%.1f' % (xx) for xx in np.linspace(0, RATE/2, 5)]
         axFreq.set_xticklabels(labels, rotation=0, verticalalignment='top')
         plt.ylabel('Amplitude [dB]')
+
 
     ######################################################
     # Define function to update figure for each iteration.
