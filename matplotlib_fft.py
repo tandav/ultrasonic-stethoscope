@@ -9,7 +9,7 @@ import sys
 # GUI parameters
 #############################
 headless = False
-timeDomain = True
+timeDomain = False
 freqDomain = True
 lpcOverlay = False
 
@@ -17,7 +17,7 @@ lpcOverlay = False
 # Stream Parameters
 #############################
 DEVICE = 0
-CHUNK = 1024*2*2*2
+CHUNK = 1024*2*2
 WINDOW = np.hamming(CHUNK)
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -27,7 +27,7 @@ RATE = 44100
 # Spectral parameters
 #############################
 ORDER = 12
-NFFT = CHUNK/2/2
+NFFT = CHUNK/2/2/2
 # correlation: 12*4*1024 = 49152
 # matrix solution: 12*12 = 144
 # matrix solution cov: 12*12*12 = 1728
@@ -112,6 +112,8 @@ if not headless:
         axFreq = fig.add_axes([.1, .1/nAx, .8, 0.4*(3-nAx)])
         axFreq.set_axis_bgcolor('#c6dbef')
         plt.grid()
+        # axFreq.set_xscale('log')
+
         lineFreq, = axFreq.plot(range(NFFT/2), [0]*(NFFT/2),
                                 c='#6baed6', label='FFT')
         if lpcOverlay:
@@ -122,7 +124,6 @@ if not headless:
         plt.title('Real Time Audio (Hz)')
         plt.legend()
         axFreq.set_xticks(np.linspace(0, NFFT/2, 5))
-        # axFreq.set_xscale('log')
         labels = ['%.1f' % (xx) for xx in np.linspace(0, RATE/2, 5)]
         axFreq.set_xticklabels(labels, rotation=0, verticalalignment='top')
         plt.ylabel('Amplitude [dB]')
