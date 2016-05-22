@@ -27,7 +27,7 @@ RATE = 44100
 # Spectral parameters
 #############################
 ORDER = 12
-NFFT = CHUNK/2/2/2
+NFFT = CHUNK/2
 # correlation: 12*4*1024 = 49152
 # matrix solution: 12*12 = 144
 # matrix solution cov: 12*12*12 = 1728
