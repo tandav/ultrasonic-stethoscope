@@ -9,7 +9,7 @@ import sys
 # GUI parameters
 #############################
 headless = False
-timeDomain = False
+timeDomain = True
 freqDomain = True
 lpcOverlay = False
 
@@ -17,7 +17,7 @@ lpcOverlay = False
 # Stream Parameters
 #############################
 DEVICE = 0
-CHUNK = 1024*4*2
+CHUNK = 1024*4
 WINDOW = np.hamming(CHUNK)
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -27,7 +27,7 @@ RATE = 44100
 # Spectral parameters
 #############################
 ORDER = 12
-NFFT = CHUNK*2
+NFFT = CHUNK/2/2
 # correlation: 12*4*1024 = 49152
 # matrix solution: 12*12 = 144
 # matrix solution cov: 12*12*12 = 1728
