@@ -112,7 +112,7 @@ if not headless:
         axFreq = fig.add_axes([.1, .1/nAx, .8, 0.4*(3-nAx)])
         axFreq.set_axis_bgcolor('#c6dbef')
         plt.grid()
-        # axFreq.set_xscale('log')
+        axFreq.set_xscale('log')
 
         lineFreq, = axFreq.plot(range(NFFT/2), [0]*(NFFT/2),
                                 c='#6baed6', label='FFT')
