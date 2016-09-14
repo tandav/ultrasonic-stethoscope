@@ -15,7 +15,7 @@ import wave
 # GUI Prameters
 #############################
 timeDomain = True
-freqDomain = True
+freqDomain = False
 lpcOverlay = False
 
 #############################
@@ -61,6 +61,10 @@ def spectral_estimate(data):
     S = 20*np.log10(np.abs(spectral)**2)
     return S[0:NFFT/2]
 
+f = open('data.txt','w')
+
+
+
 ##########################
 # Create audio stream
 ##########################
@@ -97,6 +101,20 @@ oldy = range(2*CHUNK)
 # Create new Figure and an Axes to occupy the figure.
 ######################################################
 fig = plt.figure(facecolor='white')  # optional arg: figsize=(x, y)
+# plt.subplots_adjust(bottom=0.2)
+axrecord = plt.axes([0.5, 0.05, 0.1, 0.075])
+
+
+class Index(object):
+
+    def record2file(self, event, data):
+		for item in data:
+  			f.write("%s " % item)
+  		f.write("\n")
+
+callback = Index()
+
+buttonrecord = Button(axrecord, 'Record')
 nAx = sum([1 for xx in [timeDomain, freqDomain] if xx])
 
 if timeDomain:
@@ -110,7 +128,7 @@ if timeDomain:
     axTime.set_xticks(np.linspace(0, 2*CHUNK, 5))
     labels = ['%.1f' % (xx) for xx in np.linspace(0, 1000*2*CHUNK/RATE, 5)]
     axTime.set_xticklabels(labels, rotation=0, verticalalignment='top')
-    plt.ylabel('Amplitude')
+    plt.ylabel('Amplitude') # draw axes, grid, subplops
 
 if freqDomain:
     axFreq = fig.add_axes([.1, .1/nAx, .8, 0.4*(3-nAx)])
@@ -138,6 +156,7 @@ if freqDomain:
     ######################################################
     # Define function to update figure for each iteration.
     ######################################################
+
 def update(frame_number):
     global oldy
     objects_to_return = []
@@ -156,6 +175,8 @@ def update(frame_number):
             if lpcOverlay:
                 S_lpc = lpc_spectrum(windowed)
                 lineLPC.set_ydata(S_lpc)
+            buttonrecord.on_clicked(callback.record2file(incoming))
+
             objects_to_return.append(lineFreq)
             # objects_to_return.append(lineLPC)
     except IOError as e:
@@ -170,3 +191,4 @@ def update(frame_number):
 
 animation = FuncAnimation(fig, update, interval=10)
 plt.show()
+f.close() # close the file
