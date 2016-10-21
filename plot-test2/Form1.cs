@@ -9,102 +9,78 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 using NAudio.Wave;
+using NAudio;
 
 namespace plot_test2
 {
     public partial class Form1 : Form
     {
-        int n = 200; // number of x-axis pints
-        Stopwatch time = new Stopwatch();
+        int n = 2000; // number of x-axis pints
+        //Stopwatch time = new Stopwatch();
         WaveIn wi;
-        byte x;
+        
         public Form1()
+
         {
             InitializeComponent();
-
             // chart axis boundaries
-            //chart1.ChartAreas[0].Axes[0].Minimum = -2;
-            //chart1.ChartAreas[0].Axes[0].Maximum = 100;
-            //chart1.ChartAreas[0].Axes[1].Minimum = -2;
-            //chart1.ChartAreas[0].Axes[1].Maximum = 2;
+            //chart1.ChartAreas[0].Axes[0].Minimum = -32768;
+            //chart1.ChartAreas[0].Axes[0].Maximum = 32767;
+            chart1.ChartAreas[0].Axes[1].Minimum = -32768/2;
+            chart1.ChartAreas[0].Axes[1].Maximum = 32767/2;
+            //chart1.ChartAreas[0].Axes[1].Minimum = 150000;
+            //chart1.ChartAreas[0].Axes[1].Maximum = 250000;
         }
 
-
-        double get_value(double x) // in future mb array of values(chunk from mic data)
-        {
-            return Math.Sin(x);
-        }
-
-        private void update_data()
-        {
-
-            //chart1.Series["Series1"].Points.Clear();
-            double curr_t = time.ElapsedMilliseconds;
-
-            // old way. dont need data[] array, but not showing plot properly in the begining seconds
-            chart1.Series["Series1"].Points.RemoveAt(0);
-            chart1.Series["Series1"].Points.AddXY(curr_t, x);
-            chart1.ChartAreas[0].Axes[0].Minimum = chart1.Series["Series1"].Points.First().XValue;
-            chart1.ChartAreas[0].Axes[0].Maximum = chart1.Series["Series1"].Points.Last().XValue;
-
-            Console.WriteLine(chart1.Series["Series1"].Points.First().XValue);
-
-
-            chart1.ResetAutoValues();
-            //chart1.Update();
-            //chart1.Refresh();
-        }
 
         private void button1_Click(object sender, EventArgs e)
         {
-
-
             for (int i = 0; i < n; i++)
                 chart1.Series["Series1"].Points.AddXY(0.0, 0.0);
             wi = new WaveIn();
             wi.StartRecording();
-            wi.WaveFormat = new WaveFormat(44100, 1); //tipa navern nado, try delete
+            //wi.WaveFormat = new WaveFormat(44100, 16, 1); //tipa navern nado, try delete
+            wi.WaveFormat = new WaveFormat(16, 16, 1); //tipa navern nado, try delete
+
             wi.DataAvailable += new EventHandler<WaveInEventArgs>(wi_DataAvailable);
-            //wi.RecordingStopped += new EventHandler<StoppedEventArgs>(wi_RecordingStopped);
-
-
-
-
-
         }
+
 
         void wi_DataAvailable(object sender, WaveInEventArgs e)
         {
-            
-            for (int I = 0; I < e.BytesRecorded; I++)
+            //Console.WriteLine(sample);
+
+            short sample;
+            // old way. dont need data[] array, but not showing plot properly in the begining seconds
+            for (int i = 0; i < e.BytesRecorded;i += 2)
             {
-                x = (byte)Math.Abs(e.Buffer[I] - 127);
+                //  Console.WriteLine(sample);
+                sample = BitConverter.ToInt16(e.Buffer, i);
+
+                chart1.Series["Series1"].Points.RemoveAt(0);
+                chart1.Series["Series1"].Points.AddY(sample);
+                chart1.ResetAutoValues();
+
+                //chart1.Series["Series1"].Points.RemoveAt(0);
+                //chart1.Series["Series1"].Points.AddXY(time.ElapsedMilliseconds, sample);
+                //chart1.ChartAreas[0].Axes[0].Minimum = chart1.Series["Series1"].Points.First().XValue;
+                //chart1.ChartAreas[0].Axes[0].Maximum = chart1.Series["Series1"].Points.Last().XValue;
+                //chart1.ResetAutoValues();
             }
 
-            time.Start();
-            timer1.Enabled = true;
+
+            //chart1.ChartAreas[0].Axes[0].Minimum = chart1.Series["Series1"].Points.First().XValue;
+            //chart1.ChartAreas[0].Axes[0].Maximum = chart1.Series["Series1"].Points.Last().XValue;
+
+            //time.Start();
         }
+        private void update_data()
+        {
 
-        //void waveSource_RecordingStopped(object sender, StoppedEventArgs e)
-        //{
-        //    if (waveSource != null)
-        //    {
-        //        waveSource.Dispose();
-        //        waveSource = null;
-        //    }
-
-        //    if (waveFile != null)
-        //    {
-        //        waveFile.Dispose();
-        //        waveFile = null;
-        //    }
-
-        //    StartBtn.Enabled = true;
-        //}
-
+        }
         private void timer1_Tick(object sender, EventArgs e)
         {
-            update_data();
+            //update_data();
         }
     }
 }
