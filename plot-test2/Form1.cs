@@ -42,7 +42,7 @@ namespace plot_test2
             wi = new WaveIn();
             wi.StartRecording();
             //wi.WaveFormat = new WaveFormat(44100, 16, 1);
-            wi.WaveFormat = new WaveFormat(8, 16, 1);
+            wi.WaveFormat = new WaveFormat(4, 16, 1);
             wi.DataAvailable += new EventHandler<WaveInEventArgs>(wi_DataAvailable);
         }
 
