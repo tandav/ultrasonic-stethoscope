@@ -76,10 +76,19 @@ namespace kernel_temperature
         private void timer1_Tick(object sender, EventArgs e)
         {
             // gettin data from sensor1
+            WriteRead("$KE,IO,SET,1,0\r\n");
+            WriteRead("$KE,WR,1,1\r\n");
             string re = WriteRead("$KE,ADC\r\n");
-            int adc1_value = Convert.ToInt32("" + re[5] + re[6] + re[7] + re[8]);
-            adc1_Q.Enqueue(adc1_value);
-            adc1_Q.Dequeue();
+            try
+            {
+                int adc1_value = Convert.ToInt32("" + re[5] + re[6] + re[7] + re[8]);
+                adc1_Q.Enqueue(adc1_value);
+                adc1_Q.Dequeue();
+            }
+            catch
+            {
+                Console.WriteLine("Fuckin error at int adc1_value = Convert.ToInt32, ADC Value is: " + re);
+            }
 
             draw_charts();
         }
