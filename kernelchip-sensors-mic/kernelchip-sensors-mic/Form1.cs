@@ -11,7 +11,7 @@ using System.Diagnostics;
 using NAudio.Wave;
 using NAudio;
 
-namespace plot_test2
+namespace kernelchip_sensors_mic
 {
     public partial class Form1 : Form
     {
@@ -62,3 +62,4 @@ namespace plot_test2
         }
     }
 }
+

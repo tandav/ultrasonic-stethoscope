@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("kernel-temperature-mic")]
+[assembly: AssemblyTitle("kernelchip-sensors-mic")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("kernel-temperature-mic")]
+[assembly: AssemblyProduct("kernelchip-sensors-mic")]
 [assembly: AssemblyCopyright("Copyright ©  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("ed918857-609c-4aa6-b146-eb821d74a11f")]
+[assembly: Guid("e40fccbd-4e7b-45f6-8f17-9986cdf21d1f")]
 
 // Version information for an assembly consists of the following four values:
 //

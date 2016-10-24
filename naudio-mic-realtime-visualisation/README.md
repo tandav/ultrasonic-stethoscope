@@ -1,6 +1,6 @@
 # Realtime Microphone Visualisation with NAudio
 
-This project simple capture audio from your microphone
+This project simply captures audio from your microphone and draw it on Windows Form chart
 
 how it looks
 ![scren](screenshot.png)

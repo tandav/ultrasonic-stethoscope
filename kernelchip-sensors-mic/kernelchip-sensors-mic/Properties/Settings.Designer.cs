@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace kernel_temperature_mic.Properties
+namespace kernelchip_sensors_mic.Properties
 {
 
 

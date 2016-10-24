@@ -1,4 +1,4 @@
-﻿namespace plot_test2
+﻿namespace kernelchip_sensors_mic
 {
     partial class Form1
     {
@@ -79,4 +79,3 @@
         private System.Windows.Forms.Timer timer1;
     }
 }
-

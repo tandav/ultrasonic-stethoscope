@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace plot_test2
+namespace kernelchip_sensors_mic
 {
     static class Program
     {
