@@ -10,17 +10,17 @@ namespace kernelchip_sensors_mic
     public partial class Form1 : Form
     {
         //mic
-        int n_mic = 400; //number of x-axis points
-        //Stopwatch time = new Stopwatch();
+        int n_mic = 4000; //number of x-axis points
         WaveIn wi;
-        Queue<double> mic_Q;
+        Queue<int> mic_Q;
 
         //sensors
         SerialPort serialPort1;
         int n_sensors = 400; // number of x-axis points
+        Queue<int> sensor1_Q; // make int?
+        Queue<int> sensor2_Q; // make int?
+        
         //Stopwatch time = new Stopwatch();
-        Queue<double> sensor1_Q;
-        Queue<double> sensor2_Q;
 
         public Form1()
         {
@@ -31,19 +31,30 @@ namespace kernelchip_sensors_mic
         private void Form1_Load(object sender, EventArgs e)
         {
             //mic
-            mic_Q = new Queue<double>(Enumerable.Repeat(0.0, n_mic).ToList()); // fill mic_Q w/ zeros
-            chart1.ChartAreas[0].AxisY.Minimum = -1200;
-            chart1.ChartAreas[0].AxisY.Maximum = 1200;
+            //also uncoment in draw_charts()
+            mic_Q = new Queue<int>(Enumerable.Repeat(0, n_mic).ToList()); // fill mic_Q w/ zeros
+            chart1.ChartAreas[0].AxisY.Minimum = -2500;
+            chart1.ChartAreas[0].AxisY.Maximum = 2500;
             wi = new WaveIn();
             wi.StartRecording();
             wi.WaveFormat = new WaveFormat(44100, 16, 1);
             wi.DataAvailable += new EventHandler<WaveInEventArgs>(wi_DataAvailable);
             timer1.Enabled = true;
+
             //time.Start();
 
             //sensors
-            sensor1_Q = new Queue<double>(Enumerable.Repeat(0.0, n_sensors).ToList()); // fill w/ zeros
-            sensor2_Q = new Queue<double>(Enumerable.Repeat(0.0, n_sensors).ToList()); // fill w/ zeros
+            sensor1_Q = new Queue<int>(Enumerable.Repeat(0, n_sensors).ToList()); // fill w/ zeros
+            sensor2_Q = new Queue<int>(Enumerable.Repeat(0, n_sensors).ToList()); // fill w/ zeros
+
+            int chart_radius = 1000;
+
+            chart2.ChartAreas[0].AxisY.Minimum = -chart_radius;
+            chart2.ChartAreas[0].AxisY.Maximum = chart_radius;
+
+            chart3.ChartAreas[0].AxisY.Minimum = -chart_radius;
+            chart3.ChartAreas[0].AxisY.Maximum = chart_radius;
+
             serialPort1 = new SerialPort();
             serialPort1.ReadTimeout = 100; // default=50
             serialPort1.WriteTimeout = 100; // default=50
@@ -59,7 +70,7 @@ namespace kernelchip_sensors_mic
         {
             try { chart1.Series["Mic"].Points.DataBindY(mic_Q); }
             catch { Console.WriteLine("No bytes recorded"); }
-           
+
             chart2.Series["Sensor1"].Points.DataBindY(sensor1_Q);
             chart3.Series["Sensor2"].Points.DataBindY(sensor2_Q);
         }
@@ -101,39 +112,22 @@ namespace kernelchip_sensors_mic
             return serialPort1.IsOpen;
         }
 
-        //void wi_DataAvailable(object sender, WaveInEventArgs e) // 
-        //{
-        //    double s = 0;
-        //    for (int i = 0; i < e.BytesRecorded; i += 2)
-        //    {
-        //        s += BitConverter.ToInt16(e.Buffer, i);
-        //        //mic_Q.Enqueue(BitConverter.ToInt16(e.Buffer, i));
-        //        //mic_Q.Dequeue();
-        //    }
-
-        //    mic_Q.Enqueue(s / e.BytesRecorded / 2);
-        //    mic_Q.Dequeue();
-        //}
-
-
         void wi_DataAvailable(object sender, WaveInEventArgs e) // 
         {
-            int k = 64;
-            double s = 0;
+            int k = 4; // 1600 = 2^6 * 5^2. k is chunk size, not number of chunks (k*number_of_chunks = 1600)
+            int s = 0;
             for (int i = 0; i < e.BytesRecorded; i += 2)
             {
                 s += BitConverter.ToInt16(e.Buffer, i);
                 if (i % k == 0)
                 {
-                    mic_Q.Enqueue(s / k / 2);
+                    mic_Q.Enqueue(s / k);
                     mic_Q.Dequeue();
                     s = 0;
                 }
                 //mic_Q.Enqueue(BitConverter.ToInt16(e.Buffer, i));
                 //mic_Q.Dequeue();
             }
-
-
         }
 
         private void timer1_Tick(object sender, EventArgs e)
@@ -143,29 +137,38 @@ namespace kernelchip_sensors_mic
             //sensors
             // gettin data from sensor1
             //WriteRead("$KE,IO,SET,1,0");
-            string adc_raw; // example value is #ADC,0645
-            //try
+
+            string adc_raw_1; // example value is #ADC,0645
+            int adc_value_1;
+
+            string adc_raw_2; // example value is #ADC,0645
+            int adc_value_2;
+
+
+
+            // WARNING: test only one sensor at the same time
+
+            //try //sensor damaged
             //{
-            //    WriteRead("$KE,WR,1,0"); // set 0 to pin1
-            //    adc_raw = WriteRead("$KE,ADC");
-            //    int sensor1_value = Convert.ToInt32("" + adc_raw[5] + adc_raw[6] + adc_raw[7] + adc_raw[8]);
-            //    sensor1_Q.Enqueue(sensor1_value);
+            //    WriteRead("$KE,WR,1,0"); // set 0 to pin1. "$KE,WR,<LineNumber>,<Value>"
+            //    adc_raw_1 = WriteRead("$KE,ADC");
+            //    adc_value_1 = Convert.ToInt32("" + adc_raw_1[5] + adc_raw_1[6] + adc_raw_1[7] + adc_raw_1[8]);
+            //    sensor1_Q.Enqueue(adc_value_1);
             //    sensor1_Q.Dequeue();
             //}
             //catch { Console.WriteLine("error at sensor1"); }
-            //catch { Console.WriteLine("error at sensor1 = Convert.ToInt32, ADC Value is: " + adc_raw); }
 
 
 
-            try
-            {
-                WriteRead("$KE,WR,1,1"); // set 1 to pin1
-                adc_raw = WriteRead("$KE,ADC");
-                int sensor2_value = Convert.ToInt32("" + adc_raw[5] + adc_raw[6] + adc_raw[7] + adc_raw[8]);
-                sensor2_Q.Enqueue(sensor2_value);
-                sensor2_Q.Dequeue();
-            }
-            catch { Console.WriteLine("error at sensor2"); }
+            //try //sensor working well 
+            //{
+            //    WriteRead("$KE,WR,1,1"); // set 1 to pin1
+            //    adc_raw_2 = WriteRead("$KE,ADC");
+            //    adc_value_2 = Convert.ToInt32("" + adc_raw_2[5] + adc_raw_2[6] + adc_raw_2[7] + adc_raw_2[8]);
+            //    sensor2_Q.Enqueue(adc_value_2);
+            //    sensor2_Q.Dequeue();
+            //}
+            //catch { Console.WriteLine("error at sensor2"); }
 
             draw_charts();
         }
