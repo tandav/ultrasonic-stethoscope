@@ -10,15 +10,15 @@ namespace kernelchip_sensors_mic
     public partial class Form1 : Form
     {
         //mic
-        int n_mic = 4000; //number of x-axis points
+        int n_mic = 200; //number of x-axis points
         WaveIn wi;
         Queue<int> mic_Q;
 
         //sensors
         SerialPort serialPort1;
         int n_sensors = 400; // number of x-axis points
-        Queue<int> sensor1_Q; // make int?
-        Queue<int> sensor2_Q; // make int?
+        Queue<int> sensor1_Q;
+        Queue<int> sensor2_Q;
         
         //Stopwatch time = new Stopwatch();
 
@@ -33,8 +33,10 @@ namespace kernelchip_sensors_mic
             //mic
             //also uncoment in draw_charts()
             mic_Q = new Queue<int>(Enumerable.Repeat(0, n_mic).ToList()); // fill mic_Q w/ zeros
-            chart1.ChartAreas[0].AxisY.Minimum = -2500;
-            chart1.ChartAreas[0].AxisY.Maximum = 2500;
+
+            int mic_radius = 1000;
+            chart1.ChartAreas[0].AxisY.Minimum = -0;
+            chart1.ChartAreas[0].AxisY.Maximum = mic_radius;
             wi = new WaveIn();
             wi.StartRecording();
             wi.WaveFormat = new WaveFormat(44100, 16, 1);
@@ -114,20 +116,39 @@ namespace kernelchip_sensors_mic
 
         void wi_DataAvailable(object sender, WaveInEventArgs e) // 
         {
-            int k = 4; // 1600 = 2^6 * 5^2. k is chunk size, not number of chunks (k*number_of_chunks = 1600)
-            int s = 0;
+            int k = 32*25; // 1600 = 2^6 * 5^2. k is window size, not number of chunks (k*number_of_chunks = 1600) bigger k -> more smooth
+            int s = 0; // maybe need short
+            Queue<int> window = new Queue<int>(Enumerable.Repeat(0, k).ToList()); // fill mic_Q w/ zeros; // sliding average window
+
             for (int i = 0; i < e.BytesRecorded; i += 2)
             {
-                s += BitConverter.ToInt16(e.Buffer, i);
+                int val = Math.Abs(BitConverter.ToInt16(e.Buffer, i));
+                window.Enqueue(val);
+                window.Dequeue();
+
+                //s += BitConverter.ToInt16(e.Buffer, i);
+
                 if (i % k == 0)
                 {
-                    mic_Q.Enqueue(s / k);
+                    mic_Q.Enqueue(window.Sum() / k);
                     mic_Q.Dequeue();
-                    s = 0;
                 }
-                //mic_Q.Enqueue(BitConverter.ToInt16(e.Buffer, i));
-                //mic_Q.Dequeue();
             }
+
+
+
+            //for (int i = 0; i < e.BytesRecorded; i += 2)
+            //{
+            //    s += BitConverter.ToInt16(e.Buffer, i);
+            //    if (i % k == 0)
+            //    {
+            //        mic_Q.Enqueue(s / k);
+            //        mic_Q.Dequeue();
+            //        s = 0;
+            //    }
+            //    //mic_Q.Enqueue(BitConverter.ToInt16(e.Buffer, i));
+            //    //mic_Q.Dequeue();
+            //}
         }
 
         private void timer1_Tick(object sender, EventArgs e)
@@ -135,16 +156,11 @@ namespace kernelchip_sensors_mic
             //mic constantly updates the at wi_DataAvailable(), independently from the timer)
 
             //sensors
-            // gettin data from sensor1
-            //WriteRead("$KE,IO,SET,1,0");
-
             string adc_raw_1; // example value is #ADC,0645
             int adc_value_1;
 
             string adc_raw_2; // example value is #ADC,0645
             int adc_value_2;
-
-
 
             // WARNING: test only one sensor at the same time
 
