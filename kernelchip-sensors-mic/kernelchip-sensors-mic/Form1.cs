@@ -4,22 +4,24 @@ using System.Linq;
 using System.Windows.Forms;
 using NAudio.Wave;
 using System.IO.Ports;
+using System.Diagnostics; // need for Stopwatch
 
 namespace kernelchip_sensors_mic
 {
     public partial class Form1 : Form
     {
         //mic
-        int n_mic = 200; //number of x-axis points
+        int n_mic = 400; //number of x-axis points
         WaveIn wi;
-        Queue<int> mic_Q;
-
+        Queue<double> mic_Q; // doubl 'cause average
+        //Queue<int> mic_twin_Q; // mic_twin_Q = da_prev + da_curr (wi_DataAvailable)
+        List<int> mic_twin;
         //sensors
         SerialPort serialPort1;
         int n_sensors = 400; // number of x-axis points
         Queue<int> sensor1_Q;
         Queue<int> sensor2_Q;
-        
+
         //Stopwatch time = new Stopwatch();
 
         public Form1()
@@ -27,15 +29,16 @@ namespace kernelchip_sensors_mic
             InitializeComponent();
         }
 
-
         private void Form1_Load(object sender, EventArgs e)
         {
             //mic
             //also uncoment in draw_charts()
-            mic_Q = new Queue<int>(Enumerable.Repeat(0, n_mic).ToList()); // fill mic_Q w/ zeros
+            mic_Q = new Queue<double>(Enumerable.Repeat(0.0, n_mic).ToList()); // fill mic_Q w/ zeros
+            //mic_twin_Q = new Queue<int>(Enumerable.Repeat(0, 1600).ToList()); // fill mic_Q w/ zeros
+            mic_twin = Enumerable.Repeat(0, 1600).ToList();
 
             int mic_radius = 1000;
-            chart1.ChartAreas[0].AxisY.Minimum = -0;
+            chart1.ChartAreas[0].AxisY.Minimum = -mic_radius;
             chart1.ChartAreas[0].AxisY.Maximum = mic_radius;
             wi = new WaveIn();
             wi.StartRecording();
@@ -114,41 +117,36 @@ namespace kernelchip_sensors_mic
             return serialPort1.IsOpen;
         }
 
-        void wi_DataAvailable(object sender, WaveInEventArgs e) // 
+        void wi_DataAvailable(object sender, WaveInEventArgs e) //
         {
-            int k = 32*25; // 1600 = 2^6 * 5^2. k is window size, not number of chunks (k*number_of_chunks = 1600) bigger k -> more smooth
-            int s = 0; // maybe need short
-            Queue<int> window = new Queue<int>(Enumerable.Repeat(0, k).ToList()); // fill mic_Q w/ zeros; // sliding average window
-
-            for (int i = 0; i < e.BytesRecorded; i += 2)
+            int s = 0;
+            int window_size = 64;
+            int br = e.BytesRecorded; // always 1600
+            for (int i = 0; i < br; i += 2)
             {
-                int val = Math.Abs(BitConverter.ToInt16(e.Buffer, i));
-                window.Enqueue(val);
-                window.Dequeue();
-
-                //s += BitConverter.ToInt16(e.Buffer, i);
-
-                if (i % k == 0)
-                {
-                    mic_Q.Enqueue(window.Sum() / k);
-                    mic_Q.Dequeue();
-                }
+                mic_twin.Add(BitConverter.ToInt16(e.Buffer, i));
+                mic_twin.RemoveAt(0);
             }
 
+            for (int i = br/2 + 1; i < br + 1; i++)
+            {
+                for (int j = i - window_size; j < i; j++)
+                {
+                    s += mic_twin[j];
+                }
 
+                //    for (int j = br/2 - window_size + 1 + i; j <= i; j++)
+                //{
+                //    Console.WriteLine(j);
+                //    s += mic_twin[j];
 
-            //for (int i = 0; i < e.BytesRecorded; i += 2)
-            //{
-            //    s += BitConverter.ToInt16(e.Buffer, i);
-            //    if (i % k == 0)
-            //    {
-            //        mic_Q.Enqueue(s / k);
-            //        mic_Q.Dequeue();
-            //        s = 0;
-            //    }
-            //    //mic_Q.Enqueue(BitConverter.ToInt16(e.Buffer, i));
-            //    //mic_Q.Dequeue();
-            //}
+                //}
+
+                mic_Q.Enqueue(s / window_size);
+                mic_Q.Dequeue();
+                s = 0;
+            }
+
         }
 
         private void timer1_Tick(object sender, EventArgs e)
@@ -176,7 +174,7 @@ namespace kernelchip_sensors_mic
 
 
 
-            //try //sensor working well 
+            //try //sensor working well
             //{
             //    WriteRead("$KE,WR,1,1"); // set 1 to pin1
             //    adc_raw_2 = WriteRead("$KE,ADC");
@@ -190,4 +188,3 @@ namespace kernelchip_sensors_mic
         }
     }
 }
-
