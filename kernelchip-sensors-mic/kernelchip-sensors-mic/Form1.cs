@@ -38,8 +38,8 @@ namespace kernelchip_sensors_mic
             mic_twin = Enumerable.Repeat(0, 1600).ToList();
 
             int mic_radius = 1000;
-            chart1.ChartAreas[0].AxisY.Minimum = -mic_radius;
-            chart1.ChartAreas[0].AxisY.Maximum = mic_radius;
+            //chart1.ChartAreas[0].AxisY.Minimum = -mic_radius;
+            //chart1.ChartAreas[0].AxisY.Maximum = mic_radius;
             wi = new WaveIn();
             wi.StartRecording();
             wi.WaveFormat = new WaveFormat(44100, 16, 1);
@@ -124,7 +124,7 @@ namespace kernelchip_sensors_mic
             int br = e.BytesRecorded; // always 1600
             for (int i = 0; i < br; i += 2)
             {
-                mic_twin.Add(BitConverter.ToInt16(e.Buffer, i));
+                mic_twin.Add(Math.Abs(BitConverter.ToInt16(e.Buffer, i)));
                 mic_twin.RemoveAt(0);
             }
 
