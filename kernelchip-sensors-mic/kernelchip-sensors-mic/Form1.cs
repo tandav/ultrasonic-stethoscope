@@ -11,7 +11,7 @@ namespace kernelchip_sensors_mic
     public partial class Form1 : Form
     {
         //mic
-        int n_mic = 400; //number of x-axis points
+        int n_mic = 4000; //number of x-axis points
         WaveIn wi;
         Queue<double> mic_Q; // doubl 'cause average
         //Queue<int> mic_twin_Q; // mic_twin_Q = da_prev + da_curr (wi_DataAvailable)
@@ -120,7 +120,7 @@ namespace kernelchip_sensors_mic
         void wi_DataAvailable(object sender, WaveInEventArgs e) //
         {
             int s = 0;
-            int window_size = 64;
+            int window_size = 512;
             int br = e.BytesRecorded; // always 1600
             for (int i = 0; i < br; i += 2)
             {
@@ -134,14 +134,6 @@ namespace kernelchip_sensors_mic
                 {
                     s += mic_twin[j];
                 }
-
-                //    for (int j = br/2 - window_size + 1 + i; j <= i; j++)
-                //{
-                //    Console.WriteLine(j);
-                //    s += mic_twin[j];
-
-                //}
-
                 mic_Q.Enqueue(s / window_size);
                 mic_Q.Dequeue();
                 s = 0;
