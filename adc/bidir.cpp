@@ -27,7 +27,7 @@
 #define TID_DAC         0
 #define TID_ADC         1
 
-/* Отладочные параметры */
+/* РћС‚Р»Р°РґРѕС‡РЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ */
 #define MARK_DAC_START  1
 #define ZERO_ON_STOP    0
 #define FLIP_FLOP_AMP   0
@@ -39,11 +39,11 @@ HANDLE ModuleHandle;
 CRITICAL_SECTION cs;
 ADC_PARS_E140 ap;
 DAC_PARS_E140 dp;
-short int DAC_Buf[DAC_BUF_SAMPLES][2];    /* Один буфер на 2 канала */
-short int ADC_Buf[2][ADC_BUF_SAMPLES][2]; /* Два буфера на 2 канала */
+short int DAC_Buf[DAC_BUF_SAMPLES][2];    /* РћРґРёРЅ Р±СѓС„РµСЂ РЅР° 2 РєР°РЅР°Р»Р° */
+short int ADC_Buf[2][ADC_BUF_SAMPLES][2]; /* Р”РІР° Р±СѓС„РµСЂР° РЅР° 2 РєР°РЅР°Р»Р° */
 BYTE bConst_1 = 1;
 
-/* Переменные для связи с потоками */
+/* РџРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ СЃРІСЏР·Рё СЃ РїРѕС‚РѕРєР°РјРё */
 const char *pThreadMessage[2] = { NULL, NULL };
 HANDLE hControlEvent[2];
 HANDLE hThreadMsgEvent[2];
@@ -115,7 +115,7 @@ DWORD WINAPI ControlThread(LPVOID)
                 SetEvent(hControlEvent[TID_DAC]);
                 Control[TID_ADC] = CTL_TERMINATE;
                 SetEvent(hControlEvent[TID_ADC]);
-                return 0; /* Подав команду выхода, завершаемся сами */
+                return 0; /* РџРѕРґР°РІ РєРѕРјР°РЅРґСѓ РІС‹С…РѕРґР°, Р·Р°РІРµСЂС€Р°РµРјСЃСЏ СЃР°РјРё */
             }
         }
     return 0;
@@ -143,8 +143,8 @@ DWORD WINAPI ADC_Thread(LPVOID)
             WaitForSingleObject(hControlEvent[TID], INFINITE);
             switch (Control[TID])
                 {
-                case CTL_TERMINATE:      /* Завершение программы */
-                    return 0; /* Ничего не открыто, так что просто выйти */
+                case CTL_TERMINATE:      /* Р—Р°РІРµСЂС€РµРЅРёРµ РїСЂРѕРіСЂР°РјРјС‹ */
+                    return 0; /* РќРёС‡РµРіРѕ РЅРµ РѕС‚РєСЂС‹С‚Рѕ, С‚Р°Рє С‡С‚Рѕ РїСЂРѕСЃС‚Рѕ РІС‹Р№С‚Рё */
                 case CTL_SLEEP:
                     EnterCriticalSection(&cs);
                     if (pModule->PutArray(&bConst_1, 1, 0x430))
@@ -157,7 +157,7 @@ DWORD WINAPI ADC_Thread(LPVOID)
                         }
                     LeaveCriticalSection(&cs);
                     break;
-                case CTL_TOGGLE:        /* Запуск АЦП */
+                case CTL_TOGGLE:        /* Р—Р°РїСѓСЃРє РђР¦Рџ */
                     hEvent[0] = CreateEvent(NULL, TRUE, FALSE, NULL);
                     hEvent[1] = CreateEvent(NULL, TRUE, FALSE, NULL);
                     ok = 0;
@@ -169,9 +169,9 @@ DWORD WINAPI ADC_Thread(LPVOID)
                             f_ThreadMsg(TID, "Cannot set ADC parameters");
                             break;
                             }
-                        /* Формируем имя файла */
+                        /* Р¤РѕСЂРјРёСЂСѓРµРј РёРјСЏ С„Р°Р№Р»Р° */
                         sprintf(FileName, "adc%03u.dat", StartCount);
-                        /* Открываем файл */
+                        /* РћС‚РєСЂС‹РІР°РµРј С„Р°Р№Р» */
                         hFile = CreateFile(FileName, GENERIC_WRITE, FILE_SHARE_READ, NULL,
                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN |
                             FILE_FLAG_WRITE_THROUGH, NULL);
@@ -180,7 +180,7 @@ DWORD WINAPI ADC_Thread(LPVOID)
                             f_ThreadMsg(TID, "Cannot create data file");
                             break;
                             }
-                        /* Ставим в очередь первый запрос чтения данных */
+                        /* РЎС‚Р°РІРёРј РІ РѕС‡РµСЂРµРґСЊ РїРµСЂРІС‹Р№ Р·Р°РїСЂРѕСЃ С‡С‚РµРЅРёСЏ РґР°РЅРЅС‹С… */
                         ZeroMemory(&ov[0], sizeof(OVERLAPPED));
                         ov[0].hEvent = hEvent[0];
                         if (!ReadFile(ModuleHandle, ADC_Buf[0], sizeof(ADC_Buf[0]), NULL, &ov[0])
@@ -190,7 +190,7 @@ DWORD WINAPI ADC_Thread(LPVOID)
                             CloseHandle(hFile);
                             break;
                             }
-                        /* Запускаем АЦП */
+                        /* Р—Р°РїСѓСЃРєР°РµРј РђР¦Рџ */
                         if (!pModule->START_ADC())
                             {
                             f_ThreadMsg(TID, "Cannot start ADC");
@@ -212,7 +212,7 @@ DWORD WINAPI ADC_Thread(LPVOID)
             }
         else /* running */
             {
-            /* Ставим в очередь следующий буфер */
+            /* РЎС‚Р°РІРёРј РІ РѕС‡РµСЂРµРґСЊ СЃР»РµРґСѓСЋС‰РёР№ Р±СѓС„РµСЂ */
             ZeroMemory(&ov[idx], sizeof(OVERLAPPED));
             ov[idx].hEvent = hEvent[idx];
             ok = 1;
@@ -226,12 +226,12 @@ DWORD WINAPI ADC_Thread(LPVOID)
                 {
                 HANDLE WaitList[2];
                 idx ^= 1;
-                /* Ждем окончания предыдущего чтения или прихода команды */
+                /* Р–РґРµРј РѕРєРѕРЅС‡Р°РЅРёСЏ РїСЂРµРґС‹РґСѓС‰РµРіРѕ С‡С‚РµРЅРёСЏ РёР»Рё РїСЂРёС…РѕРґР° РєРѕРјР°РЅРґС‹ */
                 WaitList[0] = hControlEvent[TID];
                 WaitList[1] = hEvent[idx];
                 while (WaitForMultipleObjects(2, WaitList, 0, INFINITE) == WAIT_OBJECT_0)
                     {
-                    /* Пришла команда */
+                    /* РџСЂРёС€Р»Р° РєРѕРјР°РЅРґР° */
                     if ((Control[TID] == CTL_TERMINATE) || (Control[TID] == CTL_TOGGLE)
                         || (Control[TID] == CTL_SLEEP))
                         {
@@ -314,14 +314,14 @@ DWORD WINAPI DAC_Thread(LPVOID)
             WaitForSingleObject(hControlEvent[TID], INFINITE);
             switch (Control[TID])
                 {
-                case CTL_TERMINATE:      /* Завершение программы */
-                    return 0; /* Ничего не открыто, так что просто выйти */
-                case CTL_TOGGLE:        /* Запуск ЦАП */
+                case CTL_TERMINATE:      /* Р—Р°РІРµСЂС€РµРЅРёРµ РїСЂРѕРіСЂР°РјРјС‹ */
+                    return 0; /* РќРёС‡РµРіРѕ РЅРµ РѕС‚РєСЂС‹С‚Рѕ, С‚Р°Рє С‡С‚Рѕ РїСЂРѕСЃС‚Рѕ РІС‹Р№С‚Рё */
+                case CTL_TOGGLE:        /* Р—Р°РїСѓСЃРє Р¦РђРџ */
                     EnterCriticalSection(&cs);
                     if (pModule->STOP_DAC() && pModule->SET_DAC_PARS(&dp) && pModule->START_DAC())
                         {
                         static short int level = 0x7FFF;
-                        /* Заполняем массив ЦАП отсчетами синуса (канал 0) и треугольника (канал 1) с частотой 1 кГц */
+                        /* Р—Р°РїРѕР»РЅСЏРµРј РјР°СЃСЃРёРІ Р¦РђРџ РѕС‚СЃС‡РµС‚Р°РјРё СЃРёРЅСѓСЃР° (РєР°РЅР°Р» 0) Рё С‚СЂРµСѓРіРѕР»СЊРЅРёРєР° (РєР°РЅР°Р» 1) СЃ С‡Р°СЃС‚РѕС‚РѕР№ 1 РєР“С† */
                         for (int i = 0; i < DAC_BUF_SAMPLES; i++)
                             {
                             double x = (double)((1000 * i) % DAC_FREQ) / DAC_FREQ;
@@ -362,7 +362,7 @@ DWORD WINAPI DAC_Thread(LPVOID)
             }
         else /* running */
             {
-            /* Ставим в очередь следующий буфер */
+            /* РЎС‚Р°РІРёРј РІ РѕС‡РµСЂРµРґСЊ СЃР»РµРґСѓСЋС‰РёР№ Р±СѓС„РµСЂ */
             ZeroMemory(&ov[idx], sizeof(OVERLAPPED));
             ov[idx].hEvent = hEvent[idx];
             if (WriteFile(ModuleHandle, DAC_Buf, sizeof(DAC_Buf), NULL, &ov[idx])
@@ -370,12 +370,12 @@ DWORD WINAPI DAC_Thread(LPVOID)
                 {
                 HANDLE WaitList[2];
                 idx ^= 1;
-                /* Ждем окончания предыдущей записи или прихода команды */
+                /* Р–РґРµРј РѕРєРѕРЅС‡Р°РЅРёСЏ РїСЂРµРґС‹РґСѓС‰РµР№ Р·Р°РїРёСЃРё РёР»Рё РїСЂРёС…РѕРґР° РєРѕРјР°РЅРґС‹ */
                 WaitList[0] = hControlEvent[TID];
                 WaitList[1] = hEvent[idx];
                 while (WaitForMultipleObjects(2, WaitList, 0, INFINITE) == WAIT_OBJECT_0)
                     {
-                    /* Пришла команда */
+                    /* РџСЂРёС€Р»Р° РєРѕРјР°РЅРґР° */
                     if ((Control[TID] == CTL_TERMINATE) || (Control[TID] == CTL_TOGGLE))
                         {
                         //WaitForSingleObject(hEvent[idx], INFINITE);
@@ -445,14 +445,14 @@ int main()
 
     printf("** E-140 Simultaneous ADC/DAC test **\n\n");
 
-    /* Проверка версии Lusbapi.dll */
+    /* РџСЂРѕРІРµСЂРєР° РІРµСЂСЃРёРё Lusbapi.dll */
     DLL_Ver = GetDllVersion();
     if (DLL_Ver != CURRENT_VERSION_LUSBAPI)
         AbortProgram("Lusbapi.dll version mismatch (found %lu.%lu, need %u.%u)\n",
             DLL_Ver >> 16, DLL_Ver & 0xFFFF,
             CURRENT_VERSION_LUSBAPI >> 16, CURRENT_VERSION_LUSBAPI & 0xFFFF);
 
-    /* Соединяемся с модулем */
+    /* РЎРѕРµРґРёРЅСЏРµРјСЃСЏ СЃ РјРѕРґСѓР»РµРј */
     pModule = static_cast<ILE140 *>(CreateLInstance((char*)"e140"));
     if (!pModule)
         AbortProgram("Connection failed: Cannot create module interface.\n");
@@ -464,7 +464,7 @@ int main()
     if (i == 127)
         AbortProgram("Connection failed: E-140 not found.\n");
 
-    /* Получаем хэндл устройства, читаем имя и дескриптор устройства */
+    /* РџРѕР»СѓС‡Р°РµРј С…СЌРЅРґР» СѓСЃС‚СЂРѕР№СЃС‚РІР°, С‡РёС‚Р°РµРј РёРјСЏ Рё РґРµСЃРєСЂРёРїС‚РѕСЂ СѓСЃС‚СЂРѕР№СЃС‚РІР° */
     ModuleHandle = pModule->GetModuleHandle();
     if (ModuleHandle == INVALID_HANDLE_VALUE)
         AbortProgram("GetModuleHandle() failed.\n");
@@ -478,7 +478,7 @@ int main()
     printf("Ready to test with DAC frequency %u Hz, ADC frequency %u Hz.\n\n",
         DAC_FREQ, ADC_FREQ);
 
-    /* Заполняем массив ЦАП отсчетами синуса (канал 0) и треугольника (канал 1) с частотой 1 кГц */
+    /* Р—Р°РїРѕР»РЅСЏРµРј РјР°СЃСЃРёРІ Р¦РђРџ РѕС‚СЃС‡РµС‚Р°РјРё СЃРёРЅСѓСЃР° (РєР°РЅР°Р» 0) Рё С‚СЂРµСѓРіРѕР»СЊРЅРёРєР° (РєР°РЅР°Р» 1) СЃ С‡Р°СЃС‚РѕС‚РѕР№ 1 РєР“С† */
     for (i = 0; i < DAC_BUF_SAMPLES; i++)
         {
         double x = (double)((1000 * i) % DAC_FREQ) / DAC_FREQ;
@@ -486,7 +486,7 @@ int main()
         DAC_Buf[i][1] = (int)(4 * 0x7FFF * (-0.5 + x - fabs(x - 0.25) + fabs(x - 0.75)));
         }
     
-    /* Заполняем конфигурацию каналов АЦП */
+    /* Р—Р°РїРѕР»РЅСЏРµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РєР°РЅР°Р»РѕРІ РђР¦Рџ */
     ap.ClkSource = 0;
     ap.EnableClkOutput = 0;
     ap.InputMode = NO_SYNC_E140;
@@ -500,12 +500,12 @@ int main()
     ap.AdcRate = (double)ADC_FREQ / 1000.0;
     ap.InterKadrDelay = 0.0;
 
-    /* Заполняем конфигурацию ЦАП */
+    /* Р—Р°РїРѕР»РЅСЏРµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ Р¦РђРџ */
     dp.SyncWithADC = 0;
     dp.SetZeroOnStop = ZERO_ON_STOP;
     dp.DacRate = (double)DAC_FREQ / 1000.0;
 
-    /* Стираем все старые файлы данных */
+    /* РЎС‚РёСЂР°РµРј РІСЃРµ СЃС‚Р°СЂС‹Рµ С„Р°Р№Р»С‹ РґР°РЅРЅС‹С… */
     {
     HANDLE hFind;
     WIN32_FIND_DATA FindData;
@@ -521,17 +521,17 @@ int main()
         }
     }
 
-    /* Остановим ЦАП */
+    /* РћСЃС‚Р°РЅРѕРІРёРј Р¦РђРџ */
     if (!pModule->STOP_DAC())
         AbortProgram("Cannot stop DAC.\n");
-    /* Остановим АЦП */
+    /* РћСЃС‚Р°РЅРѕРІРёРј РђР¦Рџ */
     if (!pModule->STOP_ADC())
         AbortProgram("Cannot stop ADC.\n");
 
-    /* Создаем события для управления потоками */
+    /* РЎРѕР·РґР°РµРј СЃРѕР±С‹С‚РёСЏ РґР»СЏ СѓРїСЂР°РІР»РµРЅРёСЏ РїРѕС‚РѕРєР°РјРё */
     hControlEvent[TID_DAC] = CreateEvent(NULL, FALSE /* auto reset */, FALSE, NULL);
     hControlEvent[TID_ADC] = CreateEvent(NULL, FALSE /* auto reset */, FALSE, NULL);
-    /* Создаем события для передачи сообщений */
+    /* РЎРѕР·РґР°РµРј СЃРѕР±С‹С‚РёСЏ РґР»СЏ РїРµСЂРµРґР°С‡Рё СЃРѕРѕР±С‰РµРЅРёР№ */
     hThreadMsgEvent[TID_DAC] = CreateEvent(NULL, TRUE /* manual reset */, FALSE, NULL);
     hThreadMsgEvent[TID_ADC] = CreateEvent(NULL, TRUE /* manual reset */, FALSE, NULL);
 
@@ -541,16 +541,16 @@ int main()
     puts("[Esc] - exit");
     while (kbhit()) getch();
 
-    /* Создаем критическую секцию для обращения к модулю */
+    /* РЎРѕР·РґР°РµРј РєСЂРёС‚РёС‡РµСЃРєСѓСЋ СЃРµРєС†РёСЋ РґР»СЏ РѕР±СЂР°С‰РµРЅРёСЏ Рє РјРѕРґСѓР»СЋ */
     InitializeCriticalSection(&cs);
 
-    /* Создаем потоки записи в ЦАП, чтения из АЦП и управляющий */
+    /* РЎРѕР·РґР°РµРј РїРѕС‚РѕРєРё Р·Р°РїРёСЃРё РІ Р¦РђРџ, С‡С‚РµРЅРёСЏ РёР· РђР¦Рџ Рё СѓРїСЂР°РІР»СЏСЋС‰РёР№ */
     hThread[0] = CreateThread(0, 0x2000, DAC_Thread, NULL, 0, NULL);
     hThread[1] = CreateThread(0, 0x2000, ADC_Thread, NULL, 0, NULL);
     hThread[2] = CreateThread(0, 0x2000, ControlThread, NULL, 0, NULL);
 
-    /* Цикл управления */
-    WaitList[0] = hThread[2]; /* По завершению управляющего потока */
+    /* Р¦РёРєР» СѓРїСЂР°РІР»РµРЅРёСЏ */
+    WaitList[0] = hThread[2]; /* РџРѕ Р·Р°РІРµСЂС€РµРЅРёСЋ СѓРїСЂР°РІР»СЏСЋС‰РµРіРѕ РїРѕС‚РѕРєР° */
     WaitList[1] = hThreadMsgEvent[TID_DAC];
     WaitList[2] = hThreadMsgEvent[TID_ADC];
 
@@ -558,8 +558,8 @@ int main()
         {
         switch (WaitForMultipleObjects(3, WaitList, 0, INFINITE))
             {
-            case WAIT_OBJECT_0: /* Управляющий поток завершился */
-                /* Дождаться завершения потоков АЦП и ЦАП */
+            case WAIT_OBJECT_0: /* РЈРїСЂР°РІР»СЏСЋС‰РёР№ РїРѕС‚РѕРє Р·Р°РІРµСЂС€РёР»СЃСЏ */
+                /* Р”РѕР¶РґР°С‚СЊСЃСЏ Р·Р°РІРµСЂС€РµРЅРёСЏ РїРѕС‚РѕРєРѕРІ РђР¦Рџ Рё Р¦РђРџ */
                 WaitForMultipleObjects(2, hThread, 1, INFINITE);
                 f_PrintThreadMsg(TID_DAC, "DAC");
                 f_PrintThreadMsg(TID_ADC, "ADC");
