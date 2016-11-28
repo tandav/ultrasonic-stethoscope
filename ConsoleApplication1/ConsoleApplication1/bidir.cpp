@@ -27,8 +27,6 @@
 #define TID_DAC         0
 #define TID_ADC         1
 
-#define M_PI            3.14159265358 /* pi */
-
 /* Отладочные параметры */
 #define MARK_DAC_START  1
 #define ZERO_ON_STOP    0
