@@ -11,7 +11,7 @@ namespace kernelchip_sensors_mic
     public partial class Form1 : Form
     {
         //mic
-        int n_mic = 4000; //number of x-axis points
+        int n_mic = 16000; //number of x-axis points
         WaveIn wi;
         Queue<double> mic_Q; // doubl 'cause average
         //Queue<int> mic_twin_Q; // mic_twin_Q = da_prev + da_curr (wi_DataAvailable)
@@ -54,11 +54,11 @@ namespace kernelchip_sensors_mic
 
             int chart_radius = 1000;
 
-            chart2.ChartAreas[0].AxisY.Minimum = -chart_radius;
-            chart2.ChartAreas[0].AxisY.Maximum = chart_radius;
+            //chart2.ChartAreas[0].AxisY.Minimum = -chart_radius;
+            //chart2.ChartAreas[0].AxisY.Maximum = chart_radius;
 
-            chart3.ChartAreas[0].AxisY.Minimum = -chart_radius;
-            chart3.ChartAreas[0].AxisY.Maximum = chart_radius;
+            //chart3.ChartAreas[0].AxisY.Minimum = -chart_radius;
+            //chart3.ChartAreas[0].AxisY.Maximum = chart_radius;
 
             serialPort1 = new SerialPort();
             serialPort1.ReadTimeout = 100; // default=50
@@ -154,19 +154,20 @@ namespace kernelchip_sensors_mic
 
             // WARNING: test only one sensor at the same time
 
-            //try //sensor damaged
-            //{
-            //    WriteRead("$KE,WR,1,0"); // set 0 to pin1. "$KE,WR,<LineNumber>,<Value>"
-            //    adc_raw_1 = WriteRead("$KE,ADC");
-            //    adc_value_1 = Convert.ToInt32("" + adc_raw_1[5] + adc_raw_1[6] + adc_raw_1[7] + adc_raw_1[8]);
-            //    sensor1_Q.Enqueue(adc_value_1);
-            //    sensor1_Q.Dequeue();
-            //}
-            //catch { Console.WriteLine("error at sensor1"); }
+            try //white sensor 
+            {
+                WriteRead("$KE,WR,1,0"); // set 0 to pin1. "$KE,WR,<LineNumber>,<Value>"
+                adc_raw_1 = WriteRead("$KE,ADC");
+                adc_value_1 = Convert.ToInt32("" + adc_raw_1[5] + adc_raw_1[6] + adc_raw_1[7] + adc_raw_1[8]);
+                sensor1_Q.Enqueue(adc_value_1);
+                sensor1_Q.Dequeue();
+            }
+            catch { Console.WriteLine("error at sensor1"); }
 
 
 
-            //try //sensor working well
+
+            //try //black sensor 
             //{
             //    WriteRead("$KE,WR,1,1"); // set 1 to pin1
             //    adc_raw_2 = WriteRead("$KE,ADC");

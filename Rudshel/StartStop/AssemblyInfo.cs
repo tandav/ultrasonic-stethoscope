@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("naudio-mic-realtime-visualisation")]
+[assembly: AssemblyTitle("LA-n10-12USB_StartStop")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("naudio-mic-realtime-visualisation")]
-[assembly: AssemblyCopyright("Copyright ©  2016")]
+[assembly: AssemblyCompany("JSC \"Rudnev-Shilyaev\"")]
+[assembly: AssemblyProduct("LA-n10-12USB_StartStop")]
+[assembly: AssemblyCopyright("Copyright © JSC \"Rudnev-Shilyaev\"  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("4d08f852-9470-4cca-9a43-9436aaf349eb")]
+[assembly: Guid("ba2d4a3f-1746-43ce-a961-7ad6710cbea9")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.16172.1120")]
+[assembly: AssemblyFileVersion("1.0.16172.1120")]
