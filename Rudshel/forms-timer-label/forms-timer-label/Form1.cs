@@ -1,11 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using RshCSharpWrapper;
@@ -15,26 +10,25 @@ namespace forms_timer_label
 {
     public partial class Form1 : Form
     {
-        int counter = 0;
-        Queue<double> myQ; //
-        int x_axis_points = 400;
+
         //Путь к каталогу, в который будет произведена запись данных.
         const string FILEPATH = "C:\\Users\\tandav\\Desktop\\data\\";
 
         //Служебное имя платы, с которой будет работать программа.
         const string BOARD_NAME = "LAn10_12USB";
         //Размер собираемого блока данных в отсчётах (на канал).
-        const uint BSIZE = 1048576;
+        //const uint BSIZE = 1048576;
+        const int BSIZE = 1048576;
+
         //Частота дискретизации. 
         const double SAMPLE_FREQ = 1.0e+8;
 
         //Создание экземляра класса для работы с устройствами
         Device device = new Device();
 
-
         //Код выполнения операции.
         RSH_API st;
-
+        
         // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
         uint waitTime = 100000;
         uint loopNum = 0;
@@ -44,21 +38,29 @@ namespace forms_timer_label
 
         uint activeChanNumber = 0, serNum = 0;
 
+        uint ticks = 0;
+        Queue<double> adcQ; //
+        int x_axis_points = 400;
+        List<double> moving_average = new List<double>(); // list with moving average values
+        int mov_avg_window_size = 16000;
+        int mov_avg_shift = 1;
+        List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
+
 
         public Form1()
         {
             InitializeComponent();
+            numericUpDown1.Value = mov_avg_shift;
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
+            adcQ = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill adcQ w/ zeros
+            chart1.ChartAreas[0].AxisY.Minimum = -0.01;
+            chart1.ChartAreas[0].AxisY.Maximum = 0.01;
 
             // Some Initialisation Work
-
-            myQ = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill myQ w/ zeros
-            //chart1.ChartAreas[0].AxisY.Minimum = -10000;
-            //chart1.ChartAreas[0].AxisY.Maximum = 10000;
-
+     
 
             //загрузка и подключение к библиотеке абстракции устройства
             st = device.EstablishDriverConnection(BOARD_NAME);
@@ -137,12 +139,8 @@ namespace forms_timer_label
 
             Console.WriteLine("\n=============================================================\n");
 
-
-
             timer1.Interval = 50;
             timer1.Start();
-
-
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -177,37 +175,52 @@ namespace forms_timer_label
                 st = device.GetData(userBufferD);
                 if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-                // Выведем в консоль данные в вольтах. (первые 10 измерений)
-                for (int i = 0; i < 10; i++)
-                    Console.WriteLine(userBufferD[i].ToString());
+                //// Выведем в консоль данные в вольтах. (первые 10 измерений)
+                //for (int i = 0; i < 10; i++)
+                //    Console.WriteLine(userBufferD[i].ToString());
 
 
-                for (int i = 0; i < x_axis_points; i++) // TODO: fix that shame. (userbufferD is much bigger that x_axis_points)
-                {
-                    myQ.Enqueue(userBufferD[i]);
-                    myQ.Dequeue();
-                }
+                prev_curr_buffer.RemoveRange(0, BSIZE);
+                prev_curr_buffer.AddRange(userBufferD);
 
-                try
-                {
-                    chart1.Series["Series1"].Points.DataBindY(myQ);
-                    //chart1.ResetAutoValues();
-                }
-                catch
-                {
-                    Console.WriteLine("No bytes recorded");
-                }
+                moving_average.Clear();
+                for (int i = BSIZE; i < 2 * BSIZE + 1; i += mov_avg_shift) // hard math, see pics for understanding
+                    moving_average.Add(prev_curr_buffer.Skip(i - mov_avg_window_size + 1).Take(mov_avg_window_size).Sum() / mov_avg_window_size);
 
-                try // запись данных в файл
-                {
-                    string filePath = FILEPATH + BOARD_NAME + "_StartStop" + (++loopNum).ToString() + ".dat";
-                    WriteData(userBuffer, filePath);
-                    Console.WriteLine("\nData successfully collected and saved to {0}\nFile size: {1} kilobytes\n", filePath, (userBuffer.Length * sizeof(short)) / 1024);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Exception has happend! " + ex.Message);
-                }
+
+                label1.Text = "Ticks: " + ticks;
+                ticks += 1;
+
+                chart1.Series["Series1"].Points.DataBindY(moving_average);
+
+                //// shame to remove
+                //for (int i = 0; i < x_axis_points; i++) // TODO: fix that shame. (userbufferD is much bigger that x_axis_points)
+                //{
+                //    adcQ.Enqueue(userBufferD[i]);
+                //    adcQ.Dequeue();
+                //}
+
+                //try
+                //{
+                //    chart1.Series["Series1"].Points.DataBindY(adcQ);
+                //    //chart1.ResetAutoValues();
+                //}
+                //catch
+                //{
+                //    Console.WriteLine("No bytes recorded");
+                //}
+                //// end shame to remove
+
+                //try // запись данных в файл
+                //{
+                //    string filePath = FILEPATH + BOARD_NAME + "_StartStop" + (++loopNum).ToString() + ".dat";
+                //    WriteData(userBuffer, filePath);
+                //    Console.WriteLine("\nData successfully collected and saved to {0}\nFile size: {1} kilobytes\n", filePath, (userBuffer.Length * sizeof(short)) / 1024);
+                //}
+                //catch (Exception ex)
+                //{
+                //    Console.WriteLine("Exception has happend! " + ex.Message);
+                //}
             }
             else
                 SayGoodBye(st);
@@ -215,8 +228,6 @@ namespace forms_timer_label
             //label1.Text = counter.ToString();
             //counter += 1;
         }
-
-
 
         static void WriteData(short[] values, string path)
         {
@@ -232,6 +243,10 @@ namespace forms_timer_label
             }
         }
 
+        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
+        {
+            mov_avg_shift = Convert.ToInt32(numericUpDown1.Value);
+        }
 
         public static int SayGoodBye(RSH_API statusCode)
         {
