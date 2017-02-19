@@ -18,7 +18,9 @@ namespace forms_timer_label
         const string BOARD_NAME = "LAn10_12USB";
         //Размер собираемого блока данных в отсчётах (на канал).
         //const uint BSIZE = 1048576;
-        const int BSIZE = 1048576;
+        //const int BSIZE = 1048576;
+        const int BSIZE = 65536;
+
 
         //Частота дискретизации. 
         const double SAMPLE_FREQ = 1.0e+8;
@@ -40,9 +42,8 @@ namespace forms_timer_label
 
         uint ticks = 0;
         Queue<double> adcQ; //
-        int x_axis_points = 400;
         List<double> moving_average = new List<double>(); // list with moving average values
-        int mov_avg_window_size = 16000;
+        int mov_avg_window_size = 10000;
         int mov_avg_shift = 1;
         List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
 
@@ -55,7 +56,6 @@ namespace forms_timer_label
 
         private void button1_Click(object sender, EventArgs e)
         {
-            adcQ = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill adcQ w/ zeros
             chart1.ChartAreas[0].AxisY.Minimum = -0.01;
             chart1.ChartAreas[0].AxisY.Maximum = 0.01;
 
