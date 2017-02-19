@@ -44,7 +44,7 @@ namespace forms_timer_label
         Queue<double> adcQ; //
         List<double> moving_average = new List<double>(); // list with moving average values
         int mov_avg_window_size = 10000;
-        int mov_avg_shift = 1;
+        int mov_avg_shift = 5000;
         List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
 
 
