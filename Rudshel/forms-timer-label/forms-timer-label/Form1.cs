@@ -162,14 +162,14 @@ namespace forms_timer_label
 
                 device.Stop();
 
-                //Буфер с данными в мзр.
-                short[] userBuffer = new short[p.bufferSize * activeChanNumber];
+                //Буфер с данными в мзр. // TODO: del this
+                //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
                 //Буфер с данными в вольтах.
                 double[] userBufferD = new double[p.bufferSize * activeChanNumber];
 
-                //Получаем буфер с данными.
-                st = device.GetData(userBuffer);
-                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+                //Получаем буфер с данными. // TODO: del this
+                //st = device.GetData(userBuffer);
+                //if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
                 //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
                 st = device.GetData(userBufferD);
