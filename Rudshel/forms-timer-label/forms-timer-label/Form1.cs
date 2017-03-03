@@ -154,11 +154,11 @@ namespace forms_timer_label
             st = device.Start(); // Запускаем плату на сбор буфера.
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-            Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
+            //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
 
             if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
             {
-                Console.WriteLine("\nInterrupt has taken place!\nWhich means that onboard buffer had filled completely.");
+                //Console.WriteLine("\nInterrupt has taken place!\nWhich means that onboard buffer had filled completely.");
 
                 device.Stop();
 
