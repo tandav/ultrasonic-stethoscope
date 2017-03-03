@@ -30,7 +30,6 @@
         {
             this.components = new System.ComponentModel.Container();
             System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
             System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
             this.button1 = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
@@ -44,11 +43,11 @@
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(119, 389);
+            this.button1.Location = new System.Drawing.Point(1066, 92);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(75, 23);
             this.button1.TabIndex = 0;
-            this.button1.Text = "button1";
+            this.button1.Text = "Start";
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
@@ -56,7 +55,7 @@
             // 
             this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 20F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.label1.Location = new System.Drawing.Point(372, 389);
+            this.label1.Location = new System.Drawing.Point(1060, 183);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(71, 31);
             this.label1.TabIndex = 1;
@@ -68,7 +67,7 @@
             // 
             // button2
             // 
-            this.button2.Location = new System.Drawing.Point(645, 389);
+            this.button2.Location = new System.Drawing.Point(1066, 121);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(75, 23);
             this.button2.TabIndex = 2;
@@ -80,22 +79,19 @@
             // 
             chartArea1.Name = "ChartArea1";
             this.chart1.ChartAreas.Add(chartArea1);
-            legend1.Name = "Legend1";
-            this.chart1.Legends.Add(legend1);
-            this.chart1.Location = new System.Drawing.Point(119, 41);
+            this.chart1.Location = new System.Drawing.Point(12, 12);
             this.chart1.Name = "chart1";
             series1.ChartArea = "ChartArea1";
             series1.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
-            series1.Legend = "Legend1";
             series1.Name = "Series1";
             this.chart1.Series.Add(series1);
-            this.chart1.Size = new System.Drawing.Size(576, 300);
+            this.chart1.Size = new System.Drawing.Size(1023, 575);
             this.chart1.TabIndex = 3;
             this.chart1.Text = "chart1";
             // 
             // numericUpDown1
             // 
-            this.numericUpDown1.Location = new System.Drawing.Point(701, 90);
+            this.numericUpDown1.Location = new System.Drawing.Point(1041, 41);
             this.numericUpDown1.Maximum = new decimal(new int[] {
             1000000,
             0,
@@ -120,7 +116,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(820, 465);
+            this.ClientSize = new System.Drawing.Size(1198, 599);
             this.Controls.Add(this.numericUpDown1);
             this.Controls.Add(this.chart1);
             this.Controls.Add(this.button2);
