@@ -19,7 +19,7 @@ namespace forms_timer_label
         //Размер собираемого блока данных в отсчётах (на канал).
         //const uint BSIZE = 1048576;
         //const int BSIZE = 1048576;
-        const int BSIZE = 65536;
+        const int BSIZE = 65536/2/2;
 
 
         //Частота дискретизации. 
@@ -41,12 +41,13 @@ namespace forms_timer_label
         uint activeChanNumber = 0, serNum = 0;
 
         uint ticks = 0;
-        Queue<double> adcQ; //
+        List<double> adcQ; //
+        //List<double> reduced_buffer;
         List<double> moving_average = new List<double>(); // list with moving average values
         int mov_avg_window_size = 10000;
         int mov_avg_shift = 5000;
         List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
-
+        //int reduce_ratio = 8;
 
         public Form1()
         {
@@ -56,12 +57,13 @@ namespace forms_timer_label
 
         private void button1_Click(object sender, EventArgs e)
         {
-            chart1.ChartAreas[0].AxisY.Minimum = -0.01;
-            chart1.ChartAreas[0].AxisY.Maximum = 0.01;
+            double r = 0.1;
+            chart1.ChartAreas[0].AxisY.Minimum = -r;
+            chart1.ChartAreas[0].AxisY.Maximum = r;
 
             // Some Initialisation Work
-     
-
+            adcQ = Enumerable.Repeat(0.0, 10*BSIZE).ToList();
+            //adcQ = new Queue<double>(Enumerable.Repeat(0.0, BSIZE*10).ToList());
             //загрузка и подключение к библиотеке абстракции устройства
             st = device.EstablishDriverConnection(BOARD_NAME);
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
@@ -180,18 +182,31 @@ namespace forms_timer_label
                 //    Console.WriteLine(userBufferD[i].ToString());
 
 
-                prev_curr_buffer.RemoveRange(0, BSIZE);
-                prev_curr_buffer.AddRange(userBufferD);
+                // Moving Average Stuff ////////////////////////
+                //prev_curr_buffer.RemoveRange(0, BSIZE); // ?? Разве не должно быть длины 2*BSIZE ??
+                //prev_curr_buffer.AddRange(userBufferD);
 
-                moving_average.Clear();
-                for (int i = BSIZE; i < 2 * BSIZE + 1; i += mov_avg_shift) // hard math, see pics for understanding
-                    moving_average.Add(prev_curr_buffer.Skip(i - mov_avg_window_size + 1).Take(mov_avg_window_size).Sum() / mov_avg_window_size);
-
+                //moving_average.Clear();
+                //for (int i = BSIZE; i < 2 * BSIZE + 1; i += mov_avg_shift) // hard math, see pics for understanding
+                //    moving_average.Add(prev_curr_buffer.Skip(i - mov_avg_window_size + 1).Take(mov_avg_window_size).Sum() / mov_avg_window_size);
+                ////////////////////////////////////////////////
 
                 label1.Text = "Ticks: " + ticks;
                 ticks += 1;
 
-                chart1.Series["Series1"].Points.DataBindY(moving_average);
+                //double[] reducedBuffer = new double[p.bufferSize * activeChanNumber];
+
+
+                //for (int i = 0; i < userBufferD.Length; i++)
+                //{
+                //    if (i % reduce_ratio == 0) reduced_buffer.Add(userBufferD[i]);
+                //}
+
+                adcQ.RemoveRange(0, BSIZE);
+                adcQ.AddRange(userBufferD);
+
+                chart1.Series["Series1"].Points.DataBindY(userBufferD);
+
 
                 //// shame to remove
                 //for (int i = 0; i < x_axis_points; i++) // TODO: fix that shame. (userbufferD is much bigger that x_axis_points)
