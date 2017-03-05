@@ -52,6 +52,8 @@ namespace forms_timer_label
         // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
         uint waitTime = 100000;
         uint loopNum = 0;
+        double r = 0.01;
+
 
         //Буфер с данными в мзр. // TODO: del this
         //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
@@ -63,7 +65,6 @@ namespace forms_timer_label
             InitializeComponent();
             numericUpDown1.Value = mov_avg_shift;
 
-            double r = 0.01;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
             for (int i = 0; i < 10000; i++)
@@ -218,6 +219,20 @@ namespace forms_timer_label
                     }
                 }
             }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            r /= 10;
+            chart1.ChartAreas[0].AxisY.Minimum = -r;
+            chart1.ChartAreas[0].AxisY.Maximum = r;
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            r *= 10;
+            chart1.ChartAreas[0].AxisY.Minimum = -r;
+            chart1.ChartAreas[0].AxisY.Maximum = r;
         }
 
         static void WriteData(short[] values, string path)
