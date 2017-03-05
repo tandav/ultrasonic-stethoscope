@@ -5,42 +5,41 @@ using System.Windows.Forms;
 using System.IO;
 using RshCSharpWrapper;
 using RshCSharpWrapper.RshDevice;
+using System.ComponentModel;
 
 namespace forms_timer_label
 {
     public partial class Form1 : Form
     {
-
         //Путь к каталогу, в который будет произведена запись данных.
         const string FILEPATH = "C:\\Users\\tandav\\Desktop\\data\\";
 
         //Служебное имя платы, с которой будет работать программа.
         const string BOARD_NAME = "LAn10_12USB";
+
+        int timer_tick_interval = 50;
+
         //Размер собираемого блока данных в отсчётах (на канал).
         //const uint BSIZE = 1048576;
-        //const int BSIZE = 1048576;
-        const int BSIZE = 65536/2/2;
-
+        const int BSIZE = 500000;
+        //const int BSIZE = 65536/2/2;
 
         //Частота дискретизации. 
-        const double SAMPLE_FREQ = 1.0e+8;
+        //const double SAMPLE_FREQ = 1.0e+8;
+        const int SAMPLE_FREQ = 10000000;  // SAMPLE_FREQ = 1000ms / timer_tick_interval * BSIZE
+
 
         //Создание экземляра класса для работы с устройствами
         Device device = new Device();
 
         //Код выполнения операции.
         RSH_API st;
-        
-        // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
-        uint waitTime = 100000;
-        uint loopNum = 0;
 
         //Структура для инициализации параметров работы устройства.  
         RshInitMemory p = new RshInitMemory();
 
         uint activeChanNumber = 0, serNum = 0;
 
-        uint ticks = 0;
         List<double> adcQ; //
         //List<double> reduced_buffer;
         List<double> moving_average = new List<double>(); // list with moving average values
@@ -48,22 +47,38 @@ namespace forms_timer_label
         int mov_avg_shift = 5000;
         List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
         //int reduce_ratio = 8;
+        Random random = new Random();
+        double[] rand_array = new double[BSIZE];
+        // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
+        uint waitTime = 100000;
+        uint loopNum = 0;
+
+        //Буфер с данными в мзр. // TODO: del this
+        //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
+        //Буфер с данными в вольтах.
+        double[] userBufferD = new double[BSIZE];
 
         public Form1()
         {
             InitializeComponent();
             numericUpDown1.Value = mov_avg_shift;
+
+            double r = 0.01;
+            chart1.ChartAreas[0].AxisY.Minimum = -r;
+            chart1.ChartAreas[0].AxisY.Maximum = r;
+            for (int i = 0; i < 10000; i++)
+            {
+                chart1.Series["Series1"].Points.AddY(0);
+            }
+
         }
+
+ 
 
         private void button1_Click(object sender, EventArgs e)
         {
-            double r = 0.1;
-            chart1.ChartAreas[0].AxisY.Minimum = -r;
-            chart1.ChartAreas[0].AxisY.Maximum = r;
-
             // Some Initialisation Work
-            adcQ = Enumerable.Repeat(0.0, 10*BSIZE).ToList();
-            //adcQ = new Queue<double>(Enumerable.Repeat(0.0, BSIZE*10).ToList());
+
             //загрузка и подключение к библиотеке абстракции устройства
             st = device.EstablishDriverConnection(BOARD_NAME);
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
@@ -141,121 +156,17 @@ namespace forms_timer_label
 
             Console.WriteLine("\n=============================================================\n");
 
-            timer1.Interval = 50;
+
+            timer1.Interval = timer_tick_interval;
             timer1.Start();
+
+            //chart1.Series["Series1"].Points.DataBindY(userBufferD);
+
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            timer1.Stop();
             SayGoodBye(RSH_API.SUCCESS);
-        }
-
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            st = device.Start(); // Запускаем плату на сбор буфера.
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
-
-            if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
-            {
-                //Console.WriteLine("\nInterrupt has taken place!\nWhich means that onboard buffer had filled completely.");
-
-                device.Stop();
-
-                //Буфер с данными в мзр. // TODO: del this
-                //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
-                //Буфер с данными в вольтах.
-                double[] userBufferD = new double[p.bufferSize * activeChanNumber];
-
-                //Получаем буфер с данными. // TODO: del this
-                //st = device.GetData(userBuffer);
-                //if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-                //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
-                st = device.GetData(userBufferD);
-                if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-                //// Выведем в консоль данные в вольтах. (первые 10 измерений)
-                //for (int i = 0; i < 10; i++)
-                //    Console.WriteLine(userBufferD[i].ToString());
-
-
-                // Moving Average Stuff ////////////////////////
-                //prev_curr_buffer.RemoveRange(0, BSIZE); // ?? Разве не должно быть длины 2*BSIZE ??
-                //prev_curr_buffer.AddRange(userBufferD);
-
-                //moving_average.Clear();
-                //for (int i = BSIZE; i < 2 * BSIZE + 1; i += mov_avg_shift) // hard math, see pics for understanding
-                //    moving_average.Add(prev_curr_buffer.Skip(i - mov_avg_window_size + 1).Take(mov_avg_window_size).Sum() / mov_avg_window_size);
-                ////////////////////////////////////////////////
-
-                label1.Text = "Ticks: " + ticks;
-                ticks += 1;
-
-                //double[] reducedBuffer = new double[p.bufferSize * activeChanNumber];
-
-
-                //for (int i = 0; i < userBufferD.Length; i++)
-                //{
-                //    if (i % reduce_ratio == 0) reduced_buffer.Add(userBufferD[i]);
-                //}
-
-                adcQ.RemoveRange(0, BSIZE);
-                adcQ.AddRange(userBufferD);
-
-                chart1.Series["Series1"].Points.DataBindY(userBufferD);
-
-
-                //// shame to remove
-                //for (int i = 0; i < x_axis_points; i++) // TODO: fix that shame. (userbufferD is much bigger that x_axis_points)
-                //{
-                //    adcQ.Enqueue(userBufferD[i]);
-                //    adcQ.Dequeue();
-                //}
-
-                //try
-                //{
-                //    chart1.Series["Series1"].Points.DataBindY(adcQ);
-                //    //chart1.ResetAutoValues();
-                //}
-                //catch
-                //{
-                //    Console.WriteLine("No bytes recorded");
-                //}
-                //// end shame to remove
-
-                //try // запись данных в файл
-                //{
-                //    string filePath = FILEPATH + BOARD_NAME + "_StartStop" + (++loopNum).ToString() + ".dat";
-                //    WriteData(userBuffer, filePath);
-                //    Console.WriteLine("\nData successfully collected and saved to {0}\nFile size: {1} kilobytes\n", filePath, (userBuffer.Length * sizeof(short)) / 1024);
-                //}
-                //catch (Exception ex)
-                //{
-                //    Console.WriteLine("Exception has happend! " + ex.Message);
-                //}
-            }
-            else
-                SayGoodBye(st);
-
-            //label1.Text = counter.ToString();
-            //counter += 1;
-        }
-
-        static void WriteData(short[] values, string path)
-        {
-            using (FileStream fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write))
-            {
-                using (BinaryWriter bw = new BinaryWriter(fs))
-                {
-                    foreach (short value in values)
-                    {
-                        bw.Write(value);
-                    }
-                }
-            }
         }
 
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
@@ -272,6 +183,55 @@ namespace forms_timer_label
             Console.WriteLine("\n\nPress any key to end up the program.");
             //Console.ReadKey();
             return (int)statusCode;
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            st = device.Start(); // Запускаем плату на сбор буфера.
+            if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+            //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
+
+            if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
+            {
+                //Console.WriteLine("\nInterrupt has taken place!\nWhich means that onboard buffer had filled completely.");
+
+                device.Stop(); // TODO: Maybe del this
+
+
+
+                //Получаем буфер с данными. // TODO: del this
+                //st = device.GetData(userBuffer);
+                //if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
+                st = device.GetData(userBufferD);
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+                //chart1.Series["Series1"].Points.DataBindY(userBufferD);
+                for (int i = 0; i < userBufferD.Length; i++)
+                {
+                    if (i % 10 == 0) // draw only each 1000th data point (for better performance)
+                    {
+                        chart1.Series["Series1"].Points.RemoveAt(0);
+                        //chart1.Series["Series1"].Points.RemoveAt(0);
+                        chart1.Series["Series1"].Points.AddY(userBufferD[i]);
+                    }
+                }
+            }
+        }
+
+        static void WriteData(short[] values, string path)
+        {
+            using (FileStream fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write))
+            {
+                using (BinaryWriter bw = new BinaryWriter(fs))
+                {
+                    foreach (short value in values)
+                    {
+                        bw.Write(value);
+                    }
+                }
+            }
         }
     }
 }
