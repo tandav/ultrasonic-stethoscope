@@ -17,11 +17,11 @@ namespace forms_timer_label
         //Служебное имя платы, с которой будет работать программа.
         const string BOARD_NAME = "LAn10_12USB";
 
-        int timer_tick_interval = 50;
+        int timer_tick_interval = 1;
 
         //Размер собираемого блока данных в отсчётах (на канал).
         //const uint BSIZE = 1048576;
-        const int BSIZE = 500000;
+        const int BSIZE = 10000;
         //const int BSIZE = 65536/2/2;
 
         //Частота дискретизации. 
