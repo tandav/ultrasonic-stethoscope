@@ -16,17 +16,17 @@ namespace forms_timer_label
 
         //Служебное имя платы, с которой будет работать программа.
         const string BOARD_NAME = "LAn10_12USB";
-
-        int timer_tick_interval = 1;
-
+        const int SAMPLE_FREQ = 10000000;
+        const int timer_tick_interval = 10;
+        int x_axis_points = 1000;
         //Размер собираемого блока данных в отсчётах (на канал).
         //const uint BSIZE = 1048576;
-        const int BSIZE = 10000;
+        const int BSIZE = SAMPLE_FREQ /1000*timer_tick_interval;
         //const int BSIZE = 65536/2/2;
 
         //Частота дискретизации. 
         //const double SAMPLE_FREQ = 1.0e+8;
-        const int SAMPLE_FREQ = 10000000;  // SAMPLE_FREQ = 1000ms / timer_tick_interval * BSIZE
+        // const int SAMPLE_FREQ = 100000000;  // SAMPLE_FREQ = 1000ms / timer_tick_interval * BSIZE
 
 
         //Создание экземляра класса для работы с устройствами
@@ -39,21 +39,14 @@ namespace forms_timer_label
         RshInitMemory p = new RshInitMemory();
 
         uint activeChanNumber = 0, serNum = 0;
-
-        List<double> adcQ; //
-        //List<double> reduced_buffer;
-        List<double> moving_average = new List<double>(); // list with moving average values
-        int mov_avg_window_size = 10000;
-        int mov_avg_shift = 5000;
-        List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
-        //int reduce_ratio = 8;
         Random random = new Random();
         double[] rand_array = new double[BSIZE];
         // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
         uint waitTime = 100000;
-        uint loopNum = 0;
         double r = 0.01;
-
+        int skip_ratio = 1000;
+        //List<double> buffers_storage = Enumerable.Repeat(0.0, BSIZE * 10).ToList();
+        List<double> buffers_storage = new List<double>();
 
         //Буфер с данными в мзр. // TODO: del this
         //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
@@ -63,15 +56,14 @@ namespace forms_timer_label
         public Form1()
         {
             InitializeComponent();
-            numericUpDown1.Value = mov_avg_shift;
+            numericUpDown1.Value = x_axis_points;
 
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
-            for (int i = 0; i < 10000; i++)
+            for (int i = 0; i < x_axis_points; i++)
             {
                 chart1.Series["Series1"].Points.AddY(0);
             }
-
         }
 
  
@@ -161,6 +153,9 @@ namespace forms_timer_label
             timer1.Interval = timer_tick_interval;
             timer1.Start();
 
+            //timer2.Interval = 100;
+            //timer2.Start();
+
             //chart1.Series["Series1"].Points.DataBindY(userBufferD);
 
         }
@@ -172,7 +167,7 @@ namespace forms_timer_label
 
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
         {
-            mov_avg_shift = Convert.ToInt32(numericUpDown1.Value);
+            x_axis_points = Convert.ToInt32(numericUpDown1.Value);
         }
 
         public static int SayGoodBye(RSH_API statusCode)
@@ -208,15 +203,16 @@ namespace forms_timer_label
                 //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
                 st = device.GetData(userBufferD);
                 if (st != RSH_API.SUCCESS) SayGoodBye(st);
-                //chart1.Series["Series1"].Points.DataBindY(userBufferD);
+                //buffers_storage.AddRange(userBufferD);
+
                 for (int i = 0; i < userBufferD.Length; i++)
                 {
-                    if (i % 10 == 0) // draw only each 1000th data point (for better performance)
+                    if (i % 100 == 0)
                     {
                         chart1.Series["Series1"].Points.RemoveAt(0);
-                        //chart1.Series["Series1"].Points.RemoveAt(0);
                         chart1.Series["Series1"].Points.AddY(userBufferD[i]);
                     }
+
                 }
             }
         }
@@ -233,6 +229,26 @@ namespace forms_timer_label
             r *= 10;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
+        }
+
+        private void timer2_Tick(object sender, EventArgs e)
+        {
+            //List<double> buffers_storage_copy = new List<double>();
+            //for (int i = 0; i < buffers_storage.Count; i++)
+            //{
+            //    if (i % buffers_storage.Count / x_axis_points == 0) // draw only each 1000th data point (for better performance)
+            //    {
+            //        buffers_storage_copy.Add(buffers_storage[i]);
+            //    }
+            //}
+
+            ////chart1.Series["Series1"].Points.RemoveAt(0);
+            ////chart1.Series["Series1"].Points.AddY(userBufferD[i]);
+            ////chart1.Series["Series1"].Points.DataBindY(userBufferD);
+
+            //buffers_storage.Clear();
+            //buffers_storage_copy.Clear();
+
         }
 
         static void WriteData(short[] values, string path)
