@@ -39,15 +39,13 @@ namespace forms_timer_label
         RshInitMemory p = new RshInitMemory();
 
         uint activeChanNumber = 0, serNum = 0;
-        Random random = new Random();
-        double[] rand_array = new double[BSIZE];
         // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
         uint waitTime = 100000;
         double r = 0.01;
         int skip_ratio = 1000;
         //List<double> buffers_storage = Enumerable.Repeat(0.0, BSIZE * 10).ToList();
-        List<double> buffers_storage = new List<double>();
-
+        List<double> buffer_list = new List<double>();
+        int chart_updated_counter = 0;
         //Буфер с данными в мзр. // TODO: del this
         //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
         //Буфер с данными в вольтах.
@@ -64,6 +62,9 @@ namespace forms_timer_label
             {
                 chart1.Series["Series1"].Points.AddY(0);
             }
+
+            backgroundWorker1.ProgressChanged += backgroundWorker1_ProgressChanged;
+            backgroundWorker1.WorkerReportsProgress = true;
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -165,22 +166,97 @@ namespace forms_timer_label
             SayGoodBye(RSH_API.SUCCESS);
         }
 
-        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
-        {
-            x_axis_points = Convert.ToInt32(numericUpDown1.Value);
-        }
-
         private void timer1_Tick(object sender, EventArgs e)
         {
-            for (int i = 0; i < userBufferD.Length; i++)
+            for (int i = 0; i < buffer_list.Count; i++)
             {
                 if (i % 100 == 0)
                 {
                     chart1.Series["Series1"].Points.RemoveAt(0);
-                    chart1.Series["Series1"].Points.AddY(userBufferD[i]);
+                    chart1.Series["Series1"].Points.AddY(buffer_list[i]);
                 }
-
             }
+            //List<double> buffer_list_draw = new List<double>();
+
+            //for (int i = 0; i < buffer_list.Count; i++)
+            //{
+            //    if (i % 100 == 0)
+            //    {
+            //        buffer_list_draw.Add(buffer_list[i]);
+            //    }
+            //}
+
+            //chart1.Series["Series1"].Points.DataBindY(buffer_list_draw);
+            //for (int i = 0; i < userBufferD.Length; i++)
+            //{
+            //    if (i % 100 == 0)
+            //    {
+            //        chart1.Series["Series1"].Points.RemoveAt(0);
+            //        chart1.Series["Series1"].Points.AddY(userBufferD[i]);
+            //    }
+            //}
+            chart_updated_counter++;
+            label4.Text = chart_updated_counter.ToString();
+            buffer_list.Clear();
+            //buffer_list_draw.Clear();
+        }
+
+
+
+        //private void timer2_Tick(object sender, EventArgs e)
+        //{
+        //List<double> buffers_storage_copy = new List<double>();
+        //for (int i = 0; i < buffers_storage.Count; i++)
+        //{
+        //    if (i % buffers_storage.Count / x_axis_points == 0) // draw only each 1000th data point (for better performance)
+        //    {
+        //        buffers_storage_copy.Add(buffers_storage[i]);
+        //    }
+        //}
+
+        ////chart1.Series["Series1"].Points.RemoveAt(0);
+        ////chart1.Series["Series1"].Points.AddY(userBufferD[i]);
+        ////chart1.Series["Series1"].Points.DataBindY(userBufferD);
+
+        //buffers_storage.Clear();
+        //buffers_storage_copy.Clear();
+
+        //}
+
+        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
+        {
+            int buffer_counter = 0;
+            while (true)
+            {
+                st = device.Start(); // Запускаем плату на сбор буфера.
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
+
+                if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
+                {
+                    device.Stop(); // TODO: Maybe del this
+
+                    //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
+                    st = device.GetData(userBufferD);
+                    if (st != RSH_API.SUCCESS) SayGoodBye(st);
+                    buffer_list.AddRange(userBufferD);
+                    //buffers_storage.AddRange(userBufferD);
+                }
+                buffer_counter++;
+                backgroundWorker1.ReportProgress(buffer_counter);
+            }
+
+        }
+
+        private void backgroundWorker1_ProgressChanged(object sender, System.ComponentModel.ProgressChangedEventArgs e)
+        {
+            label2.Text = e.ProgressPercentage.ToString();
+        }
+
+        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
+        {
+            x_axis_points = Convert.ToInt32(numericUpDown1.Value);
         }
 
         private void button4_Click(object sender, EventArgs e)
@@ -195,48 +271,6 @@ namespace forms_timer_label
             r *= 10;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
-        }
-
-        //private void timer2_Tick(object sender, EventArgs e)
-        //{
-            //List<double> buffers_storage_copy = new List<double>();
-            //for (int i = 0; i < buffers_storage.Count; i++)
-            //{
-            //    if (i % buffers_storage.Count / x_axis_points == 0) // draw only each 1000th data point (for better performance)
-            //    {
-            //        buffers_storage_copy.Add(buffers_storage[i]);
-            //    }
-            //}
-
-            ////chart1.Series["Series1"].Points.RemoveAt(0);
-            ////chart1.Series["Series1"].Points.AddY(userBufferD[i]);
-            ////chart1.Series["Series1"].Points.DataBindY(userBufferD);
-
-            //buffers_storage.Clear();
-            //buffers_storage_copy.Clear();
-
-        //}
-
-        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
-        {
-            while(true)
-            {
-                st = device.Start(); // Запускаем плату на сбор буфера.
-                if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-                //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
-
-                if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
-                {
-                    device.Stop(); // TODO: Maybe del this
-
-                    //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
-                    st = device.GetData(userBufferD);
-                    if (st != RSH_API.SUCCESS) SayGoodBye(st);
-                    //buffers_storage.AddRange(userBufferD);
-                }
-            }
-
         }
 
         static void WriteData(short[] values, string path)
