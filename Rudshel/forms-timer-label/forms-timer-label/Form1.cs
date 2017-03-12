@@ -66,8 +66,6 @@ namespace forms_timer_label
             }
         }
 
- 
-
         private void button1_Click(object sender, EventArgs e)
         {
             // Some Initialisation Work
@@ -149,6 +147,8 @@ namespace forms_timer_label
 
             Console.WriteLine("\n=============================================================\n");
 
+            backgroundWorker1.RunWorkerAsync();
+
 
             timer1.Interval = timer_tick_interval;
             timer1.Start();
@@ -170,50 +170,16 @@ namespace forms_timer_label
             x_axis_points = Convert.ToInt32(numericUpDown1.Value);
         }
 
-        public static int SayGoodBye(RSH_API statusCode)
-        {
-            string errorMessage;
-            Device.RshGetErrorDescription(statusCode, out errorMessage, RSH_LANGUAGE.RUSSIAN);
-            Console.WriteLine("\n" + errorMessage);
-            Console.WriteLine("\n" + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
-            Console.WriteLine("\n\nPress any key to end up the program.");
-            //Console.ReadKey();
-            return (int)statusCode;
-        }
-
         private void timer1_Tick(object sender, EventArgs e)
         {
-            st = device.Start(); // Запускаем плату на сбор буфера.
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
-
-            if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
+            for (int i = 0; i < userBufferD.Length; i++)
             {
-                //Console.WriteLine("\nInterrupt has taken place!\nWhich means that onboard buffer had filled completely.");
-
-                device.Stop(); // TODO: Maybe del this
-
-
-
-                //Получаем буфер с данными. // TODO: del this
-                //st = device.GetData(userBuffer);
-                //if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-                //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
-                st = device.GetData(userBufferD);
-                if (st != RSH_API.SUCCESS) SayGoodBye(st);
-                //buffers_storage.AddRange(userBufferD);
-
-                for (int i = 0; i < userBufferD.Length; i++)
+                if (i % 100 == 0)
                 {
-                    if (i % 100 == 0)
-                    {
-                        chart1.Series["Series1"].Points.RemoveAt(0);
-                        chart1.Series["Series1"].Points.AddY(userBufferD[i]);
-                    }
-
+                    chart1.Series["Series1"].Points.RemoveAt(0);
+                    chart1.Series["Series1"].Points.AddY(userBufferD[i]);
                 }
+
             }
         }
 
@@ -231,8 +197,8 @@ namespace forms_timer_label
             chart1.ChartAreas[0].AxisY.Maximum = r;
         }
 
-        private void timer2_Tick(object sender, EventArgs e)
-        {
+        //private void timer2_Tick(object sender, EventArgs e)
+        //{
             //List<double> buffers_storage_copy = new List<double>();
             //for (int i = 0; i < buffers_storage.Count; i++)
             //{
@@ -249,6 +215,28 @@ namespace forms_timer_label
             //buffers_storage.Clear();
             //buffers_storage_copy.Clear();
 
+        //}
+
+        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
+        {
+            while(true)
+            {
+                st = device.Start(); // Запускаем плату на сбор буфера.
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
+
+                if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
+                {
+                    device.Stop(); // TODO: Maybe del this
+
+                    //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
+                    st = device.GetData(userBufferD);
+                    if (st != RSH_API.SUCCESS) SayGoodBye(st);
+                    //buffers_storage.AddRange(userBufferD);
+                }
+            }
+
         }
 
         static void WriteData(short[] values, string path)
@@ -263,6 +251,17 @@ namespace forms_timer_label
                     }
                 }
             }
+        }
+
+        public static int SayGoodBye(RSH_API statusCode)
+        {
+            string errorMessage;
+            Device.RshGetErrorDescription(statusCode, out errorMessage, RSH_LANGUAGE.RUSSIAN);
+            Console.WriteLine("\n" + errorMessage);
+            Console.WriteLine("\n" + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
+            Console.WriteLine("\n\nPress any key to end up the program.");
+            //Console.ReadKey();
+            return (int)statusCode;
         }
     }
 }
