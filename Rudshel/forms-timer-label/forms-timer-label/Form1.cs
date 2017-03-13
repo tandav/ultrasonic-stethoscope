@@ -35,6 +35,7 @@ namespace forms_timer_label
         {
             InitializeComponent();
             numericUpDown1.Value = x_axis_points;
+            values_to_draw = new double[x_axis_points];
 
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
@@ -50,9 +51,22 @@ namespace forms_timer_label
 
         private void button1_Click(object sender, EventArgs e)
         {
-            values_to_draw = new double[x_axis_points];
-            getting_data = true;
-            backgroundWorker1.RunWorkerAsync();
+            if (button1.Text == "Start")
+            {
+                getting_data = true;
+                button1.Text = "Stop";
+                button1.BackColor = System.Drawing.Color.Tomato;
+                backgroundWorker1.RunWorkerAsync();
+            }
+            else
+            {
+                backgroundWorker1.CancelAsync();
+                getting_data = false;
+                SayGoodBye(RSH_API.SUCCESS);
+                button1.Text = "Start";
+                button1.BackColor = System.Drawing.Color.PaleGreen;
+            }
+
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -78,14 +92,9 @@ namespace forms_timer_label
             if (st != RSH_API.SUCCESS) SayGoodBye(st); //После инициализации неправильные значения в структуре будут откорректированы.
 
             double[] buffer = new double[p.bufferSize]; //Получаемый из платы буфер.
-            //block = new double[p.bufferSize * block_size];
             block = new double[block_size];
-
-
             
-            //Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
-            uint waitTime = 100000; // default = 100000
-            //uint loopNum = 0;
+            uint waitTime = 100000; // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера.  // default = 100000
             int block_counter = 0; // counts the series of buffer arrays
 
             while (getting_data)
@@ -104,13 +113,6 @@ namespace forms_timer_label
                     device.Stop();
 
                     reduce(buffer, buffer_data).CopyTo(block, i);
-                    //values_to_draw[i] = buffer.Average();
-                    //double sum = 0;
-                    //for (int k = 0; k < 5; k++) // rough average
-                    //    sum += buffer[BSIZE / 5 * k] / 5;
-                    //block[i] = sum;
-                    //block[i] = reduce(buffer, 3);
-                    //buffer.CopyTo(block, i * buffer.Length);
                 }
 
                 double[] values_to_draw_copy = (double[])values_to_draw.Clone(); // Queue Dequeue and Enqueue implementation with arrays
