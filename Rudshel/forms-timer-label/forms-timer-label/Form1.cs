@@ -12,12 +12,12 @@ namespace forms_timer_label
 {
     public partial class Form1 : Form
     {
-        const string FILEPATH       = "C:\\Users\\tandav\\Desktop\\data\\"; //Путь к каталогу, в который будет произведена запись данных.
-        const string BOARD_NAME     = "LAn10_12USB";                        //Служебное имя платы, с которой будет работать программа.
-        const uint   BSIZE          = 524288;                               //буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
-        const double RATE           = 8.0e+7;                               //Частота дискретизации. 
-        const int block_size        = 10;
-        int x_axis_points           = 20000;
+        const string BOARD_NAME     = "LAn10_12USB"; //Служебное имя платы, с которой будет работать программа.
+        const uint   BSIZE          = 524288;        //буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
+        const double RATE           = 8.0e+7;        //Частота дискретизации. 
+        const int    block_size     = 1000;
+        int          x_axis_points  = 20000;
+        int          buffer_data    = 100;             // how many values from the buffer go to block (and then to chart)  // maybe rename to sth like chunk?                   
 
         double[] block; // block of buffers (see pic for explanation)
         double[] values_to_draw;
@@ -29,6 +29,7 @@ namespace forms_timer_label
         long series_dt = 0;
         Stopwatch stopwatch = new Stopwatch();
         Stopwatch stopwatch2 = new Stopwatch(); // need second stopwatch 'cause they works async
+        // const string FILEPATH       = "C:\\Users\\tandav\\Desktop\\data\\"; //Путь к каталогу, в который будет произведена запись данных.
 
         public Form1()
         {
@@ -93,7 +94,7 @@ namespace forms_timer_label
                 st = device.Start(); // Запускаем плату на сбор буфера.
                 if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-                for (int i = 0; i < block_size; i++) // Series of buffers
+                for (int i = 0; i < block_size - buffer_data; i += buffer_data) // Series of buffers
                 {
                     st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
@@ -102,12 +103,13 @@ namespace forms_timer_label
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
                     device.Stop();
 
+                    reduce(buffer, buffer_data).CopyTo(block, i);
                     //values_to_draw[i] = buffer.Average();
-                    double sum = 0;
-                    for (int k = 0; k < 5; k++) // rough average
-                        sum += buffer[BSIZE / 5 * k] / 5;
-                    block[i] = sum;
-
+                    //double sum = 0;
+                    //for (int k = 0; k < 5; k++) // rough average
+                    //    sum += buffer[BSIZE / 5 * k] / 5;
+                    //block[i] = sum;
+                    //block[i] = reduce(buffer, 3);
                     //buffer.CopyTo(block, i * buffer.Length);
                 }
 
@@ -139,16 +141,11 @@ namespace forms_timer_label
 
         }
 
-        private double[] reduce(double[] array, int array_out_length)
+        private double[] reduce(double[] array, int array_out_length) // tested, works well
         {
             double[] array_out = new double[array_out_length];
-            for (int i = 0, j = 0; i < array.Length; i++)
-            {
-                if (i % array.Length / array_out_length == 0)
-                {
-                    array_out[j++] = array[i];
-                }
-            }
+            for (int i = 0; i < array_out_length; i++)
+                array_out[i] = array[array.Length / array_out_length * i];
             return array_out;
         }
 
