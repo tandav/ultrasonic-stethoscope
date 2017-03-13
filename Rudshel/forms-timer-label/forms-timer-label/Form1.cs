@@ -128,90 +128,37 @@ namespace forms_timer_label
 
         private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
         {
-            // Some Initialisation Work
-
-            //загрузка и подключение к библиотеке абстракции устройства
-            st = device.EstablishDriverConnection(BOARD_NAME);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            Console.WriteLine("\n--> Start-Stop data acquisition mode <--\n\n");
-
-            //=================== ИНФОРМАЦИЯ О ЗАГРУЖЕННОЙ БИБЛИОТЕКЕ ====================== 
-            string libVersion, libname, libCoreVersion, libCoreName;
-
-            st = device.Get(RSH_GET.LIBRARY_VERSION_STR, out libVersion);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            st = device.Get(RSH_GET.CORELIB_VERSION_STR, out libCoreVersion);
-            st = device.Get(RSH_GET.CORELIB_FILENAME, out libCoreName);
-            st = device.Get(RSH_GET.LIBRARY_FILENAME, out libname);
-
-            Console.WriteLine("Library Name: {0:d}", libname);
-            Console.WriteLine("Library Version: {0:d}", libVersion);
-            Console.WriteLine("\nCore Library Name: {0:d}", libCoreName);
-            Console.WriteLine("Core Library Version: {0:d}", libCoreVersion);
-
-            //===================== ПРОВЕРКА СОВМЕСТИМОСТИ =================================  
-
-            uint caps = (uint)RSH_CAPS.SOFT_GATHERING_IS_AVAILABLE;
-            // Проверим, поддерживает ли плата функцию сбора данных в режиме "Старт-Стоп".
-            st = device.Get(RSH_GET.DEVICE_IS_CAPABLE, ref caps);
+            // DEL THIS?
+            st = device.EstablishDriverConnection(BOARD_NAME); //загрузка и подключение к библиотеке абстракции устройства
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
             //========================== ИНИЦИАЛИЗАЦИЯ =====================================        
 
-            //Подключаемся к устройству. Нумерация начинается с 1.
-            st = device.Connect(1);
+            st = device.Connect(1); //Подключаемся к устройству. Нумерация начинается с 1.
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-            /*
-            Можно подключиться к устройству по заводскому номеру.
-            uint serialNumber = 11111;
-            st = device.Connect(serialNumber, RSH_CONNECT_MODE.SERIAL_NUMBER);
-            if (st != RSH_API.SUCCESS) return SayGoodBye(st);
-            */
 
-
-            //Запуск сбора данных программный. 
-            p.startType = (uint)RshInitMemory.StartTypeBit.Program;
-            //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
-            p.bufferSize = BSIZE;
-            //Частота дискретизации.
-            p.frequency = SAMPLE_FREQ;
-
-            //Сделаем 0-ой канал активным.
-            p.channels[0].control = (uint)RshChannel.ControlBit.Used;
-            //Зададим коэффициент усиления для 0-го канала.
-            p.channels[0].gain = 10; // [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
+           
+            p.startType = (uint)RshInitMemory.StartTypeBit.Program; //Запуск сбора данных программный. 
+            p.bufferSize = BSIZE; //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
+            p.frequency = SAMPLE_FREQ;  //Частота дискретизации.
+            p.channels[0].control = (uint)RshChannel.ControlBit.Used;  //Сделаем 0-ой канал активным.
+            p.channels[0].gain = 10; // //Зададим коэффициент усиления для 0-го канала. [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
 
             //Инициализация устройства (передача выбранных параметров сбора данных)
             //После инициализации неправильные значения в структуре будут откорректированы.
             st = device.Init(p);
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-            //=================== ИНФОРМАЦИЯ О ПРЕДСТОЯЩЕМ СБОРЕ ДАННЫХ ====================== 
-            uint activeChanNumber = 0, serNum = 0;
-            device.Get(RSH_GET.DEVICE_ACTIVE_CHANNELS_NUMBER, ref activeChanNumber);
-            device.Get(RSH_GET.DEVICE_NAME_VERBOSE, out libname);
-            device.Get(RSH_GET.DEVICE_SERIAL_NUMBER, ref serNum);
-
-            Console.WriteLine(
-                "\nThe name of the connected device: {0} " +
-                "\nSerial number of the connected device: {1:d} " +
-                "\nData to be collected: {2:d} samples " +
-                "\nADC frequency: {3:f} Hz " +
-                "\nThe number of active channels: {4:d} " +
-                "\nThe estimated time of gathering completion: {5:f} seconds",
-                libname, serNum, p.bufferSize, p.frequency, activeChanNumber, (p.bufferSize / p.frequency));
 
 
             Console.WriteLine("\n=============================================================\n");
 
             //Буфер с "непрерывными" данными (для записи в файл).            
-            userBufferD = new double[p.bufferSize * activeChanNumber * IBUFCNT];
+            buffer = new double[p.bufferSize * IBUFCNT];
 
             //Получаемый из платы буфер.
-            double[] iBuffer = new double[p.bufferSize * activeChanNumber];
+            double[] iBuffer = new double[p.bufferSize];
 
 
             //Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
