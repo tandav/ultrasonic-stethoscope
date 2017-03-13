@@ -11,51 +11,23 @@ namespace forms_timer_label
 {
     public partial class Form1 : Form
     {
-        //Путь к каталогу, в который будет произведена запись данных.
-        const string FILEPATH = "C:\\Users\\tandav\\Desktop\\data\\";
-
-        //Служебное имя платы, с которой будет работать программа.
-        const string BOARD_NAME = "LAn10_12USB";
-
-        //Внутренний объем блока данных.(внутренний буфер) Влияет на количество генерируемых прерываний в единицу времени.
-        const uint BSIZE = 524288;
-        //Фактически, от интенсивности генерируемых прерываний зависит производительность сбора.
-        //Чем меньше прерываний, тем с большей вероятностью данные будут собраны без разрывов на высоких частотах.
-        
-        //Размер собираемого блока данных в отсчётах (на канал).
-        //const uint BSIZE = 1048576;  //2^20
-        //const int BSIZE = SAMPLE_FREQ / 1000 * timer_tick_interval;
-        //const int BSIZE = 65536/2/2;
-
-        //Количество внутренних буферов в конструируемом буфере данных.
-        const uint IBUFCNT = 1;
-
-        //const int SAMPLE_FREQ = 1048576*16;
+        const string FILEPATH    = "C:\\Users\\tandav\\Desktop\\data\\"; //Путь к каталогу, в который будет произведена запись данных.
+        const string BOARD_NAME  = "LAn10_12USB";                        //Служебное имя платы, с которой будет работать программа.
+        const uint   BSIZE       = 524288;                               // буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
+        const double SAMPLE_FREQ = 8.0e+7;                              //Частота дискретизации. 
+        const uint IBUFCNT       = 5;  //Количество внутренних буферов в конструируемом буфере данных.
+        int x_axis_points        = 500;
         const int timer_tick_interval = 500;
 
-
-        //Частота дискретизации. 
-        const double SAMPLE_FREQ = 8.0e+7;
-        // const int SAMPLE_FREQ = 100000000;  // SAMPLE_FREQ = 1000ms / timer_tick_interval * BSIZE
-
-        int x_axis_points = 500;
-
         double[] values_to_draw;
-        //Создание экземляра класса для работы с устройствами
-        Device device = new Device();
-
-        //Код выполнения операции.
-        RSH_API st;
-
-        //Структура для инициализации параметров работы устройства.  
-        RshInitMemory p = new RshInitMemory();
-
+        Device device = new Device(); //Создание экземляра класса для работы с устройствами
+        RSH_API st; //Код выполнения операции.
+        RshInitMemory p = new RshInitMemory(); //Структура для инициализации параметров работы устройства. 
         double r = 0.01;
         //List<double> buffer_list = new List<double>();
         int chart_updated_counter = 0;
         bool getting_data;
-
-        double[] userBufferD;
+        double[] buffer;
 
         public Form1()
         {
@@ -164,16 +136,13 @@ namespace forms_timer_label
             //Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
             uint waitTime = 100000; // default = 100000
             //uint loopNum = 0;
-
-
-
             int buffer_counter = 0;
-
-            st = device.Start(); // Запускаем плату на сбор буфера.
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
             while (getting_data)
             {
+                st = device.Start(); // Запускаем плату на сбор буфера.
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
                 for (int loop = 0; loop < IBUFCNT; loop++)
                 {
                     //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
@@ -188,28 +157,30 @@ namespace forms_timer_label
                     //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
                     st = device.GetData(iBuffer);
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
+                    device.Stop(); // probably should del this (for full persistance)
 
 
                     // Скопируем данные в "непрерывный" буфер.
-                    iBuffer.CopyTo(userBufferD, loop * iBuffer.Length);
+                    iBuffer.CopyTo(buffer, loop * iBuffer.Length);
 
-                    
-                    //buffer_list.AddRange(userBufferD);
-                    //buffers_storage.AddRange(userBufferD);
+
+                    //buffer_list.AddRange(buffer);
+                    //buffers_storage.AddRange(buffer);
                 }
 
-                for (int i = 0, j = 0; i < userBufferD.Length; i++) // skip some values
+                for (int i = 0, j = 0; i < buffer.Length; i++) // skip some values
                 {
-                    if (i % userBufferD.Length / x_axis_points == 0)
+                    if (i % buffer.Length / x_axis_points == 0)
                     {
-                        values_to_draw[j++] = userBufferD[i];
+                        values_to_draw[j++] = buffer[i];
                     }
+                    buffer[i] = 0; // cleaning
                 }
 
                 buffer_counter++;
                 backgroundWorker1.ReportProgress(buffer_counter);
+
             }
-            device.Stop(); // probably should del this (for full persistance)
 
 
         }
