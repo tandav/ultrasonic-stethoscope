@@ -14,13 +14,14 @@ namespace forms_timer_label
     {
         const string FILEPATH       = "C:\\Users\\tandav\\Desktop\\data\\"; //Путь к каталогу, в который будет произведена запись данных.
         const string BOARD_NAME     = "LAn10_12USB";                        //Служебное имя платы, с которой будет работать программа.
-        const uint   BSIZE          = 524288;                               // буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
-        const double SAMPLE_FREQ    = 8.0e+7;                               //Частота дискретизации. 
-        const int buffers_in_series = 100;                                   //Количество внутренних буферов в конструируемом буфере данных.
-        const double RATE    = 8.0e+7;                               //Частота дискретизации. 
-        int x_axis_points           = 200;
+        const uint   BSIZE          = 524288;                               //буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
+        const double RATE           = 8.0e+7;                               //Частота дискретизации. 
+        const int block_size        = 10;
+        int x_axis_points           = 30000;
 
-        double[] values_to_draw;
+        double[] block; // block of buffers (see pic for explanation)
+        //double[] values_to_draw;
+        Queue<double> values_to_draw; // TODO: try to replace with array
         Device device = new Device(); //Создание экземляра класса для работы с устройствами
         RSH_API st; //Код выполнения операции.
         RshInitMemory p = new RshInitMemory(); //Структура для инициализации параметров работы устройства. 
@@ -28,7 +29,6 @@ namespace forms_timer_label
         //List<double> buffer_list = new List<double>();
         int chart_updated_counter = 0;
         bool getting_data;
-        double[] buffer_array;
         long series_dt = 0;
         Stopwatch stopwatch = new Stopwatch();
         Stopwatch stopwatch2 = new Stopwatch(); // need second stopwatch 'cause they works async
@@ -52,7 +52,10 @@ namespace forms_timer_label
 
         private void button1_Click(object sender, EventArgs e)
         {
-            values_to_draw = new double[x_axis_points];
+            //values_to_draw = new double[x_axis_points];
+            
+            values_to_draw = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill with zeros
+
             getting_data = true;
             backgroundWorker1.RunWorkerAsync();
 
@@ -72,24 +75,26 @@ namespace forms_timer_label
             //========================== ИНИЦИАЛИЗАЦИЯ =====================================        
             st = device.EstablishDriverConnection(BOARD_NAME); //загрузка и подключение к библиотеке абстракции устройства
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
-            st = device.Connect(1); //Подключаемся к устройству. Нумерация начинается с 1.
+            st  = device.Connect(1); //Подключаемся к устройству. Нумерация начинается с 1.
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
-            p.startType = (uint)RshInitMemory.StartTypeBit.Program; //Запуск сбора данных программный. 
-            p.bufferSize = BSIZE; //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
-            p.frequency = SAMPLE_FREQ;  //Частота дискретизации.
-            p.frequency = RATE;  //Частота дискретизации.
+            p.startType           = (uint)RshInitMemory.StartTypeBit.Program; //Запуск сбора данных программный. 
+            p.bufferSize          = BSIZE; //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
+            p.frequency           = RATE;  //Частота дискретизации.
             p.channels[0].control = (uint)RshChannel.ControlBit.Used;  //Сделаем 0-ой канал активным.
-            p.channels[0].gain = 10; // //Зададим коэффициент усиления для 0-го канала. [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
+            p.channels[0].gain    = 10; // коэффициент усиления для 0-го канала. [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
             st = device.Init(p); //Инициализация устройства (передача выбранных параметров сбора данных)
             if (st != RSH_API.SUCCESS) SayGoodBye(st); //После инициализации неправильные значения в структуре будут откорректированы.
 
             double[] buffer = new double[p.bufferSize]; //Получаемый из платы буфер.
-            //buffer_array = new double[p.bufferSize * buffers_in_series];
+            //block = new double[p.bufferSize * block_size];
+            block = new double[block_size];
+
+
             
             //Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
             uint waitTime = 100000; // default = 100000
             //uint loopNum = 0;
-            int buffer_array_counter = 0; // counts the series of buffer arrays
+            int block_counter = 0; // counts the series of buffer arrays
 
             while (getting_data)
             {
@@ -97,7 +102,7 @@ namespace forms_timer_label
                 st = device.Start(); // Запускаем плату на сбор буфера.
                 if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-                for (int i = 0, j = 0; i < buffers_in_series; i++) // Series of buffers
+                for (int i = 0; i < block_size; i++) // Series of buffers
                 {
                     st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
@@ -110,29 +115,29 @@ namespace forms_timer_label
                     double sum = 0;
                     for (int k = 0; k < 5; k++) // rough average
                         sum += buffer[BSIZE / 5 * k] / 5;
-                    values_to_draw[i] = sum;
+                    block[i] = sum;
 
-
-                    //if (i  == 0 && j < x_axis_points)
-                    //{
-                    //    values_to_draw[j++] = buffer[0];
-                    //}
-                    //reduce(buffer, x_axis_points / buffers_in_series).CopyTo(values_to_draw, i * x_axis_points / buffers_in_series); // reducing that shit
-                    //buffer.CopyTo(buffer_array, i * buffer.Length);
+                    //buffer.CopyTo(block, i * buffer.Length);
                 }
 
-                //for (int i = 0, j = 0; i < buffer_array.Length; i++) // skip some values
+                for (int i = 0; i < block_size; i++)
+                {
+                    values_to_draw.Dequeue();
+                    values_to_draw.Enqueue(block[i]);
+                }
+
+                //for (int i = 0, j = 0; i < block.Length; i++) // skip some values
                 //{
                 //    if (i % buffer.Length / x_axis_points == 0 && j < values_to_draw.Length)
                 //    {
-                //        values_to_draw[j++] = buffer_array[i];
+                //        values_to_draw[j++] = block[i];
                 //    }
-                //    buffer_array[i] = 0; // cleaning
+                //    block[i] = 0; // cleaning
                 //}
-                buffer_array_counter++;
+                block_counter++;
                 stopwatch.Stop();
                 series_dt = stopwatch.ElapsedMilliseconds;
-                backgroundWorker1.ReportProgress(buffer_array_counter);
+                backgroundWorker1.ReportProgress(block_counter);
             }
         }
 
