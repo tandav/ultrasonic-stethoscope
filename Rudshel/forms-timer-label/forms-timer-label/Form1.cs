@@ -94,7 +94,7 @@ namespace forms_timer_label
                 st = device.Start(); // Запускаем плату на сбор буфера.
                 if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-                for (int i = 0; i < block_size - buffer_data; i += buffer_data) // Series of buffers
+                for (int i = 0; i <= block_size - buffer_data; i += buffer_data) // Series of buffers
                 {
                     st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
