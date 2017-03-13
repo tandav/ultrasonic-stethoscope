@@ -21,13 +21,10 @@ namespace forms_timer_label
 
         double[] block; // block of buffers (see pic for explanation)
         double[] values_to_draw;
-        //Queue<double> values_to_draw; // TODO: try to replace with array
         Device device = new Device(); //Создание экземляра класса для работы с устройствами
         RSH_API st; //Код выполнения операции.
         RshInitMemory p = new RshInitMemory(); //Структура для инициализации параметров работы устройства. 
-        double r = 0.01;
-        //List<double> buffer_list = new List<double>();
-        int chart_updated_counter = 0;
+        double r = 0.01; // chart Y-axis bounds
         bool getting_data;
         long series_dt = 0;
         Stopwatch stopwatch = new Stopwatch();
@@ -53,14 +50,8 @@ namespace forms_timer_label
         private void button1_Click(object sender, EventArgs e)
         {
             values_to_draw = new double[x_axis_points];
-            
-            //values_to_draw = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill with zeros
-
             getting_data = true;
             backgroundWorker1.RunWorkerAsync();
-
-            //timer1.Interval = timer_tick_interval;
-            //timer1.Start();
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -122,7 +113,7 @@ namespace forms_timer_label
 
                 double[] values_to_draw_copy = (double[])values_to_draw.Clone();
 
-                for (int i = 0; i < x_axis_points - block_size; i++)
+                for (int i = 0; i < x_axis_points - block_size; i++) // Queue Dequeue and Enqueue implementation with arrays
                 {
                     values_to_draw[i] = values_to_draw_copy[block_size + i];
                 }
