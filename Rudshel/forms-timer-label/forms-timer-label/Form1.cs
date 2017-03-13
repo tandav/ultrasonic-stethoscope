@@ -111,32 +111,11 @@ namespace forms_timer_label
                     //buffer.CopyTo(block, i * buffer.Length);
                 }
 
-                double[] values_to_draw_copy = (double[])values_to_draw.Clone();
-
-                for (int i = 0; i < x_axis_points - block_size; i++) // Queue Dequeue and Enqueue implementation with arrays
-                {
+                double[] values_to_draw_copy = (double[])values_to_draw.Clone(); // Queue Dequeue and Enqueue implementation with arrays
+                for (int i = 0; i < x_axis_points - block_size; i++) 
                     values_to_draw[i] = values_to_draw_copy[block_size + i];
-                }
+                block.CopyTo(values_to_draw, x_axis_points - block_size);
 
-                for (int i = 0; i < block_size; i++)
-                {
-                    values_to_draw[x_axis_points - block_size + i] = block[i];
-                }
-
-                //for (int i = 0; i < block_size; i++)
-                //{
-                //    values_to_draw.Dequeue();
-                //    values_to_draw.Enqueue(block[i]);
-                //}
-
-                //for (int i = 0, j = 0; i < block.Length; i++) // skip some values
-                //{
-                //    if (i % buffer.Length / x_axis_points == 0 && j < values_to_draw.Length)
-                //    {
-                //        values_to_draw[j++] = block[i];
-                //    }
-                //    block[i] = 0; // cleaning
-                //}
                 block_counter++;
                 stopwatch.Stop();
                 series_dt = stopwatch.ElapsedMilliseconds;
