@@ -189,14 +189,14 @@ namespace forms_timer_label
 
         private void button4_Click(object sender, EventArgs e)
         {
-            r /= 10;
+            r /= 2;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            r *= 10;
+            r *= 2;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
         }
