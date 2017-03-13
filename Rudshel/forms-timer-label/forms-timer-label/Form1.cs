@@ -32,9 +32,6 @@ namespace forms_timer_label
         Stopwatch stopwatch = new Stopwatch();
         Stopwatch stopwatch2 = new Stopwatch(); // need second stopwatch 'cause they works async
 
-        //Stopwatch stopwatch = Stopwatch.StartNew();
-
-
         public Form1()
         {
             InitializeComponent();
@@ -69,67 +66,24 @@ namespace forms_timer_label
             SayGoodBye(RSH_API.SUCCESS);
         }
 
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-
-            //for (int i = 0; i < buffer_list.Count; i++)
-            //{
-            //    if (i % buffer_list.Count / x_axis_points == 0)
-            //    {
-            //        chart1.Series["Series1"].Points.RemoveAt(0);
-            //        chart1.Series["Series1"].Points.AddY(buffer_list[i]);
-            //    }
-            //}
-
-            //List<double> buffer_list_draw = new List<double>();
-            //for (int i = 0; i < buffer_list.Count; i++)
-            //{
-            //    if (i % buffer_list.Count / x_axis_points == 0)
-            //    {
-            //        buffer_list_draw.Add(buffer_list[i]);
-            //    }
-            //}
-            //chart1.Series["Series1"].Points.DataBindY(buffer_list_draw);
-
-
-
-            //label6.Text = (buffer_list.Count / BSIZE).ToString();
-
-            //if (buffer_list.Count > 0)
-            //{
-            //}
-            //buffer_list.Clear();
-            //buffer_list_draw.Clear();
-        }
-
         private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
         {
-            // DEL THIS?
+            //========================== ИНИЦИАЛИЗАЦИЯ =====================================        
             st = device.EstablishDriverConnection(BOARD_NAME); //загрузка и подключение к библиотеке абстракции устройства
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            //========================== ИНИЦИАЛИЗАЦИЯ =====================================        
-
             st = device.Connect(1); //Подключаемся к устройству. Нумерация начинается с 1.
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
-           
             p.startType = (uint)RshInitMemory.StartTypeBit.Program; //Запуск сбора данных программный. 
             p.bufferSize = BSIZE; //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
             p.frequency = SAMPLE_FREQ;  //Частота дискретизации.
             p.channels[0].control = (uint)RshChannel.ControlBit.Used;  //Сделаем 0-ой канал активным.
             p.channels[0].gain = 10; // //Зададим коэффициент усиления для 0-го канала. [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
+            st = device.Init(p); //Инициализация устройства (передача выбранных параметров сбора данных)
+            if (st != RSH_API.SUCCESS) SayGoodBye(st); //После инициализации неправильные значения в структуре будут откорректированы.
 
-            //Инициализация устройства (передача выбранных параметров сбора данных)
-            //После инициализации неправильные значения в структуре будут откорректированы.
-            st = device.Init(p);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-
-                      
             double[] buffer = new double[p.bufferSize]; //Получаемый из платы буфер.
             //buffer_array = new double[p.bufferSize * buffers_in_series];
-
-
+            
             //Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
             uint waitTime = 100000; // default = 100000
             //uint loopNum = 0;
@@ -150,7 +104,13 @@ namespace forms_timer_label
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
                     device.Stop();
 
-                    values_to_draw[i] = buffer.Average();
+                    //values_to_draw[i] = buffer.Average();
+                    double sum = 0;
+                    for (int k = 0; k < 5; k++) // rough average
+                        sum += buffer[BSIZE / 5 * k] / 5;
+                    values_to_draw[i] = sum;
+
+
                     //if (i  == 0 && j < x_axis_points)
                     //{
                     //    values_to_draw[j++] = buffer[0];
