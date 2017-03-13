@@ -16,19 +16,31 @@ namespace forms_timer_label
 
         //Служебное имя платы, с которой будет работать программа.
         const string BOARD_NAME = "LAn10_12USB";
-        const int SAMPLE_FREQ = 10000000;
-        const int timer_tick_interval = 10;
-        int x_axis_points = 1000;
+
+        //Внутренний объем блока данных.(внутренний буфер) Влияет на количество генерируемых прерываний в единицу времени.
+        const uint BSIZE = 524288;
+        //Фактически, от интенсивности генерируемых прерываний зависит производительность сбора.
+        //Чем меньше прерываний, тем с большей вероятностью данные будут собраны без разрывов на высоких частотах.
+        
         //Размер собираемого блока данных в отсчётах (на канал).
-        //const uint BSIZE = 1048576;
-        const int BSIZE = SAMPLE_FREQ /1000*timer_tick_interval;
+        //const uint BSIZE = 1048576;  //2^20
+        //const int BSIZE = SAMPLE_FREQ / 1000 * timer_tick_interval;
         //const int BSIZE = 65536/2/2;
 
+        //Количество внутренних буферов в конструируемом буфере данных.
+        const uint IBUFCNT = 1;
+
+        //const int SAMPLE_FREQ = 1048576*16;
+        const int timer_tick_interval = 500;
+
+
         //Частота дискретизации. 
-        //const double SAMPLE_FREQ = 1.0e+8;
+        const double SAMPLE_FREQ = 8.0e+7;
         // const int SAMPLE_FREQ = 100000000;  // SAMPLE_FREQ = 1000ms / timer_tick_interval * BSIZE
 
+        int x_axis_points = 500;
 
+        double[] values_to_draw;
         //Создание экземляра класса для работы с устройствами
         Device device = new Device();
 
@@ -38,18 +50,12 @@ namespace forms_timer_label
         //Структура для инициализации параметров работы устройства.  
         RshInitMemory p = new RshInitMemory();
 
-        uint activeChanNumber = 0, serNum = 0;
-        // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
-        uint waitTime = 100000;
         double r = 0.01;
-        int skip_ratio = 1000;
-        //List<double> buffers_storage = Enumerable.Repeat(0.0, BSIZE * 10).ToList();
-        List<double> buffer_list = new List<double>();
+        //List<double> buffer_list = new List<double>();
         int chart_updated_counter = 0;
-        //Буфер с данными в мзр. // TODO: del this
-        //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
-        //Буфер с данными в вольтах.
-        double[] userBufferD = new double[BSIZE];
+        bool getting_data;
+
+        double[] userBufferD;
 
         public Form1()
         {
@@ -65,9 +71,62 @@ namespace forms_timer_label
 
             backgroundWorker1.ProgressChanged += backgroundWorker1_ProgressChanged;
             backgroundWorker1.WorkerReportsProgress = true;
+            backgroundWorker1.WorkerSupportsCancellation = true;
         }
 
         private void button1_Click(object sender, EventArgs e)
+        {
+            values_to_draw = new double[x_axis_points];
+
+
+            getting_data = true;
+            backgroundWorker1.RunWorkerAsync();
+
+            //timer1.Interval = timer_tick_interval;
+            //timer1.Start();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            backgroundWorker1.CancelAsync();
+            getting_data = false;
+            SayGoodBye(RSH_API.SUCCESS);
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+
+            //for (int i = 0; i < buffer_list.Count; i++)
+            //{
+            //    if (i % buffer_list.Count / x_axis_points == 0)
+            //    {
+            //        chart1.Series["Series1"].Points.RemoveAt(0);
+            //        chart1.Series["Series1"].Points.AddY(buffer_list[i]);
+            //    }
+            //}
+
+            //List<double> buffer_list_draw = new List<double>();
+            //for (int i = 0; i < buffer_list.Count; i++)
+            //{
+            //    if (i % buffer_list.Count / x_axis_points == 0)
+            //    {
+            //        buffer_list_draw.Add(buffer_list[i]);
+            //    }
+            //}
+            //chart1.Series["Series1"].Points.DataBindY(buffer_list_draw);
+
+
+
+            //label6.Text = (buffer_list.Count / BSIZE).ToString();
+
+            //if (buffer_list.Count > 0)
+            //{
+            //}
+            //buffer_list.Clear();
+            //buffer_list_draw.Clear();
+        }
+
+        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
         {
             // Some Initialisation Work
 
@@ -123,7 +182,7 @@ namespace forms_timer_label
             //Сделаем 0-ой канал активным.
             p.channels[0].control = (uint)RshChannel.ControlBit.Used;
             //Зададим коэффициент усиления для 0-го канала.
-            p.channels[0].gain = 10; // [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V]
+            p.channels[0].gain = 10; // [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
 
             //Инициализация устройства (передача выбранных параметров сбора данных)
             //После инициализации неправильные значения в структуре будут откорректированы.
@@ -131,7 +190,7 @@ namespace forms_timer_label
             if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
             //=================== ИНФОРМАЦИЯ О ПРЕДСТОЯЩЕМ СБОРЕ ДАННЫХ ====================== 
-
+            uint activeChanNumber = 0, serNum = 0;
             device.Get(RSH_GET.DEVICE_ACTIVE_CHANNELS_NUMBER, ref activeChanNumber);
             device.Get(RSH_GET.DEVICE_NAME_VERBOSE, out libname);
             device.Get(RSH_GET.DEVICE_SERIAL_NUMBER, ref serNum);
@@ -148,115 +207,78 @@ namespace forms_timer_label
 
             Console.WriteLine("\n=============================================================\n");
 
-            backgroundWorker1.RunWorkerAsync();
+            //Буфер с "непрерывными" данными (для записи в файл).            
+            userBufferD = new double[p.bufferSize * activeChanNumber * IBUFCNT];
+
+            //Получаемый из платы буфер.
+            double[] iBuffer = new double[p.bufferSize * activeChanNumber];
 
 
-            timer1.Interval = timer_tick_interval;
-            timer1.Start();
-
-            //timer2.Interval = 100;
-            //timer2.Start();
-
-            //chart1.Series["Series1"].Points.DataBindY(userBufferD);
-
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            SayGoodBye(RSH_API.SUCCESS);
-        }
-
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            for (int i = 0; i < buffer_list.Count; i++)
-            {
-                if (i % 100 == 0)
-                {
-                    chart1.Series["Series1"].Points.RemoveAt(0);
-                    chart1.Series["Series1"].Points.AddY(buffer_list[i]);
-                }
-            }
-            //List<double> buffer_list_draw = new List<double>();
-
-            //for (int i = 0; i < buffer_list.Count; i++)
-            //{
-            //    if (i % 100 == 0)
-            //    {
-            //        buffer_list_draw.Add(buffer_list[i]);
-            //    }
-            //}
-
-            //chart1.Series["Series1"].Points.DataBindY(buffer_list_draw);
-            //for (int i = 0; i < userBufferD.Length; i++)
-            //{
-            //    if (i % 100 == 0)
-            //    {
-            //        chart1.Series["Series1"].Points.RemoveAt(0);
-            //        chart1.Series["Series1"].Points.AddY(userBufferD[i]);
-            //    }
-            //}
-            chart_updated_counter++;
-            label4.Text = chart_updated_counter.ToString();
-            buffer_list.Clear();
-            //buffer_list_draw.Clear();
-        }
+            //Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
+            uint waitTime = 100000; // default = 100000
+            //uint loopNum = 0;
 
 
 
-        //private void timer2_Tick(object sender, EventArgs e)
-        //{
-        //List<double> buffers_storage_copy = new List<double>();
-        //for (int i = 0; i < buffers_storage.Count; i++)
-        //{
-        //    if (i % buffers_storage.Count / x_axis_points == 0) // draw only each 1000th data point (for better performance)
-        //    {
-        //        buffers_storage_copy.Add(buffers_storage[i]);
-        //    }
-        //}
-
-        ////chart1.Series["Series1"].Points.RemoveAt(0);
-        ////chart1.Series["Series1"].Points.AddY(userBufferD[i]);
-        ////chart1.Series["Series1"].Points.DataBindY(userBufferD);
-
-        //buffers_storage.Clear();
-        //buffers_storage_copy.Clear();
-
-        //}
-
-        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
-        {
             int buffer_counter = 0;
-            while (true)
+
+            st = device.Start(); // Запускаем плату на сбор буфера.
+            if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+            while (getting_data)
             {
-                st = device.Start(); // Запускаем плату на сбор буфера.
-                if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-                //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
-
-                if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
+                for (int loop = 0; loop < IBUFCNT; loop++)
                 {
-                    device.Stop(); // TODO: Maybe del this
+                    //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
+                    //Console.WriteLine("now before WAIT_BUFFER_READY_EVENT, loop = {0}", loop);
+
+                    st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
+                    if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                    //Console.WriteLine("succes at wait, loop = {0}", loop);
+
 
                     //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
-                    st = device.GetData(userBufferD);
+                    st = device.GetData(iBuffer);
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
-                    buffer_list.AddRange(userBufferD);
+
+
+                    // Скопируем данные в "непрерывный" буфер.
+                    iBuffer.CopyTo(userBufferD, loop * iBuffer.Length);
+
+                    
+                    //buffer_list.AddRange(userBufferD);
                     //buffers_storage.AddRange(userBufferD);
                 }
+
+                for (int i = 0, j = 0; i < userBufferD.Length; i++) // skip some values
+                {
+                    if (i % userBufferD.Length / x_axis_points == 0)
+                    {
+                        values_to_draw[j++] = userBufferD[i];
+                    }
+                }
+
                 buffer_counter++;
                 backgroundWorker1.ReportProgress(buffer_counter);
             }
+            device.Stop(); // probably should del this (for full persistance)
+
 
         }
 
         private void backgroundWorker1_ProgressChanged(object sender, System.ComponentModel.ProgressChangedEventArgs e)
         {
+            chart1.Series["Series1"].Points.DataBindY(values_to_draw);
+            chart_updated_counter++;
+            label4.Text = chart_updated_counter.ToString();
+            // try update chart here
             label2.Text = e.ProgressPercentage.ToString();
         }
 
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
         {
-            x_axis_points = Convert.ToInt32(numericUpDown1.Value);
+            //x_axis_points = Convert.ToInt32(numericUpDown1.Value);
         }
 
         private void button4_Click(object sender, EventArgs e)
@@ -291,10 +313,11 @@ namespace forms_timer_label
         {
             string errorMessage;
             Device.RshGetErrorDescription(statusCode, out errorMessage, RSH_LANGUAGE.RUSSIAN);
-            Console.WriteLine("\n" + errorMessage);
-            Console.WriteLine("\n" + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
-            Console.WriteLine("\n\nPress any key to end up the program.");
-            //Console.ReadKey();
+            Console.WriteLine(errorMessage + ", " + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
+            //Console.WriteLine("\n" + errorMessage);
+            //Console.WriteLine("\n" + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
+            //Console.WriteLine("\n\nPress any key to end up the program.");
+            //Console.WriteLine("Fatal error (SayGoodBye callback), you're fucked up! Stay cool!");
             return (int)statusCode;
         }
     }
