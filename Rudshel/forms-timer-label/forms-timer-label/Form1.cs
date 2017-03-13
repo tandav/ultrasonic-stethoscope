@@ -17,6 +17,7 @@ namespace forms_timer_label
         const uint   BSIZE          = 524288;                               // буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
         const double SAMPLE_FREQ    = 8.0e+7;                               //Частота дискретизации. 
         const int buffers_in_series = 100;                                   //Количество внутренних буферов в конструируемом буфере данных.
+        const double RATE    = 8.0e+7;                               //Частота дискретизации. 
         int x_axis_points           = 200;
 
         double[] values_to_draw;
@@ -76,6 +77,7 @@ namespace forms_timer_label
             p.startType = (uint)RshInitMemory.StartTypeBit.Program; //Запуск сбора данных программный. 
             p.bufferSize = BSIZE; //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
             p.frequency = SAMPLE_FREQ;  //Частота дискретизации.
+            p.frequency = RATE;  //Частота дискретизации.
             p.channels[0].control = (uint)RshChannel.ControlBit.Used;  //Сделаем 0-ой канал активным.
             p.channels[0].gain = 10; // //Зададим коэффициент усиления для 0-го канала. [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
             st = device.Init(p); //Инициализация устройства (передача выбранных параметров сбора данных)
