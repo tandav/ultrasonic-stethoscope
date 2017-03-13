@@ -17,11 +17,11 @@ namespace forms_timer_label
         const uint   BSIZE          = 524288;                               //буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
         const double RATE           = 8.0e+7;                               //Частота дискретизации. 
         const int block_size        = 10;
-        int x_axis_points           = 30000;
+        int x_axis_points           = 20000;
 
         double[] block; // block of buffers (see pic for explanation)
-        //double[] values_to_draw;
-        Queue<double> values_to_draw; // TODO: try to replace with array
+        double[] values_to_draw;
+        //Queue<double> values_to_draw; // TODO: try to replace with array
         Device device = new Device(); //Создание экземляра класса для работы с устройствами
         RSH_API st; //Код выполнения операции.
         RshInitMemory p = new RshInitMemory(); //Структура для инициализации параметров работы устройства. 
@@ -52,9 +52,9 @@ namespace forms_timer_label
 
         private void button1_Click(object sender, EventArgs e)
         {
-            //values_to_draw = new double[x_axis_points];
+            values_to_draw = new double[x_axis_points];
             
-            values_to_draw = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill with zeros
+            //values_to_draw = new Queue<double>(Enumerable.Repeat(0.0, x_axis_points).ToList()); // fill with zeros
 
             getting_data = true;
             backgroundWorker1.RunWorkerAsync();
@@ -120,11 +120,23 @@ namespace forms_timer_label
                     //buffer.CopyTo(block, i * buffer.Length);
                 }
 
+                double[] values_to_draw_copy = (double[])values_to_draw.Clone();
+
+                for (int i = 0; i < x_axis_points - block_size; i++)
+                {
+                    values_to_draw[i] = values_to_draw_copy[block_size + i];
+                }
+
                 for (int i = 0; i < block_size; i++)
                 {
-                    values_to_draw.Dequeue();
-                    values_to_draw.Enqueue(block[i]);
+                    values_to_draw[x_axis_points - block_size + i] = block[i];
                 }
+
+                //for (int i = 0; i < block_size; i++)
+                //{
+                //    values_to_draw.Dequeue();
+                //    values_to_draw.Enqueue(block[i]);
+                //}
 
                 //for (int i = 0, j = 0; i < block.Length; i++) // skip some values
                 //{
