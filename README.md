@@ -1,8 +1,13 @@
-﻿# Ultrasonic Stethoscope
+# Ultrasonic Stethoscope
 This repo contains software for Ultrasonic Stethoscope. It allows to get data from lower ultrasonic range (20-40kHz) for medical analysis.
 
-Overview:
+## Overview:
+1. Input Signal
+2. Ultrasonic mic
+3. Amplifier
+4. ADC
+5. Capturing data from ADC
+6. Data processing, CUDA calculations
+7. charts output
 
-`Ultrasonic mic -> Amplifier -> ADC -> Software capturing data from ADC -> Data processing, CUDA calculations, charts output`
-
-[Development on workflowy)](https://workflowy.com/s/FP-f.q8PimCH5Z4)
+[Development on workflowy](https://workflowy.com/s/FP-f.q8PimCH5Z4)
