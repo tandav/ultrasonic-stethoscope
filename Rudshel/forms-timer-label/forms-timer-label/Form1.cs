@@ -15,11 +15,13 @@ namespace forms_timer_label
         const string BOARD_NAME     = "LAn10_12USB"; //Служебное имя платы, с которой будет работать программа.
         const uint   BSIZE          = 524288;        //буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
         const double RATE           = 8.0e+7;        //Частота дискретизации. 
-        const int    block_size     = 1000;
-        int          x_axis_points  = 20000;
-        int          buffer_data    = 100;             // how many values from the buffer go to block (and then to chart)  // maybe rename to sth like chunk?                   
+        //const int    block_size     = 5000;          // should be more than r_buffer_size
+        const int r_buffers_in_block  = 5;  // number of reduced buffers in block
+        int          x_axis_points  = 15000;
+        int          r_buffer_size   = 50;          //(reduced buffer lenght) how many values from the buffer go to block (and then to chart)  // maybe rename to sth like chunk?                   
+                                                     //int          blocks_to_draw = 3; //how many blocks are sent to values_to_draw (to chart) 
 
-        double[] block; // block of buffers (see pic for explanation)
+        double[] block;
         double[] values_to_draw;
         Device device = new Device(); //Создание экземляра класса для работы с устройствами
         RSH_API st; //Код выполнения операции.
@@ -29,7 +31,6 @@ namespace forms_timer_label
         long series_dt = 0;
         Stopwatch stopwatch = new Stopwatch();
         Stopwatch stopwatch2 = new Stopwatch(); // need second stopwatch 'cause they works async
-        // const string FILEPATH       = "C:\\Users\\tandav\\Desktop\\data\\"; //Путь к каталогу, в который будет произведена запись данных.
 
         public Form1()
         {
@@ -91,34 +92,41 @@ namespace forms_timer_label
             st = device.Init(p); //Инициализация устройства (передача выбранных параметров сбора данных)
             if (st != RSH_API.SUCCESS) SayGoodBye(st); //После инициализации неправильные значения в структуре будут откорректированы.
 
-            double[] buffer = new double[p.bufferSize]; //Получаемый из платы буфер.
-            block = new double[block_size];
-            
+         double[] buffer = new double[p.bufferSize]; //Получаемый из платы буфер.
+            //block = new double[block_size];
+            block = new double[r_buffer_size * r_buffers_in_block];  // block of buffers (see pic for explanation)
+
+
             uint waitTime = 100000; // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера.  // default = 100000
             int block_counter = 0; // counts the series of buffer arrays
 
             while (getting_data)
             {
                 stopwatch.Restart();
-                st = device.Start(); // Запускаем плату на сбор буфера.
+                st = device.Start(); // Запускаем плату на сбор буфера. по идее нужно для каждого буффера start-stop (в цикле for) Но вроде и так работает и так быстрее намного. (Типа старт за циклом, стоп - внутри for; оба за циклом - не работуют)
                 if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-                for (int i = 0; i <= block_size - buffer_data; i += buffer_data) // Series of buffers
+                for (int i = 0; i < r_buffers_in_block; i++) // Series of buffers
                 {
-                    st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
-                    if (st != RSH_API.SUCCESS) SayGoodBye(st);
 
-                    st = device.GetData(buffer); // very big amount of data
+                    st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
                     if (st != RSH_API.SUCCESS) SayGoodBye(st);
                     device.Stop();
 
-                    reduce(buffer, buffer_data).CopyTo(block, i);
+                    st = device.GetData(buffer); // very big amount of data
+                    if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                    // reducing buffer and writing it to block
+                    for (int j = 0; j < r_buffer_size; j++)
+                        block[i * r_buffer_size + j] = buffer[BSIZE / r_buffer_size * j];
+                    //Console.WriteLine(i + "\t" +stopwatch.ElapsedMilliseconds);
                 }
 
-                double[] values_to_draw_copy = (double[])values_to_draw.Clone(); // Queue Dequeue and Enqueue implementation with arrays
-                for (int i = 0; i < x_axis_points - block_size; i++) 
-                    values_to_draw[i] = values_to_draw_copy[block_size + i];
-                block.CopyTo(values_to_draw, x_axis_points - block_size);
+                // Queue Dequeue and Enqueue implementation with arrays
+                double[] values_to_draw_copy = (double[])values_to_draw.Clone(); 
+                for (int i = 0; i < x_axis_points - block.Length; i++) 
+                    values_to_draw[i] = values_to_draw_copy[block.Length + i];
+                block.CopyTo(values_to_draw, x_axis_points - block.Length);
 
                 block_counter++;
                 stopwatch.Stop();
@@ -131,11 +139,12 @@ namespace forms_timer_label
         {
             stopwatch2.Restart();
             Console.Write("Get-data time:\t" + series_dt + "ms\t\t");
+
             chart1.Series[0].Points.DataBindY(values_to_draw);
+
             label2.Text = e.ProgressPercentage.ToString();
             stopwatch2.Stop();
             Console.Write("Redraw and log time:\t" + stopwatch.ElapsedMilliseconds + "ms\n");
-
 
             // try update chart here
             //label4.Text = stopwatch.ElapsedMilliseconds.ToString();
