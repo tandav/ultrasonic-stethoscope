@@ -6,231 +6,145 @@ using System.IO;
 using RshCSharpWrapper;
 using RshCSharpWrapper.RshDevice;
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace forms_timer_label
 {
     public partial class Form1 : Form
     {
-        //Путь к каталогу, в который будет произведена запись данных.
-        const string FILEPATH = "C:\\Users\\tandav\\Desktop\\data\\";
+        const string BOARD_NAME         = "LAn10_12USB";
+        const uint   BSIZE              = 524288;        //буфер, количество значений, собираемых за раз. Чем реже обращаешься тем лучше (чем больше буффер)
+        const double RATE               = 8.0e+7;
+        const int    buffers_per_x_axis = 20;
+        const int    r_buffers_in_block = 5;  // number of reduced buffers in block
+        const int    x_axis_points      = 21000;
+        int          r_buffer_size      = x_axis_points / buffers_per_x_axis;          
 
-        //Служебное имя платы, с которой будет работать программа.
-        const string BOARD_NAME = "LAn10_12USB";
-
-        int timer_tick_interval = 1;
-
-        //Размер собираемого блока данных в отсчётах (на канал).
-        //const uint BSIZE = 1048576;
-        const int BSIZE = 10000;
-        //const int BSIZE = 65536/2/2;
-
-        //Частота дискретизации. 
-        //const double SAMPLE_FREQ = 1.0e+8;
-        const int SAMPLE_FREQ = 10000000;  // SAMPLE_FREQ = 1000ms / timer_tick_interval * BSIZE
-
-
-        //Создание экземляра класса для работы с устройствами
-        Device device = new Device();
-
-        //Код выполнения операции.
-        RSH_API st;
-
-        //Структура для инициализации параметров работы устройства.  
-        RshInitMemory p = new RshInitMemory();
-
-        uint activeChanNumber = 0, serNum = 0;
-
-        List<double> adcQ; //
-        //List<double> reduced_buffer;
-        List<double> moving_average = new List<double>(); // list with moving average values
-        int mov_avg_window_size = 10000;
-        int mov_avg_shift = 5000;
-        List<double> prev_curr_buffer = Enumerable.Repeat(0.0, BSIZE * 2).ToList(); // buffer to store prev and curr buffer values filled with 0s
-        //int reduce_ratio = 8;
-        Random random = new Random();
-        double[] rand_array = new double[BSIZE];
-        // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера. 
-        uint waitTime = 100000;
-        uint loopNum = 0;
-        double r = 0.01;
-
-
-        //Буфер с данными в мзр. // TODO: del this
-        //short[] userBuffer = new short[p.bufferSize * activeChanNumber];
-        //Буфер с данными в вольтах.
-        double[] userBufferD = new double[BSIZE];
+        double[] block;
+        double[] values_to_draw;
+        Device device = new Device(); //Создание экземляра класса для работы с устройствами
+        RSH_API st; //Код выполнения операции.
+        RshInitMemory p = new RshInitMemory(); //Структура для инициализации параметров работы устройства. 
+        double r = 0.01; // chart Y-axis bounds
+        bool getting_data;
+        Stopwatch stopwatch = new Stopwatch();
+        Stopwatch stopwatch2 = new Stopwatch(); // need second stopwatch 'cause they works async
 
         public Form1()
         {
             InitializeComponent();
-            numericUpDown1.Value = mov_avg_shift;
+            numericUpDown1.Value = x_axis_points;
+            values_to_draw = new double[x_axis_points];
+            
 
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
-            for (int i = 0; i < 10000; i++)
+            
+            for (int i = 0; i < x_axis_points; i++)
             {
                 chart1.Series["Series1"].Points.AddY(0);
             }
 
+            backgroundWorker1.WorkerSupportsCancellation = true;
         }
-
- 
 
         private void button1_Click(object sender, EventArgs e)
         {
-            // Some Initialisation Work
-
-            //загрузка и подключение к библиотеке абстракции устройства
-            st = device.EstablishDriverConnection(BOARD_NAME);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            Console.WriteLine("\n--> Start-Stop data acquisition mode <--\n\n");
-
-            //=================== ИНФОРМАЦИЯ О ЗАГРУЖЕННОЙ БИБЛИОТЕКЕ ====================== 
-            string libVersion, libname, libCoreVersion, libCoreName;
-
-            st = device.Get(RSH_GET.LIBRARY_VERSION_STR, out libVersion);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            st = device.Get(RSH_GET.CORELIB_VERSION_STR, out libCoreVersion);
-            st = device.Get(RSH_GET.CORELIB_FILENAME, out libCoreName);
-            st = device.Get(RSH_GET.LIBRARY_FILENAME, out libname);
-
-            Console.WriteLine("Library Name: {0:d}", libname);
-            Console.WriteLine("Library Version: {0:d}", libVersion);
-            Console.WriteLine("\nCore Library Name: {0:d}", libCoreName);
-            Console.WriteLine("Core Library Version: {0:d}", libCoreVersion);
-
-            //===================== ПРОВЕРКА СОВМЕСТИМОСТИ =================================  
-
-            uint caps = (uint)RSH_CAPS.SOFT_GATHERING_IS_AVAILABLE;
-            // Проверим, поддерживает ли плата функцию сбора данных в режиме "Старт-Стоп".
-            st = device.Get(RSH_GET.DEVICE_IS_CAPABLE, ref caps);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            //========================== ИНИЦИАЛИЗАЦИЯ =====================================        
-
-            //Подключаемся к устройству. Нумерация начинается с 1.
-            st = device.Connect(1);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            /*
-            Можно подключиться к устройству по заводскому номеру.
-            uint serialNumber = 11111;
-            st = device.Connect(serialNumber, RSH_CONNECT_MODE.SERIAL_NUMBER);
-            if (st != RSH_API.SUCCESS) return SayGoodBye(st);
-            */
-
-
-            //Запуск сбора данных программный. 
-            p.startType = (uint)RshInitMemory.StartTypeBit.Program;
-            //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
-            p.bufferSize = BSIZE;
-            //Частота дискретизации.
-            p.frequency = SAMPLE_FREQ;
-
-            //Сделаем 0-ой канал активным.
-            p.channels[0].control = (uint)RshChannel.ControlBit.Used;
-            //Зададим коэффициент усиления для 0-го канала.
-            p.channels[0].gain = 10; // [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V]
-
-            //Инициализация устройства (передача выбранных параметров сбора данных)
-            //После инициализации неправильные значения в структуре будут откорректированы.
-            st = device.Init(p);
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-            //=================== ИНФОРМАЦИЯ О ПРЕДСТОЯЩЕМ СБОРЕ ДАННЫХ ====================== 
-
-            device.Get(RSH_GET.DEVICE_ACTIVE_CHANNELS_NUMBER, ref activeChanNumber);
-            device.Get(RSH_GET.DEVICE_NAME_VERBOSE, out libname);
-            device.Get(RSH_GET.DEVICE_SERIAL_NUMBER, ref serNum);
-
-            Console.WriteLine(
-                "\nThe name of the connected device: {0} " +
-                "\nSerial number of the connected device: {1:d} " +
-                "\nData to be collected: {2:d} samples " +
-                "\nADC frequency: {3:f} Hz " +
-                "\nThe number of active channels: {4:d} " +
-                "\nThe estimated time of gathering completion: {5:f} seconds",
-                libname, serNum, p.bufferSize, p.frequency, activeChanNumber, (p.bufferSize / p.frequency));
-
-
-            Console.WriteLine("\n=============================================================\n");
-
-
-            timer1.Interval = timer_tick_interval;
-            timer1.Start();
-
-            //chart1.Series["Series1"].Points.DataBindY(userBufferD);
+            if (button1.Text == "Start")
+            {
+                getting_data = true;
+                button1.Text = "Stop";
+                button1.BackColor = System.Drawing.Color.Tomato;
+                backgroundWorker1.RunWorkerAsync();
+                timer1.Interval = 100;
+                timer1.Start();
+            }
+            else
+            {
+                backgroundWorker1.CancelAsync();
+                getting_data = false;
+                SayGoodBye(RSH_API.SUCCESS);
+                button1.Text = "Start";
+                button1.BackColor = System.Drawing.Color.PaleGreen;
+            }
 
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
+            backgroundWorker1.CancelAsync();
+            getting_data = false;
             SayGoodBye(RSH_API.SUCCESS);
         }
 
-        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
+        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
         {
-            mov_avg_shift = Convert.ToInt32(numericUpDown1.Value);
-        }
+            //========================== ИНИЦИАЛИЗАЦИЯ =====================================        
+            st = device.EstablishDriverConnection(BOARD_NAME); //загрузка и подключение к библиотеке абстракции устройства
+            if (st != RSH_API.SUCCESS) SayGoodBye(st);
+            st  = device.Connect(1); //Подключаемся к устройству. Нумерация начинается с 1.
+            if (st != RSH_API.SUCCESS) SayGoodBye(st);
+            p.startType           = (uint)RshInitMemory.StartTypeBit.Program; //Запуск сбора данных программный. 
+            p.bufferSize          = BSIZE; //Размер внутреннего блока данных, по готовности которого произойдёт прерывание.
+            p.frequency           = RATE;  //Частота дискретизации.
+            p.channels[0].control = (uint)RshChannel.ControlBit.Used;  //Сделаем 0-ой канал активным.
+            p.channels[0].gain    = 10; // коэффициент усиления для 0-го канала. [1, 2, 5, 10] ~ [+-0.2V, +- 0.4V, +-1V, +- 2V] // probably inversed
+            st = device.Init(p); //Инициализация устройства (передача выбранных параметров сбора данных)
+            if (st != RSH_API.SUCCESS) SayGoodBye(st); //После инициализации неправильные значения в структуре будут откорректированы.
 
-        public static int SayGoodBye(RSH_API statusCode)
-        {
-            string errorMessage;
-            Device.RshGetErrorDescription(statusCode, out errorMessage, RSH_LANGUAGE.RUSSIAN);
-            Console.WriteLine("\n" + errorMessage);
-            Console.WriteLine("\n" + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
-            Console.WriteLine("\n\nPress any key to end up the program.");
-            //Console.ReadKey();
-            return (int)statusCode;
+         double[] buffer = new double[p.bufferSize]; //Получаемый из платы буфер.
+            uint waitTime = 100000; // Время ожидания(в миллисекундах) до наступления прерывания. Прерывание произойдет при полном заполнении буфера.  // default = 100000
+            while (getting_data)
+            {
+                stopwatch.Restart();
+
+                st = device.Start(); // Запускаем плату на сбор буфера. по идее нужно для каждого буффера start-stop (в цикле for) Но вроде и так работает и так быстрее намного. (Типа старт за циклом, стоп - внутри for; оба за циклом - не работуют)
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime);
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                st = device.GetData(buffer); // very big amount of data
+                if (st != RSH_API.SUCCESS) SayGoodBye(st);
+
+                device.Stop();
+
+                // Queue Dequeue and Enqueue implementation with arrays
+                double[] values_to_draw_copy = (double[])values_to_draw.Clone();
+                for (int i = 0; i < x_axis_points - r_buffer_size; i++) 
+                    values_to_draw[i] = values_to_draw_copy[r_buffer_size + i];
+
+                for (int i = 0; i < r_buffer_size; i++)
+                    values_to_draw[x_axis_points - r_buffer_size + i] = buffer[BSIZE / r_buffer_size * i];
+
+                stopwatch.Stop();
+                Console.WriteLine("GetData() time:\t" + stopwatch.ElapsedMilliseconds + "ms");
+            }
         }
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            st = device.Start(); // Запускаем плату на сбор буфера.
-            if (st != RSH_API.SUCCESS) SayGoodBye(st);
+            stopwatch2.Restart();
+            chart1.Series[0].Points.DataBindY(values_to_draw);
+            stopwatch2.Stop();
+            Console.WriteLine("Redraw time:\t\t" + stopwatch2.ElapsedMilliseconds + "ms");
+        }
 
-            //Console.WriteLine("\n--> Collecting buffer...\n", BOARD_NAME);
-
-            if ((st = device.Get(RSH_GET.WAIT_BUFFER_READY_EVENT, ref waitTime)) == RSH_API.SUCCESS)    // Ожидаем готовность буфера.
-            {
-                //Console.WriteLine("\nInterrupt has taken place!\nWhich means that onboard buffer had filled completely.");
-
-                device.Stop(); // TODO: Maybe del this
-
-
-
-                //Получаем буфер с данными. // TODO: del this
-                //st = device.GetData(userBuffer);
-                //if (st != RSH_API.SUCCESS) SayGoodBye(st);
-
-                //Получаем буфер с данными. В этом буфере будут те же самые данные, но преобразованные в вольты.
-                st = device.GetData(userBufferD);
-                if (st != RSH_API.SUCCESS) SayGoodBye(st);
-                //chart1.Series["Series1"].Points.DataBindY(userBufferD);
-                for (int i = 0; i < userBufferD.Length; i++)
-                {
-                    if (i % 10 == 0) // draw only each 1000th data point (for better performance)
-                    {
-                        chart1.Series["Series1"].Points.RemoveAt(0);
-                        //chart1.Series["Series1"].Points.RemoveAt(0);
-                        chart1.Series["Series1"].Points.AddY(userBufferD[i]);
-                    }
-                }
-            }
+        private void numericUpDown1_ValueChanged(object sender, EventArgs e)
+        {
+            //x_axis_points = Convert.ToInt32(numericUpDown1.Value);
         }
 
         private void button4_Click(object sender, EventArgs e)
         {
-            r /= 10;
+            r /= 2;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            r *= 10;
+            r *= 2;
             chart1.ChartAreas[0].AxisY.Minimum = -r;
             chart1.ChartAreas[0].AxisY.Maximum = r;
         }
@@ -247,6 +161,18 @@ namespace forms_timer_label
                     }
                 }
             }
+        }
+
+        public static int SayGoodBye(RSH_API statusCode)
+        {
+            string errorMessage;
+            Device.RshGetErrorDescription(statusCode, out errorMessage, RSH_LANGUAGE.RUSSIAN);
+            Console.WriteLine(errorMessage + ", " + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
+            //Console.WriteLine("\n" + errorMessage);
+            //Console.WriteLine("\n" + statusCode.ToString() + " ( 0x{0:x} ) ", (uint)statusCode);
+            //Console.WriteLine("\n\nPress any key to end up the program.");
+            //Console.WriteLine("Fatal error (SayGoodBye callback), you're fucked up! Stay cool!");
+            return (int)statusCode;
         }
     }
 }
