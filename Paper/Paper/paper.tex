@@ -39,6 +39,7 @@
 \usepackage{float}
 \usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage[colorinlistoftodos]{todonotes}
 \renewcommand{\baselinestretch}{1.5}
 \usepackage[left=3cm,right=1cm,top=1.5cm,bottom=2cm]{geometry}
@@ -152,7 +153,6 @@
 
 \begin{table}[h]
 \centering
-\caption{Технические характеристики SWEN MK-200}
 \label{my-label}
 \begin{tabular}{|l|l|}
 \hline
@@ -163,6 +163,7 @@
 Длина кабеля, м                & 1,8                        \\ \hline
 Вес, г                         & 63                         \\ \hline
 \end{tabular}
+\caption{Технические характеристики SWEN MK-200}
 \end{table}
 
 Микрофон был вынут из стандартного корпуса, чтобы лучше соединиться с трубкой, ведущей к мембране.
@@ -178,15 +179,91 @@
 \caption{Схема усилителя сигнала}
 \end{figure}
 
+В качестве операционного усилителя был выбран \textbf{MCP6022} от производителя Microchip. Это усилитель типа Rail-to-Rail SO-8.
+
+SOIC или просто SO (small-outline-integrated-circuit), а также SOP (Small-Outline Package) корпус микросхем, предназначенный для поверхностного монтажа, занимающий на печатной плате на 30-50\% меньше площади чем аналогичный корпус DIP, а также имеющий на 50-70\% меньшую толщину. Обычно в обозначении также указывается число выводов.
+
+В данный усилитель встроены High-Pass и Low-Pass фильтры. High-Pass фильтрует частоты сигнала меньше 1Гц. Low-Pass фильтрует частоты выше 100кГц. Меняя конденсатор С3, можно менять частоту среза LowPass фильтра. Усиление схемы зависит от резисторов R3 и R4. На текущий момент усиление составляет порядка 100.
+
+Ниже приводятся параметры операционного усилителя.
+
+\begin{table}[h]
+\centering
+\label{my-label}
+\begin{tabular}{|l|l|}
+\hline
+Полоса частот                  & 10МГц                      \\ \hline
+Уровень шума    			   & 8.7 нВ/√Гц                 \\ \hline
+Количество каналов             & 2                          \\ \hline
+Напряжение питания             & 2.5В --- 5.5В              \\ \hline
+Напряжение смещения            & $\pm500\mu V $             \\ \hline
+Гармонические искажения        & 0.00053\%                  \\ \hline
+Температурный диапазон         & -40°C --- +85°C            \\ \hline
+Тип корпуса                    & SO-8                       \\ \hline
+\end{tabular}
+\caption{Технические характеристики операционного усилителя MCP6022}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=12cm]{op-amp.png}
+\caption{Распиновка операционного усилителя}
+\end{figure}
+
+
+\begin{figure}[H]
+\begin{subfigure}{0.5\textwidth}
+\includegraphics[width=0.9\linewidth, height=5cm]{op-amp-plot1.png} 
+\caption{Напряжение смещения --- Температура}
+% \label{fig:subim1}
+\end{subfigure}
+\begin{subfigure}{0.5\textwidth}
+\includegraphics[width=0.9\linewidth, height=5cm]{op-amp-plot2.png}
+\caption{Шум --- Частота}
+% \label{fig:subim2}
+\end{subfigure}
+
+\vspace{10mm} % vertical space
+ 
+\begin{subfigure}{0.5\textwidth}
+\includegraphics[width=0.9\linewidth, height=5cm]{op-amp-plot3.png} 
+\caption{Шум - Напряжение смещения}
+% \label{fig:subim1}
+\end{subfigure}
+\begin{subfigure}{0.5\textwidth}
+\includegraphics[width=0.9\linewidth, height=5cm]{op-amp-plot4.png}
+\caption{CMRR --- Частота}
+% \label{fig:subim2}
+\end{subfigure}
+
+\vspace{10mm} %vertical space
+
+\begin{subfigure}{0.5\textwidth}
+\includegraphics[width=0.9\linewidth, height=5cm]{op-amp-plot5.png} 
+\caption{Коэффициент усиления - Частота}
+% \label{fig:subim1}
+\end{subfigure}
+\begin{subfigure}{0.5\textwidth}
+\includegraphics[width=0.9\linewidth, height=5cm]{op-amp-plot6.png}
+\caption{\small{Гармонические искажения --- Вых. напряжение (f=20кГц)}}
+% \label{fig:subim2}
+\end{subfigure}
+
+\caption{Параметры операционного усилителя}
+\label{fig:image2}
+\end{figure}
+
+Разработка платы усилителя велась в программе Sprint Layout. 
+
+\begin{figure}[H]
+\centering
+% \includegraphics[width=14cm]{sprint-layout-circuit.png}
+\includegraphics[width=\textwidth]{sprint-layout-circuit.png}
+\caption{Схема физической платы усилителя}
+\end{figure}
+
+Схема изготавливалась при помощи печати на лазерном принтере методом травления текстолита. 
 \subsubsection{АЦП}
-
-% % Commands to include a figure:
-% \begin{figure}
-% \centering
-% \includegraphics[width=0.5\textwidth]{frog.jpg}
-% \caption{\label{fig:frog}This is a figure caption.}
-% \end{figure}
-
 \newpage
 \section{Описание компьютерной программы}
 \subsection{О программе}
@@ -258,6 +335,14 @@ animation = FuncAnimation(fig, update, interval=10)
 Чтобы построить апроксимированный многочленом спектр Фурье, выполняется функция \verb|lpc_spectrum|.
 
 \section{Заключение}
+Поставленная цель была достигнута, создан рабочий прототип прибора. Можно ставить на поток. 
+
+Какие минусы / что подправить. 
+
+Разработка проекта велась с помощью системы контроля версий git. Весь код для проекта, этапы создания и документация доступны по адресу https://github.com/tandav/ultrasonic-stethoscope
+
+Тут пожестче расписать про гитхаб, что там где че, куда жать, issues, wiki, etc. Зачем это итд. 
+
 \newpage
 
 \begin{thebibliography}{9}
