@@ -36,22 +36,20 @@
 % \usepackage[english]{babel}
 \usepackage[russian]{babel}
 \usepackage[utf8x]{inputenc}
+\usepackage{float}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage[colorinlistoftodos]{todonotes}
-\usepackage{geometry}
 \renewcommand{\baselinestretch}{1.5}
-\geometry{
-a4paper,
-total={170mm,257mm},
-left=20mm,
-top=20mm,
-}
+\usepackage[left=3cm,right=1cm,top=1.5cm,bottom=2cm]{geometry}
+\setlength{\parindent}{0mm}
+\setlength{\parskip}{1em}
+
 \begin{document}
 
-
 \begin{titlepage}
-\newgeometry{margin=2cm}
+
+% \newgeometry{margin=2cm}
 \newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
 
 \center % Center everything on the page
@@ -118,7 +116,7 @@ top=20mm,
 В ходе дипломной работы был создан рабочий прототип прибора. Прибор позволяет получать сигнал от ультразвукового микрофона. Также было написано програмное обеспечение к этому прибору. Програмное обеспечение позволяет позволяет записывать и анализировать звуковые сигналы в реальном времени. Есть возможность рассмотреть различные характеристики сигнала, такие как спектр Фурье, скользящее среднее. Также есть возможность записывать аудиосигнал на жесткий диск для его последующей обработки.
 
 \subsection{Применение прибора на практике}
-Может юзаться в медицине: легкие, 
+Может юзаться в медицине: легкие, сердце.
 
 Данный прибор может использоваться в медицине для получения и анализа сигнала высокого качества. Например звук сердца и лёгких. 
 
@@ -130,25 +128,26 @@ top=20mm,
 
 Сердечно-сосудистые заболевания - самая распространенная причина смерти в мире по данным Всемирной Организации Здравоохранения (ВОЗ). Также распространенными являются заболевания легких. Своевременное наблюдение за состоянием сердца и легких, и обнаружение заболеваний - важная задача здравоохранения.
 
-\newpage 
-\section{Цель работы}
-
-Целью данной курсовой работы является создание доступного и простого в производстве цифрового стетоскопа способного организовать прослушивание легких и сердца человека. Данный цифровой стетоскоп работает в паре с компьютерной программой. Программа позволяет просматривать аудиосигнал в визуальном виде. Также можно увидеть спектр данного сигнала, полученный с помощью преобразования Фурье аудиосигнала со стетоскопа.
-
-Это устройство поможет лучше анализировать звук сердца. С помошью визуализации сигнала можно получить больше информации о звуке внутренних органов, чем простое прослушивание.
-\newpage 
+\newpage  
 \section{Описание устройства}
-Устройство состоит из нескольких частей соединенных между собой. От аналогового стетоскопа берется мембрана и соединительная трубка. С одной стороны к соединительной трубке подсоединяется мембрана, с другой - микрофон. Сигнал с микрофона подается на усилитель. С усилителя сигнал подается на Аналогово-Цифровой-Преобразователь (АЦП). Аналогово-Цифровой-Преобразователь подключается к компьютеру через USB-порт.
+Устройство состоит из нескольких частей, соединенных между собой. От аналогового стетоскопа берется мембрана и соединительная трубка. С одной стороны к соединительной трубке подсоединяется мембрана, с другой - микрофон. Сигнал с микрофона подается на усилитель. С усилителя сигнал подается на Аналогово-Цифровой-Преобразователь (АЦП). Аналогово-Цифровой-Преобразователь подключается к компьютеру через USB-порт.
+
+Мембрана и трубка присоединяется к микрофону для подавления шумов и лучшей передачи звука от сердца/легких. Также усилитель в свою очередь подключается к блоку питания.
 
 \begin{center}
-Краткая схема прибора: \\[0.4cm]
-
-\noindent\scriptsize{{Мембрана → Соединительная Трубка → Микрофон → Усилитель → АЦП → Компьютер}}
+Краткая схема прибора:\\
+\noindent\small{{Мембрана → Соединительная Трубка → Микрофон → Усилитель → АЦП → Компьютер}}
 \end{center}
-\label{sec:examples}
 
-\subsection{Выбранный микрофон}
+% Commands to include a figure:
+\begin{figure}[H]
+\centering
+\includegraphics[width=14cm]{hardware.png}
+\caption{Собранный прототип}
+\end{figure}
 
+\subsection{Технические характеристики деталей стетоскопа}
+\subsubsection{Микрофон}
 В качестве микрофона был выбран SWEN MK-200. \\
 
 \begin{table}[h]
@@ -166,14 +165,20 @@ top=20mm,
 \end{tabular}
 \end{table}
 
-\subsection{Выбранный Усилитель}
+Микрофон был вынут из стандартного корпуса, чтобы лучше соединиться с трубкой, ведущей к мембране.
 
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+\subsubsection{Усилитель}
+Усилитель для микрофона был создан самостоятельно в рамках данной работы.
 
-\subsection{Выбранный АЦП}
+Была выбрана следующая схема усилителя:
 
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+\begin{figure}[H]
+\centering
+\includegraphics[width=14cm]{circuit.jpg}
+\caption{Схема усилителя сигнала}
+\end{figure}
 
+\subsubsection{АЦП}
 
 % % Commands to include a figure:
 % \begin{figure}
@@ -181,7 +186,6 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 % \includegraphics[width=0.5\textwidth]{frog.jpg}
 % \caption{\label{fig:frog}This is a figure caption.}
 % \end{figure}
-
 
 \newpage
 \section{Описание компьютерной программы}
