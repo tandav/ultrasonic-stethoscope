@@ -125,7 +125,6 @@ thread.start()
 # samples and plot them.
 def update():
     global plt, thread
-    # t,v,r = thread.get(1000*1024, downsample=100)
     t,v,r = thread.get(1000*1024, downsample=1)
     plt.plot(t, v, clear=True)
     plt.setTitle('Sample Rate: %0.2f'%r)
