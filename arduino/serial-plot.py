@@ -9,22 +9,29 @@ import threading
 
 
 buffer = []
-
+flag = False
 
 #init serial device
 try:
-    ser = serial.Serial('/dev/cu.usbmodem1421', 250000)
+    ser = serial.Serial('/dev/cu.usbmodem1411', 9600)
 except Exception as e:
     print("Can't connect to serial port")
 
 
 def gather_data():
     global buffer
+    global flag
+
     while True:
-        # c.acquire()
+        if flag:
+            pass
+            # buffer = [-1.0]
+            # flag = False
+            # print(flag)
         try:
             # bytesToRead = ser.inWaiting()
             # raw_bytes = ser.read(bytesToRead)
+
             raw_bytes = ser.read_all()
             
             if len(raw_bytes) > 1:
@@ -36,12 +43,12 @@ def gather_data():
                     except Exception as e:
                         pass
                         # print("float conversion error:", e)
-                print(len(buffer))
-                print("----------------")
+                # print(len(buffer)) 
+                # print("----------------")
         except Exception as e:
             # pass
             # print(e)
-            print("Serial readline() error:", e)
+            print("Serial read error:", e)
 
 
 
@@ -66,9 +73,6 @@ line, = ax.plot(np.linspace(0, 2, x_axis_points), y, lw=2)
 
 
 
-
-
-
 # # initialization function: plot the background of each frame
 # def init():
 #     line.set_data(np.linspace(0, 2, 10000), np.linspace(0, 2, 10000))
@@ -78,22 +82,30 @@ line, = ax.plot(np.linspace(0, 2, x_axis_points), y, lw=2)
 def animate(i):
     global y
     global buffer
-    x = np.linspace(0, 2, x_axis_points)
-    y = np.sin(2 * np.pi * (x - 0.01 * i))
-    # y = y[len(buffer):]
-    # np.append(y, buffer)
-    # buffer = []
+    global flag
+    c.acquire()
+    # print("START")
 
+    x = np.linspace(0, 2, x_axis_points)
+    # y = np.sin(2 * np.pi * (x - 0.01 * i))
+    # print(len(y))
+    y = y[len(buffer):]
+    # print(len(y))
+    y = np.append(y, buffer)
+    # buffer = np.zeros(100)
+    buffer = []
+    flag = True
+    # print("*********")
+    # print(len(x), len(y))
+    # print("*********")
+    c.notify_all()  
+    # print("end")
+    c.release()
     line.set_data(x, y)
     return line,
 
 # call the animator.  blit=True means only re-draw the parts that have changed.
-anim = animation.FuncAnimation(fig, animate, frames=200, interval=20, blit=True)
+anim = animation.FuncAnimation(fig, animate, frames=200, interval=10, blit=True)
 # anim = animation.FuncAnimation(fig, animate, init_func=init, frames=200, interval=20, blit=True)
 
 plt.show()
-
-# while True:
-    # bytesToRead = ser.inWaiting()
-    # print(ser.read(bytesToRead))
-    # print(ser.readline())
