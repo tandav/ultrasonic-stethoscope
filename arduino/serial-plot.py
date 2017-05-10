@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use('TKAgg')
 from matplotlib import pyplot as plt
 from matplotlib import animation
-
+import threading
 
 
 buffer = []
@@ -21,6 +21,7 @@ except Exception as e:
 def gather_data():
     global buffer
     while True:
+        # c.acquire()
         try:
             # bytesToRead = ser.inWaiting()
             # raw_bytes = ser.read(bytesToRead)
@@ -44,9 +45,16 @@ def gather_data():
 
 
 
-p1 = Process(target=gather_data)
-p1.start()
-p1.join()
+# p1 = Process(target=gather_data)
+# p1.start()
+# p1.join()
+
+c = threading.Condition()
+
+t1 = threading.Thread(target=gather_data)
+t1.setDaemon(True)
+t1.start()
+
 
 x_axis_points = 1000
 y = np.zeros(x_axis_points)
@@ -71,11 +79,10 @@ def animate(i):
     global y
     global buffer
     x = np.linspace(0, 2, x_axis_points)
-    # y = np.sin(2 * np.pi * (x - 0.01 * i))
-    y = y[len(buffer):]
-    # y.extend(buffer)
-    np.append(y, buffer)
-    buffer = []
+    y = np.sin(2 * np.pi * (x - 0.01 * i))
+    # y = y[len(buffer):]
+    # np.append(y, buffer)
+    # buffer = []
 
     line.set_data(x, y)
     return line,
