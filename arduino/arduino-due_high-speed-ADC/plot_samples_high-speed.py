@@ -109,7 +109,8 @@ class SerialReader(threading.Thread):
 
 # Get handle to serial port
 # (your port string may vary; windows users need 'COMn')
-s = serial.Serial('/dev/cu.usbmodem1411')
+# s = serial.Serial('/dev/cu.usbmodem1411')
+s = serial.Serial('/dev/cu.usbmodem1421')
 
 # Create the GUI
 app = pg.mkQApp()
