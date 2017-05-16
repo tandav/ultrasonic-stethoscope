@@ -101,10 +101,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
         with self.exitMutex:
             self.exitFlag = True
 
-s = serial.Serial('/dev/cu.usbmodem1421')
-# Create thread to read and buffer serial data.
-thread = SerialReader(s)
-thread.start()
+
 
 class sinus_wave(QtGui.QWidget):
     def __init__(self):
@@ -153,11 +150,16 @@ class sinus_wave(QtGui.QWidget):
         self.updateplot()
 
     def updateplot(self):
+        global thread
         # print ("Update")
         # data1 = self.amplitude*np.sin(np.linspace(0,30,121)+self.t)
         t,v,r = thread.get(1000*1024, downsample=100)
         self.plotcurve.setData(t, v)
         self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
+
+        # if not self.plotwidget.getPlotItem().isVisible():
+        #     thread.exit()
+        #     self.timer.stop()
 
     def on_increasebutton_clicked(self):
         print ("Amplitude increased")
@@ -169,7 +171,14 @@ class sinus_wave(QtGui.QWidget):
         self.amplitude -= 1
         self.updateplot()
 
+s = serial.Serial('/dev/cu.usbmodem1421')
+# Create thread to read and buffer serial data.
+thread = SerialReader(s)
+thread.daemon = True
+
 def main():
+
+    thread.start()
     app = QtGui.QApplication(sys.argv)
     app.setApplicationName('Sinuswave')
     ex = sinus_wave()
