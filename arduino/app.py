@@ -90,7 +90,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
         # (we need calibration data to do a better job on this)
         data = data.astype(np.float32) * (3.3 / 2**12)
         if downsample > 1:  # if downsampling is requested, average N samples together
-            data = data.reshape(num/downsample,downsample).mean(axis=1)
+            data = data.reshape(num // downsample,downsample).mean(axis=1)
             num = data.shape[0]
             return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
         else:
