@@ -125,7 +125,7 @@ class sinus_wave(QtGui.QWidget):
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        self.setWindowTitle('Sinuswave')
+        self.setWindowTitle('Signal from Arduino ADC')
         hbox = QtGui.QVBoxLayout()
         self.setLayout(hbox)
 
