@@ -163,7 +163,10 @@ class sinus_wave(QtGui.QWidget):
         recording = False
         print ("Record stopped")
 
-s = serial.Serial('/dev/cu.usbmodem1421')
+
+s = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
+# s = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
+
 # Create thread to read and buffer serial data.
 thread = SerialReader(s)
 thread.daemon = True # without this line UI freezes when close app window
