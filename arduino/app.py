@@ -157,61 +157,36 @@ class sinus_wave(QtGui.QWidget):
 
 
     def on_record_start_button_clicked(self):
-        global recording, f, t2
+        global recording, t2
 
-        open('to_cuda.txt', 'w').close() # clear the file
-        f = open('to_cuda.txt', 'ab')
-        
         recording = True
         t2 = threading.Thread(target=send_to_cuda)
-        # t2.daemon = True
         t2.start() # TODO: move to start rec button click function
-
-        # self.f = open('to_cuda.txt', 'w').close() # clear the file
-        # self.f = open('to_cuda.txt', 'ab') # TODO: change to 'a' in the future 
-
-        print ("Start recording...")
-
-        self.updateplot() # TODO: try del ?
+        print ("Record started...")
 
     def on_record_stop_button_clicked(self):
-        global recording, f, t2
+        global recording, t2
         recording = False
-        t2.join()
-        # t2.exit()
-        f.close()
-        print ("Stop recording")
-        self.updateplot() # TODO: try del ?
+        print ("Record stopped")
 
 s = serial.Serial('/dev/cu.usbmodem1421')
 # Create thread to read and buffer serial data.
 thread = SerialReader(s)
-thread.daemon = True
+thread.daemon = True # without this line UI freezes when close app window
 
 
 def send_to_cuda():
     global recording, f
-    # with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
-    # while True:
-    while recording:
-        t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
-        # print("hello")
-        # np.savetxt(f, v) # 
-        np.save(f, v) # save binary data
-
-    # print 'In thread'
-    # print 'args are', arg1, arg2
+    open('to_cuda.txt', 'w').close() # clear the file
+    with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
+        while recording:
+            t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
+            # np.savetxt(f, v) # 
+            np.save(f, v) # save binary data
 
 recording = False
 
-
-
-
-
-# f = open('to_cuda.txt', 'ab')
-
 def main():
-
     thread.start()
 
     app = QtGui.QApplication(sys.argv)
