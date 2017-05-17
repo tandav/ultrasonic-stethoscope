@@ -114,19 +114,16 @@ class sinus_wave(QtGui.QWidget):
         self.plotcurve = pg.PlotCurveItem()
         self.plotwidget.addItem(self.plotcurve)
         
-        # self.recording = False
-
         self.updateplot()
 
         self.timer = pg.QtCore.QTimer()
-        self.timer.timeout.connect(self.moveplot) # moveplot on each timertick
+        self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
         self.setWindowTitle('Signal from Arduino ADC')
         hbox = QtGui.QVBoxLayout()
         self.setLayout(hbox)
-
 
         self.plotwidget = pg.PlotWidget()
         self.plotwidget.getPlotItem().setLabels(left=('ADC Signal', 'V'), bottom=('Time', 's'))
@@ -146,9 +143,6 @@ class sinus_wave(QtGui.QWidget):
         self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
         self.record_stop_button.clicked.connect(self.on_record_stop_button_clicked)
 
-    def moveplot(self):
-        self.updateplot()
-
     def updateplot(self):
         global thread, recording
         if not recording:
@@ -156,13 +150,12 @@ class sinus_wave(QtGui.QWidget):
             self.plotcurve.setData(t, v)
             self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
-
     def on_record_start_button_clicked(self):
         global recording, t2
 
         recording = True
         t2 = threading.Thread(target=send_to_cuda)
-        t2.start() # TODO: move to start rec button click function
+        t2.start()
         print ("Record started...")
 
     def on_record_stop_button_clicked(self):
@@ -178,17 +171,14 @@ thread.daemon = True # without this line UI freezes when close app window
 
 def send_to_cuda():
     global recording, f
-    # open('to_cuda.txt', 'w').close() # clear the file
     adc_samples = np.array([], dtype=np.float32)
     with h5py.File('to_cuda.h5', 'w') as f:
         while recording:
             t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
             adc_samples = np.append(adc_samples, v)
-            # dset = f.create_dataset('adc_samples', (10), maxshape=(None), data=v)
-        print(adc_samples.shape)
         f.create_dataset('adc_samples', data=adc_samples, compression='lzf')
     
-    # with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
+    # with open('to_cuda.txt', 'a') as f:
     #     while recording:
     #         t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
     #         # np.savetxt(f, v) # 
