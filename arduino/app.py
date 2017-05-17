@@ -186,7 +186,7 @@ def send_to_cuda():
             adc_samples = np.append(adc_samples, v)
             # dset = f.create_dataset('adc_samples', (10), maxshape=(None), data=v)
         print(adc_samples.shape)
-        f.create_dataset('adc_samples', data=adc_samples)
+        f.create_dataset('adc_samples', data=adc_samples, compression='lzf')
     
     # with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
     #     while recording:
