@@ -113,10 +113,8 @@ class sinus_wave(QtGui.QWidget):
         self.plotcurve = pg.PlotCurveItem()
         self.plotwidget.addItem(self.plotcurve)
         
-        self.recording = False
+        # self.recording = False
 
-        self.amplitude = 10
-        self.t = 0
         self.updateplot()
 
         self.timer = pg.QtCore.QTimer()
@@ -148,44 +146,42 @@ class sinus_wave(QtGui.QWidget):
         self.record_stop_button.clicked.connect(self.on_record_stop_button_clicked)
 
     def moveplot(self):
-        self.t+=1
         self.updateplot()
 
     def updateplot(self):
-        global thread
-        # print ("Update")
-        # data1 = self.amplitude*np.sin(np.linspace(0,30,121)+self.t)
-        t,v,r = thread.get(1000*1024, downsample=100)
-        self.plotcurve.setData(t, v)
-        self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
+        global thread, recording
+        if not recording:
+            t,v,r = thread.get(1000*1024, downsample=100)
+            self.plotcurve.setData(t, v)
+            self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
-        if self.recording:
-            t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
-            np.savetxt(self.f, v)
-
-
-        # if not self.plotwidget.getPlotItem().isVisible():
-        #     thread.exit()
-        #     self.timer.stop()
 
     def on_record_start_button_clicked(self):
-        self.recording = True
+        global recording, f, t2
+
         open('to_cuda.txt', 'w').close() # clear the file
+        f = open('to_cuda.txt', 'ab')
+        
+        recording = True
+        t2 = threading.Thread(target=send_to_cuda)
+        # t2.daemon = True
+        t2.start() # TODO: move to start rec button click function
+
         # self.f = open('to_cuda.txt', 'w').close() # clear the file
-        self.f = open('to_cuda.txt', 'ab')
-        # f = open('to_cuda.txt', 'ab')
+        # self.f = open('to_cuda.txt', 'ab') # TODO: change to 'a' in the future 
 
         print ("Start recording...")
 
-        self.amplitude += 1
-        self.updateplot()
+        self.updateplot() # TODO: try del ?
 
     def on_record_stop_button_clicked(self):
-        self.recording = False
-        self.f.close()
+        global recording, f, t2
+        recording = False
+        t2.join()
+        # t2.exit()
+        f.close()
         print ("Stop recording")
-        self.amplitude -= 1
-        self.updateplot()
+        self.updateplot() # TODO: try del ?
 
 s = serial.Serial('/dev/cu.usbmodem1421')
 # Create thread to read and buffer serial data.
@@ -193,11 +189,31 @@ thread = SerialReader(s)
 thread.daemon = True
 
 
-f = open('to_cuda.txt', 'ab')
+def send_to_cuda():
+    global recording, f
+    # with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
+    # while True:
+    while recording:
+        t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
+        # print("hello")
+        # np.savetxt(f, v) # 
+        np.save(f, v) # save binary data
+
+    # print 'In thread'
+    # print 'args are', arg1, arg2
+
+recording = False
+
+
+
+
+
+# f = open('to_cuda.txt', 'ab')
 
 def main():
 
     thread.start()
+
     app = QtGui.QApplication(sys.argv)
     app.setApplicationName('Sinuswave')
     ex = sinus_wave()
