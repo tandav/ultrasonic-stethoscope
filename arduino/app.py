@@ -113,6 +113,8 @@ class sinus_wave(QtGui.QWidget):
         self.plotcurve = pg.PlotCurveItem()
         self.plotwidget.addItem(self.plotcurve)
         
+        self.recording = False
+
         self.amplitude = 10
         self.t = 0
         self.updateplot()
@@ -132,18 +134,18 @@ class sinus_wave(QtGui.QWidget):
         self.plotwidget.getPlotItem().setYRange(0.0, 3.3)
         hbox.addWidget(self.plotwidget)
 
-        self.increasebutton = QtGui.QPushButton("Increase Amplitude")
-        self.decreasebutton = QtGui.QPushButton("Decrease Amplitude")
+        self.record_start_button = QtGui.QPushButton("Record")
+        self.record_stop_button = QtGui.QPushButton("Stop Record")
 
-        hbox.addWidget(self.increasebutton)
-        hbox.addWidget(self.decreasebutton)
+        hbox.addWidget(self.record_start_button)
+        hbox.addWidget(self.record_stop_button)
 
         self.setGeometry(10, 10, 1000, 600)
         self.show()
 
     def qt_connections(self):
-        self.increasebutton.clicked.connect(self.on_increasebutton_clicked)
-        self.decreasebutton.clicked.connect(self.on_decreasebutton_clicked)
+        self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
+        self.record_stop_button.clicked.connect(self.on_record_stop_button_clicked)
 
     def moveplot(self):
         self.t+=1
@@ -157,17 +159,31 @@ class sinus_wave(QtGui.QWidget):
         self.plotcurve.setData(t, v)
         self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
+        if self.recording:
+            t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
+            np.savetxt(self.f, v)
+
+
         # if not self.plotwidget.getPlotItem().isVisible():
         #     thread.exit()
         #     self.timer.stop()
 
-    def on_increasebutton_clicked(self):
-        print ("Amplitude increased")
+    def on_record_start_button_clicked(self):
+        self.recording = True
+        open('to_cuda.txt', 'w').close() # clear the file
+        # self.f = open('to_cuda.txt', 'w').close() # clear the file
+        self.f = open('to_cuda.txt', 'ab')
+        # f = open('to_cuda.txt', 'ab')
+
+        print ("Start recording...")
+
         self.amplitude += 1
         self.updateplot()
 
-    def on_decreasebutton_clicked(self):
-        print ("Amplitude decreased")
+    def on_record_stop_button_clicked(self):
+        self.recording = False
+        self.f.close()
+        print ("Stop recording")
         self.amplitude -= 1
         self.updateplot()
 
@@ -175,6 +191,9 @@ s = serial.Serial('/dev/cu.usbmodem1421')
 # Create thread to read and buffer serial data.
 thread = SerialReader(s)
 thread.daemon = True
+
+
+f = open('to_cuda.txt', 'ab')
 
 def main():
 
