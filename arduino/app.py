@@ -1,7 +1,7 @@
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
-import time, threading, sys, serial, socket
+import time, threading, sys, serial, socket, os
 import h5py
 
 class SerialReader(threading.Thread): # inheritated from Thread
@@ -182,6 +182,25 @@ def send_to_cuda():
             adc_samples = np.append(adc_samples, v)
         f.create_dataset('adc_samples', data=adc_samples, compression='lzf')
     
+    # Send data to CUDA server
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
+    blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
+    with open('to_cuda.h5', 'rb') as f:
+        filesize = os.stat('to_cuda.h5').st_size
+        packet = f.read(blocksize)
+        print('start sending data to CUDA server...', filesize)
+        i = 0
+        while packet:
+            s.send(packet)
+            packet = f.read(blocksize)
+            i += 1
+            if i % 100 == 0:
+                # print('data send:', f.tell() / filesize, '%')
+                print('data send: %0.0f' % (f.tell() / filesize * 100), '%')
+        print('data send: 100% - success')
+    s.close()
+
     # with open('to_cuda.txt', 'a') as f:
     #     while recording:
     #         t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
