@@ -2,6 +2,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial
+import h5py
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -177,12 +178,21 @@ thread.daemon = True # without this line UI freezes when close app window
 
 def send_to_cuda():
     global recording, f
-    open('to_cuda.txt', 'w').close() # clear the file
-    with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
+    # open('to_cuda.txt', 'w').close() # clear the file
+    adc_samples = np.array([], dtype=np.float32)
+    with h5py.File('to_cuda.h5', 'w') as f:
         while recording:
             t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
-            # np.savetxt(f, v) # 
-            np.save(f, v) # save binary data
+            adc_samples = np.append(adc_samples, v)
+            # dset = f.create_dataset('adc_samples', (10), maxshape=(None), data=v)
+        print(adc_samples.shape)
+        f.create_dataset('adc_samples', data=adc_samples)
+    
+    # with open('to_cuda.txt', 'ab') as f: # TODO: change to 'a' in the future 
+    #     while recording:
+    #         t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
+    #         # np.savetxt(f, v) # 
+    #         np.save(f, v) # save binary data
 
 recording = False
 
