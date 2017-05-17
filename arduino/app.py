@@ -1,7 +1,7 @@
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
-import time, threading, sys, serial
+import time, threading, sys, serial, socket
 import h5py
 
 class SerialReader(threading.Thread): # inheritated from Thread
@@ -103,7 +103,6 @@ class SerialReader(threading.Thread): # inheritated from Thread
             self.exitFlag = True
 
 
-
 class sinus_wave(QtGui.QWidget):
     def __init__(self):
         super(sinus_wave, self).__init__()
@@ -173,7 +172,9 @@ thread.daemon = True # without this line UI freezes when close app window
 
 
 def send_to_cuda():
-    global recording, f
+    global recording
+
+    # Collect Write to File and Compress data
     adc_samples = np.array([], dtype=np.float32)
     with h5py.File('to_cuda.h5', 'w') as f:
         while recording:
