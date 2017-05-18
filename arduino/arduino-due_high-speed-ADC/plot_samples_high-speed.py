@@ -8,7 +8,7 @@ import serial
 import numpy as np
 
 
-class SerialReader(threading.Thread):
+class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
@@ -122,11 +122,21 @@ plt.setYRange(0.0, 3.3)
 thread = SerialReader(s)
 thread.start()
 
+
+def rec_button_click():
+    open('to_cuda.txt', 'w').close() # clear the file
+
+f = open('to_cuda.txt', 'ab')
+
 # Calling update() will request a copy of the most recently-acquired
 # samples and plot them.
 def update():
     global plt, thread
-    t,v,r = thread.get(1000*1024, downsample=1)
+    # t,v,r = thread.get(200*1024, downsample=1)
+    t,v,r = thread.get(1000*1024, downsample=100)
+    # if recording:
+        # t,v,r = thread.get(1000*1024, downsample=1)
+        # np.savetxt(f, v)
     plt.plot(t, v, clear=True)
     plt.setTitle('Sample Rate: %0.2f'%r)
    
