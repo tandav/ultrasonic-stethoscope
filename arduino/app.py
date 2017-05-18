@@ -3,6 +3,8 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
 import h5py
+import gzip
+import shutil
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -176,20 +178,36 @@ def send_to_cuda():
 
     # Collect Write to File and Compress data
     adc_samples = np.array([], dtype=np.float32)
-    with h5py.File('to_cuda.h5', 'w') as f:
+    
+
+    with open('data.dat', 'w') as f:
         while recording:
             t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
             adc_samples = np.append(adc_samples, v)
-        f.create_dataset('adc_samples', data=adc_samples, compression='lzf')
+        adc_samples.tofile(f)
+
+    filesize = os.stat('data.dat').st_size
+
+    print('data compression start (', filesize / 1000000, 'MB ) ...')
+    with open('data.dat', 'rb') as f_in, gzip.open('data.dat.gz', 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    gzfilesize = os.stat('data.dat.gz').st_size
+    print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
+
+    # with h5py.File('to_cuda.h5', 'w') as f:
+    #     while recording:
+    #         t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
+    #         adc_samples = np.append(adc_samples, v)
+    #     f.create_dataset('adc_samples', data=adc_samples, compression='lzf')
     
     # Send data to CUDA server
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
+
     blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    with open('to_cuda.h5', 'rb') as f:
-        filesize = os.stat('to_cuda.h5').st_size
+    with open('data.dat.gz', 'rb') as f:
         packet = f.read(blocksize)
-        print('start sending data to CUDA server...', filesize)
+        print('start sending data to CUDA server...')
         i = 0
         while packet:
             s.send(packet)
@@ -197,15 +215,10 @@ def send_to_cuda():
             i += 1
             if i % 100 == 0:
                 # print('data send:', f.tell() / filesize, '%')
-                print('data send: %0.0f' % (f.tell() / filesize * 100), '%')
+                print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
         print('data send: 100% - success')
     s.close()
-
-    # with open('to_cuda.txt', 'a') as f:
-    #     while recording:
-    #         t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
-    #         # np.savetxt(f, v) # 
-    #         np.save(f, v) # save binary data
+    print('==== session end ====\n')
 
 recording = False
 
