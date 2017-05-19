@@ -193,12 +193,6 @@ def send_to_cuda():
         shutil.copyfileobj(f_in, f_out)
     gzfilesize = os.stat('data.dat.gz').st_size
     print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
-
-    # with h5py.File('to_cuda.h5', 'w') as f:
-    #     while recording:
-    #         t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
-    #         adc_samples = np.append(adc_samples, v)
-    #     f.create_dataset('adc_samples', data=adc_samples, compression='lzf')
     
     # Send data to CUDA server
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
