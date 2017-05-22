@@ -194,14 +194,13 @@ def send_to_cuda():
     gzfilesize = os.stat('data.dat.gz').st_size
     print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
     
-    # Send data to CUDA server
+    print('start sending data to CUDA server...')
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
 
     blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
     with open('data.dat.gz', 'rb') as f:
         packet = f.read(blocksize)
-        print('start sending data to CUDA server...')
         i = 0
         while packet:
             s.send(packet)
