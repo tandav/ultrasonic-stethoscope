@@ -186,12 +186,12 @@ def send_to_cuda():
             adc_samples = np.append(adc_samples, v)
         adc_samples.tofile(f)
 
-    filesize = os.stat('data.dat').st_size
+    filesize = os.stat('signal.dat').st_size
 
     print('data compression start (', filesize / 1000000, 'MB ) ...')
-    with open('data.dat', 'rb') as f_in, gzip.open('data.dat.gz', 'wb') as f_out:
+    with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
-    gzfilesize = os.stat('data.dat.gz').st_size
+    gzfilesize = os.stat('signal.dat.gz').st_size
     print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
     
     print('start sending data to CUDA server...')
