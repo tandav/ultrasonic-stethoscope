@@ -2,7 +2,6 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
-import h5py
 import gzip
 import shutil
 
@@ -15,7 +14,6 @@ class SerialReader(threading.Thread): # inheritated from Thread
         # circular buffer for storing serial data until it is
         # fetched by the GUI
         self.buffer = np.zeros(chunks*chunkSize, dtype=np.uint16)
-       
         self.chunks = chunks        # number of chunks to store in the buffer
         self.chunkSize = chunkSize  # size of a single chunk (items, not bytes)
         self.ptr = 0                # pointer to most (recently collected buffer index) + 1
@@ -24,8 +22,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
         self.exitFlag = False
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
-       
-       
+
     def run(self):
         exitMutex = self.exitMutex
         dataMutex = self.dataMutex
@@ -34,18 +31,20 @@ class SerialReader(threading.Thread): # inheritated from Thread
         count = 0
         sps = None
         lastUpdate = pg.ptime.time()
-       
+
+        global record_buffer, recording, t2
+
         while True:
             # see whether an exit was requested
             with exitMutex:
                 if self.exitFlag:
                     break
-           
+
             # read one full chunk from the serial port
             data = port.read(self.chunkSize*2)
             # convert data to 16bit int numpy array
             data = np.fromstring(data, dtype=np.uint16)
-           
+
             # keep track of the acquisition rate in samples-per-second
             count += self.chunkSize
             now = pg.ptime.time()
@@ -58,16 +57,24 @@ class SerialReader(threading.Thread): # inheritated from Thread
                     sps = sps * 0.9 + (count / dt) * 0.1
                 count = 0
                 lastUpdate = now
-               
+
             # write the new chunk into the circular buffer
             # and update the buffer pointer
             with dataMutex:
                 buffer[self.ptr:self.ptr+self.chunkSize] = data
                 self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
+
+                if recording == 1:
+                    record_buffer = np.append(record_buffer, data)
+
+                if recording == 2:
+                    recording = 0
+                    t2 = threading.Thread(target=send_to_cuda)
+                    t2.start()
+
                 if sps is not None:
                     self.sps = sps
-               
-               
+
     def get(self, num, downsample=1):
         """ Return a tuple (time_values, voltage_values, rate)
           - voltage_values will contain the *num* most recently-collected samples
@@ -82,12 +89,12 @@ class SerialReader(threading.Thread): # inheritated from Thread
             ptr = self.ptr
             if ptr-num < 0:
                 data = np.empty(num, dtype=np.uint16)
-                data[:num-ptr] = self.buffer[ptr-num:]
+                data[:num-ptr] = self.buffer[ptr-num:] # last N=ptr values of the buffer
                 data[num-ptr:] = self.buffer[:ptr]
             else:
                 data = self.buffer[self.ptr-num:self.ptr].copy()
             rate = self.sps
-       
+
         # Convert array to float and rescale to voltage.
         # Assume 3.3V / 12bits
         # (we need calibration data to do a better job on this)
@@ -98,7 +105,34 @@ class SerialReader(threading.Thread): # inheritated from Thread
             return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
         else:
             return np.linspace(0, (num-1)*1e-6, num), data, rate
-   
+
+    def get_new_chunks(self, num, downsample=1):
+        """ Wait when new chunk of length=num is ready, then return it.
+        Also return corresponding to chunk time values and running average sample rate
+        """
+        with self.dataMutex:  # lock the buffer and copy the requested data out
+            ptr = self.ptr
+            if ptr-num < 0:
+                data = self.buffer[ptr - ptr % num - num :].copy()
+            else:
+                data = self.buffer[ptr - ptr % num - num : ptr - ptr % num].copy()
+            rate = self.sps
+
+        # Convert array to float and rescale to voltage.
+        # Assume 3.3V / 12bits
+        # (we need calibration data to do a better job on this)
+        data = data.astype(np.float32) * (3.3 / 2**12)
+        if downsample > 1:  # if downsampling is requested, average N samples together
+            data = data.reshape(num // downsample,downsample).mean(axis=1)
+            num = data.shape[0]
+            return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
+        else:
+            return np.linspace(0, (num-1)*1e-6, num), data, rate
+
+    def get_ptr(self):
+        with self.dataMutex:  # lock the buffer loop
+            return self.ptr
+
     def exit(self):
         """ Instruct the serial thread to exit."""
         with self.exitMutex:
@@ -110,11 +144,11 @@ class sinus_wave(QtGui.QWidget):
         super(sinus_wave, self).__init__()
         self.init_ui()
         self.qt_connections()
-        
+
 
         self.plotcurve = pg.PlotCurveItem()
         self.plotwidget.addItem(self.plotcurve)
-        
+
         self.updateplot()
 
         self.timer = pg.QtCore.QTimer()
@@ -153,15 +187,12 @@ class sinus_wave(QtGui.QWidget):
 
     def on_record_start_button_clicked(self):
         global recording, t2
-
-        recording = True
-        t2 = threading.Thread(target=send_to_cuda)
-        t2.start()
+        recording = 1
         print ("Record started...")
 
     def on_record_stop_button_clicked(self):
         global recording, t2
-        recording = False
+        recording = 2
         print ("Record stopped")
 
 
@@ -170,21 +201,22 @@ s = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
 
 # Create thread to read and buffer serial data.
 thread = SerialReader(s)
-thread.daemon = True # without this line UI freezes when close app window
+thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
+
+rb = 1000 # number of chunks in the record-buffer (buffer that reads and than writes to file)
+record_buffer = np.array([], dtype=np.float32)
 
 
 def send_to_cuda():
-    global recording
+    global recording, rb, record_buffer, t2
+    print('Hello from CUDA!')
 
-    # Collect Write to File and Compress data
-    adc_samples = np.array([], dtype=np.float32)
-    
+    # saving data to file
+    with open('signal.dat', 'w') as f:
+        print("start write to file...", len(record_buffer))
+        record_buffer.tofile(f)
+        print("write to file success", os.stat('signal.dat').st_size)
 
-    with open('data.dat', 'w') as f:
-        while recording:
-            t,v,r = thread.get(1000*1024, downsample=1) # get HQ data
-            adc_samples = np.append(adc_samples, v)
-        adc_samples.tofile(f)
 
     filesize = os.stat('signal.dat').st_size
 
@@ -193,7 +225,7 @@ def send_to_cuda():
         shutil.copyfileobj(f_in, f_out)
     gzfilesize = os.stat('signal.dat.gz').st_size
     print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
-    
+
     print('start sending data to CUDA server...')
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
@@ -213,7 +245,7 @@ def send_to_cuda():
     s.close()
     print('==== session end ====\n')
 
-recording = False
+recording = 0 # 0 = do not record, 1 = recording started, 2 = recording has just finished
 
 def main():
     thread.start()
@@ -221,7 +253,10 @@ def main():
     app = QtGui.QApplication(sys.argv)
     app.setApplicationName('Sinuswave')
     ex = sinus_wave()
-    sys.exit(app.exec_())
+    app.exec_()
+    # sys.exit(app.exec_())
+    # sys.exit(thread.exit())
+    # thread.exit()
 
 if __name__ == '__main__':
     main()
