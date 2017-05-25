@@ -38,6 +38,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
             # see whether an exit was requested
             with exitMutex:
                 if self.exitFlag:
+                    port.close()
                     break
 
             # read one full chunk from the serial port
@@ -194,30 +195,13 @@ class sinus_wave(QtGui.QWidget):
         global recording, t2
         recording = 2
         print ("Record stopped")
-
-
-for i in range(10):
-    try:
-        s = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
-    except Exception as e:
-        if i == 9:
-            ('Cannot connect to device. Check the connection.')
-            break
-        print('searching device')
-        time.sleep(0.20)
-print('device connected successfully')
-# s = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
-
-# Create thread to read and buffer serial data.
-thread = SerialReader(s)
-thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
-
-rb = 1000 # number of chunks in the record-buffer (buffer that reads and than writes to file)
-record_buffer = np.array([], dtype=np.uint16)
+    def closeEvent(self, event):
+        global thread
+        thread.exit()
 
 
 def send_to_cuda():
-    global recording, rb, record_buffer, t2
+    global recording, record_buffer
 
 
     
@@ -266,15 +250,33 @@ def send_to_cuda():
 recording = 0 # 0 = do not record, 1 = recording started, 2 = recording has just finished
 
 def main():
+    for i in range(20):
+        try:
+            ser = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
+            # ser = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
+            print('device connected')
+            break
+        except Exception as e:
+            if i == 19:
+                print('Device not found. Check the connection.')
+                sys.exit()
+            # sys.stdout.write('\r')
+            sys.stdout.write('\rsearching device' + '.'*i + ' ')
+            sys.stdout.flush()
+            time.sleep(0.1)
+
+    # Create thread to read and buffer serial data.
+    global thread
+    thread = SerialReader(ser)
+    thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
+    global record_buffer
+    record_buffer = np.array([], dtype=np.uint16)
+
     app = QtGui.QApplication(sys.argv)
-    app.setApplicationName('Sinuswave')
-    ex = sinus_wave()
-    app.exec_()
-    # sys.exit(app.exec_())
-    # sys.exit(thread.exit())
-    # thread.exit()
+    adc = adc_chart() # create class instance
+    sys.exit(app.exec_())
 
 if __name__ == '__main__':
     main()
