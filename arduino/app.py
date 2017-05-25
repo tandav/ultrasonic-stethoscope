@@ -107,33 +107,6 @@ class SerialReader(threading.Thread): # inheritated from Thread
         else:
             return np.linspace(0, (num-1)*1e-6, num), data, rate
 
-    def get_new_chunks(self, num, downsample=1):
-        """ Wait when new chunk of length=num is ready, then return it.
-        Also return corresponding to chunk time values and running average sample rate
-        """
-        with self.dataMutex:  # lock the buffer and copy the requested data out
-            ptr = self.ptr
-            if ptr-num < 0:
-                data = self.buffer[ptr - ptr % num - num :].copy()
-            else:
-                data = self.buffer[ptr - ptr % num - num : ptr - ptr % num].copy()
-            rate = self.sps
-
-        # Convert array to float and rescale to voltage.
-        # Assume 3.3V / 12bits
-        # (we need calibration data to do a better job on this)
-        data = data.astype(np.float32) * (3.3 / 2**12)
-        if downsample > 1:  # if downsampling is requested, average N samples together
-            data = data.reshape(num // downsample,downsample).mean(axis=1)
-            num = data.shape[0]
-            return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
-        else:
-            return np.linspace(0, (num-1)*1e-6, num), data, rate
-
-    def get_ptr(self):
-        with self.dataMutex:  # lock the buffer loop
-            return self.ptr
-
     def exit(self):
         """ Instruct the serial thread to exit."""
         with self.exitMutex:
