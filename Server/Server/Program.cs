@@ -15,80 +15,129 @@ namespace Socket_Test
     {
         static void Main(string[] args)
         {
+
             var listener = new TcpListener(IPAddress.Any, 5005);
             listener.Start();
-            Console.WriteLine("This machine IP: {0}", GetLocalIPAddress());
+            Console.WriteLine("This machine IP: {0} (maybe not really, check it out twice if troubles)", GetLocalIPAddress());
             while (true)
             {
                 using (var client = listener.AcceptTcpClient())
                 using (var stream = client.GetStream())
-                using (var output = File.Create("data.dat.gz"))
+                using (var output = File.Create("signal.dat.gz"))
                 {
-                    Console.WriteLine("Client connected. Starting to receive the file...");
-
-                    // read the file in chunks of 1KB
-                    // var buffer = new byte[1024];
-
+                    Console.Write("Client connected. Starting to receive the file...");
                     var buffer = new byte[8192]; // blocksize = 8192 = 8KB
-            
                     int bytesRead;
                     while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
-                    {
                         output.Write(buffer, 0, bytesRead);
-                    }
                 }
-                Console.WriteLine("Received the file");
-                Console.WriteLine("Decompression start...");
+                Console.WriteLine(" done\n");
 
-                // Decompress .gz
-                byte[] file = File.ReadAllBytes("data.dat.gz");
+                Console.Write("Decompression start...");
+                byte[] file = File.ReadAllBytes("signal.dat.gz");
                 byte[] decompressed = Decompress(file);
-                double[] data = new double[decompressed.Length / sizeof(double)];
+                float[] signal = new float[decompressed.Length / sizeof(float)];
+                for (int i = 0; i < signal.Length; i++)
+                    signal[i] = BitConverter.ToSingle(decompressed, sizeof(float) * i);
+                Console.Write(" done\n");
 
-                for (int i = 0; i < data.Length; i++)
+                /////////////////////////////////// CUDA STUFF ////////////////////////////////////////
+                Console.WriteLine("Start computing FFT with CUDA. Signal size = {0}...", signal.Length);
+                // if you need to compute fft of whole signal:
+                //float[] fft = new float[signal.Length / 2];
+                float[] signal_block = new float[signal.Length / 20];
+                float[] fft = new float[signal_block.Length / 2];
+                float[] fft_to_draw = new float[4000]; // how many values draw on chart
+                for (int i = 0, j = 0; i < signal.Length; i += signal_block.Length, j++)
                 {
-                    data[i] = BitConverter.ToDouble(decompressed, sizeof(double) * i);
-                    //Console.WriteLine(data[i]);
+                    signal_block = SubArray(signal, i, signal_block.Length);
+                    for (int k = 0; k < fft.Length; k++) // fake FFT transofrm, just for test, TODO: del
+                        fft[k] = signal_block[2 * k]; // not fft for test!!!!
+
+                    for (int t = 0; t < fft_to_draw.Length; t++)
+                        fft_to_draw[t] = fft[t + fft.Length / fft_to_draw.Length];
+                    //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде (Вахтина) был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
+                    //Console.WriteLine("FFT success");
+
+                    Console.Write("Save to fft{0}.png start...", j);
+                    System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
+                    chart.Size = new System.Drawing.Size(640, 320);
+                    chart.ChartAreas.Add("ChartArea1");
+                    chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
+                    chart.ChartAreas[0].AxisY.Maximum = 3.5;
+
+                    chart.Series.Add("fft");
+                    chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
+                    chart.Series["fft"].Points.DataBindY(fft_to_draw);
+                    chart.SaveImage("./fft/fft" + j.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
+                    Console.Write(" done\n");
                 }
-                float[] signal = Array.ConvertAll(data, x => (float)x); // convert to float array to use CUDA library
-                Console.WriteLine("Decompression success...");
-
-                //for (int i = 0; i < signal.Length; i++)
-                //    Console.WriteLine(signal[i]);
-
-                Console.WriteLine("FFT start. Signal size = {0}...", signal.Length);
-
-                // CUDA FFT
-                //float[] fft = new float[signal.Length / 2]; // write to disk very slow, reduced fft.len by 1000
-                float[] fft = new float[signal.Length / 500];
-
-                //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде . Вахтина был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
-
-                // temp transofrm, just for test, TODO: del
-                for (int i = 0; i < fft.Length; i++)
-                {
-                    //fft[i] = signal[2 * i]; // not fft for test!!!!
-                    //fft[i] = signal[500 * i]; // not fft for test!!!!
-                    fft[i] = signal[i]; // not fft for test!!!!
-
-
-                }
-                Console.WriteLine("FFT success");
-
-                Console.WriteLine("Save to PNG start...");
-                System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
-                chart.Size = new System.Drawing.Size(640, 320);
-                chart.ChartAreas.Add("ChartArea1");
-                chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
-                chart.ChartAreas[0].AxisY.Maximum = 4;
-
-                chart.Series.Add("fft");
-                chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
-                chart.Series["fft"].Points.DataBindY(fft);
-                chart.SaveImage("fft.png", System.Drawing.Imaging.ImageFormat.Png);
-                Console.WriteLine("Save to PNG success");
-
+                Console.WriteLine("All PNGs are written");
+                Console.WriteLine("==== Session end ====");
             }
+
+            //// Decompress .gz
+            //byte[] file = File.ReadAllBytes("data.dat.gz");
+            //byte[] decompressed = Decompress(file);
+            //double[] data = new double[decompressed.Length / sizeof(double)];
+
+            //for (int i = 0; i < data.Length; i++)
+            //{
+            //    data[i] = BitConverter.ToDouble(decompressed, sizeof(double) * i);
+            //    //Console.WriteLine(data[i]);
+            //}
+            //float[] signal = Array.ConvertAll(data, x => (float)x); // convert to float array to use CUDA library
+            //Console.WriteLine("Decompression success...");
+
+            ////for (int i = 0; i < signal.Length; i++)
+            ////    Console.WriteLine(signal[i]);
+
+            //Console.WriteLine("FFT start. Signal size = {0}...", signal.Length);
+
+            //// CUDA FFT
+            ////float[] fft = new float[signal.Length / 2]; // write to disk very slow, reduced fft.len by 1000
+
+            //float[] buffer = new float[signal.Length / 500];
+            //float[] fft = new float[buffer.Length / 2];
+
+            //for (int i = 0, j = 0; i < signal.Length; i += buffer.Length, j++)
+            //{
+            //    buffer = SubArray(signal, i, buffer.Length);
+            //    CUDA.CUFT.Furie(buffer, fft, buffer.Length); // здесь почему то в моем коде . Вахтина был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
+
+            //    Console.WriteLine("FFT success");
+
+            //    Console.WriteLine("Save to PNG start...");
+            //    System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
+            //    chart.Size = new System.Drawing.Size(640, 320);
+            //    chart.ChartAreas.Add("ChartArea1");
+            //    //chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
+            //    chart.ChartAreas[0].AxisY.Maximum = 0.01;
+
+            //    chart.Series.Add("fft");
+            //    chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
+            //    chart.Series["fft"].Points.DataBindY(fft);
+            //    chart.SaveImage("fft" + j.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
+            //    Console.WriteLine("Save to PNG success");
+            //}
+
+            //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде . Вахтина был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
+
+        }
+
+        static float[] SubArray(float[] data, int index, int length)
+        {
+            float[] result = new float[length];
+            int data_len = data.Length;
+            if (index + length < data_len)
+                Array.Copy(data, index, result, 0, length);
+            else // if we're close to end of data - then copy all you can and fill rest w/ zeros
+            {
+                Array.Copy(data, index, result, 0, data_len - index);
+                for (int i = data_len - index; i < length; i++)
+                    result[i] = 0;
+            }
+            return result;
         }
 
         static string GetLocalIPAddress()
@@ -129,5 +178,6 @@ namespace Socket_Test
                 }
             }
         }
+
     }
 }
