@@ -140,17 +140,13 @@ class sinus_wave(QtGui.QWidget):
         hbox.addWidget(self.plotwidget)
 
         self.record_start_button = QtGui.QPushButton("Record")
-        self.record_stop_button = QtGui.QPushButton("Stop Record")
-
         hbox.addWidget(self.record_start_button)
-        hbox.addWidget(self.record_stop_button)
 
         self.setGeometry(10, 10, 1000, 600)
         self.show()
 
     def qt_connections(self):
         self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
-        self.record_stop_button.clicked.connect(self.on_record_stop_button_clicked)
 
     def updateplot(self):
         global thread, recording
@@ -160,14 +156,18 @@ class sinus_wave(QtGui.QWidget):
             self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
     def on_record_start_button_clicked(self):
-        global recording, t2
-        recording = 1
-        print ("Record started...")
+        global recording
+        if recording == 0:
+            recording = 1
+            self.record_start_button.setText("Stop")
+            # print ("Record started...")
+            sys.stdout.write('Record start... ')
+            sys.stdout.flush()
+        elif recording == 1:
+            recording = 2
+            self.record_start_button.setText("Record")
+            sys.stdout.write('\rRecord start... stop\n')
 
-    def on_record_stop_button_clicked(self):
-        global recording, t2
-        recording = 2
-        print ("Record stopped")
     def closeEvent(self, event):
         global thread
         thread.exit()
