@@ -218,7 +218,7 @@ record_buffer = np.array([], dtype=np.float32)
 
 def send_to_cuda():
     global recording, rb, record_buffer, t2
-    print('Hello from CUDA!')
+
 
     # saving data to file
     with open('signal.dat', 'w') as f:
