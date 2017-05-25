@@ -2,8 +2,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
-import gzip
-import shutil
+import gzip, shutil
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -113,12 +112,11 @@ class SerialReader(threading.Thread): # inheritated from Thread
             self.exitFlag = True
 
 
-class sinus_wave(QtGui.QWidget):
+class adc_chart(QtGui.QWidget):
     def __init__(self):
-        super(sinus_wave, self).__init__()
+        super(adc_chart, self).__init__()
         self.init_ui()
         self.qt_connections()
-
 
         self.plotcurve = pg.PlotCurveItem()
         self.plotwidget.addItem(self.plotcurve)
@@ -130,7 +128,7 @@ class sinus_wave(QtGui.QWidget):
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        self.setWindowTitle('Signal from Arduino ADC')
+        self.setWindowTitle('Signal from Arduino\'s ADC')
         hbox = QtGui.QVBoxLayout()
         self.setLayout(hbox)
 
@@ -176,8 +174,6 @@ class sinus_wave(QtGui.QWidget):
 def send_to_cuda():
     global recording, record_buffer
 
-
-    
     # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
 
@@ -186,25 +182,26 @@ def send_to_cuda():
     record_buffer[low_values_indices] = 0
     record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
 
-    # saving data to file
+    # print("start write to file", len(record_buffer), 'values...', end='')
+    sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
+    sys.stdout.flush()
     with open('signal.dat', 'w') as f:
-        print("start write to file...", len(record_buffer))
         record_buffer.tofile(f)
-        print("write to file success", os.stat('signal.dat').st_size)
-
-
     filesize = os.stat('signal.dat').st_size
+    print(" done (", filesize, ' bytes)', sep='')
 
-    print('data compression start (', filesize / 1000000, 'MB ) ...')
+    # print('data compression', filesize / 1000000, 'MB...', end='')
+    sys.stdout.write('data compression' + str(filesize / 1000000) + 'MB...')
+    sys.stdout.flush()
+
     with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
     gzfilesize = os.stat('signal.dat.gz').st_size
-    print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
+    print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
 
     print('start sending data to CUDA server...')
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
-
     blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
     with open('signal.dat.gz', 'rb') as f:
         packet = f.read(blocksize)
