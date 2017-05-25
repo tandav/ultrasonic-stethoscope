@@ -220,6 +220,15 @@ def send_to_cuda():
     global recording, rb, record_buffer, t2
 
 
+    
+    # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
+    record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
+
+    # filter almost-zero values
+    low_values_indices = record_buffer < 0.01 # Where values are low
+    record_buffer[low_values_indices] = 0
+    record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
+
     # saving data to file
     with open('signal.dat', 'w') as f:
         print("start write to file...", len(record_buffer))
