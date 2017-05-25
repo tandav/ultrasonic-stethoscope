@@ -196,7 +196,16 @@ class sinus_wave(QtGui.QWidget):
         print ("Record stopped")
 
 
-s = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
+for i in range(10):
+    try:
+        s = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
+    except Exception as e:
+        if i == 9:
+            ('Cannot connect to device. Check the connection.')
+            break
+        print('searching device')
+        time.sleep(0.20)
+print('device connected successfully')
 # s = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
 
 # Create thread to read and buffer serial data.
