@@ -213,7 +213,7 @@ thread = SerialReader(s)
 thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
 
 rb = 1000 # number of chunks in the record-buffer (buffer that reads and than writes to file)
-record_buffer = np.array([], dtype=np.float32)
+record_buffer = np.array([], dtype=np.uint16)
 
 
 def send_to_cuda():
@@ -249,7 +249,7 @@ def send_to_cuda():
     s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
 
     blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    with open('data.dat.gz', 'rb') as f:
+    with open('signal.dat.gz', 'rb') as f:
         packet = f.read(blocksize)
         i = 0
         while packet:
