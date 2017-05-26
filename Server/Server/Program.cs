@@ -49,36 +49,77 @@ namespace Socket_Test
                 Console.WriteLine("Start computing FFT with CUDA. Signal size = {0}...", signal.Length);
                 // if you need to compute fft of whole signal:
                 //float[] fft = new float[signal.Length / 2];
-                float[] signal_block = new float[signal.Length / 20];
-                float[] fft = new float[signal_block.Length / 2];
-                float[] fft_to_draw = new float[4000]; // how many values draw on chart
-                for (int i = 0, j = 0; i < signal.Length; i += signal_block.Length, j++)
+                
+                int block_size = 32768*32; // signal is processing by blocks
+                Console.WriteLine(block_size);
+                float[] block = new float[block_size];
+                float[] fft = new float[block_size / 2];
+
+                int chart_points = 4000; // how many values draw on chart
+                float[] block_to_draw = new float[chart_points]; // block of signal to draw on chart
+                float[] fft_to_draw = new float[chart_points];
+
+
+                for (int i = 0, file_count = 0; i < signal.Length; i += block_size, file_count++)
                 {
-                    signal_block = SubArray(signal, i, signal_block.Length);
-                    for (int k = 0; k < fft.Length; k++) // fake FFT transofrm, just for test, TODO: del
-                        fft[k] = signal_block[2 * k]; // not fft for test!!!!
+                    if (i + block_size < signal.Length)
+                        Array.Copy(signal, i, block, 0, block_size);
+                    else // if "i" is close to end of signal - then copy all you can and fill rest w/ zeros
+                    {
+                        Array.Copy(signal, i, block, 0, signal.Length - i);
+                        for (int j = signal.Length - i; j < block_size; j++)
+                            block[j] = 0;
+                    }
 
-                    for (int t = 0; t < fft_to_draw.Length; t++)
-                        fft_to_draw[t] = fft[t + fft.Length / fft_to_draw.Length];
-                }
-                Console.WriteLine("All PNGs are written");
-                Console.WriteLine("==== Session end ====");
-            }
+                    //CUDA.CUFT.Furie(block, fft, block_size);
+                    //Fake FFT
+                    for (int j = 0; j < block_size / 2; j++)
+                        fft[j] = 0.01f * j * (block[2 * j] + block[2 * j + 1]) + 15000;
+
+                    // optimize this big block
+                    float signal_avg = block[0];
+                    float fft_avg = fft[0];
+                    int n = 1; 
+                    int n2 = 1;
+
+                    for (int j = 1, k = 0, t = 0; j < block_size; j++)
+                    {
+                        signal_avg += block[j];
+                        n++;
+                        if (j % (block_size / chart_points) == 0 || j + 1 == block_size)
+                        {
+                            block_to_draw[k] = signal_avg / n;
+                            signal_avg = 0;
+                            n = 0;
+                            if (k + 1 < chart_points) k++;
+
+                        }
+
+                        if (j < block_size / 2)
+                        {
+                            fft_avg += fft[j];
+                            n2++;
+                            if (j % (block_size / 2 / chart_points) == 0 || j + 1 == block_size / 2)
+                            {
+                                fft_to_draw[t] = fft_avg / n2;
+                                fft_avg = 0;
+                                n2 = 0;
+                                if (t + 1 < chart_points) t++;
+                            }
 
 
-
-
-
-
-
-
-
+                        }
+                    }
 
 
                     Console.Write("Save to fft{0}.png start...", file_count);
                     save_pngs(block_to_draw, fft_to_draw, file_count);
                     Console.Write(" done\n");
+                }
                 Console.WriteLine("All PNGs are written");
+                Console.WriteLine("==== Session end ====");
+            }
+        }
 
         static void save_pngs(float[] signal, float[] fft, int file_count)
         {
