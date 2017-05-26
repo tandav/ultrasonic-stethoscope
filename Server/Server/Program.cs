@@ -60,59 +60,21 @@ namespace Socket_Test
 
                     for (int t = 0; t < fft_to_draw.Length; t++)
                         fft_to_draw[t] = fft[t + fft.Length / fft_to_draw.Length];
-                    //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде (Вахтина) был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
-                    //Console.WriteLine("FFT success");
                 }
                 Console.WriteLine("All PNGs are written");
                 Console.WriteLine("==== Session end ====");
             }
 
-            //// Decompress .gz
-            //byte[] file = File.ReadAllBytes("data.dat.gz");
-            //byte[] decompressed = Decompress(file);
-            //double[] data = new double[decompressed.Length / sizeof(double)];
 
-            //for (int i = 0; i < data.Length; i++)
-            //{
-            //    data[i] = BitConverter.ToDouble(decompressed, sizeof(double) * i);
-            //    //Console.WriteLine(data[i]);
-            //}
-            //float[] signal = Array.ConvertAll(data, x => (float)x); // convert to float array to use CUDA library
-            //Console.WriteLine("Decompression success...");
 
-            ////for (int i = 0; i < signal.Length; i++)
-            ////    Console.WriteLine(signal[i]);
 
-            //Console.WriteLine("FFT start. Signal size = {0}...", signal.Length);
 
-            //// CUDA FFT
-            ////float[] fft = new float[signal.Length / 2]; // write to disk very slow, reduced fft.len by 1000
 
-            //float[] buffer = new float[signal.Length / 500];
-            //float[] fft = new float[buffer.Length / 2];
 
-            //for (int i = 0, j = 0; i < signal.Length; i += buffer.Length, j++)
-            //{
-            //    buffer = SubArray(signal, i, buffer.Length);
-            //    CUDA.CUFT.Furie(buffer, fft, buffer.Length); // здесь почему то в моем коде . Вахтина был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
 
-            //    Console.WriteLine("FFT success");
 
-            //    Console.WriteLine("Save to PNG start...");
-            //    System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
-            //    chart.Size = new System.Drawing.Size(640, 320);
-            //    chart.ChartAreas.Add("ChartArea1");
-            //    //chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
-            //    chart.ChartAreas[0].AxisY.Maximum = 0.01;
 
-            //    chart.Series.Add("fft");
-            //    chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
-            //    chart.Series["fft"].Points.DataBindY(fft);
-            //    chart.SaveImage("fft" + j.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
-            //    Console.WriteLine("Save to PNG success");
-            //}
 
-            //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде . Вахтина был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
                     Console.Write("Save to fft{0}.png start...", file_count);
                     save_pngs(block_to_draw, fft_to_draw, file_count);
                     Console.Write(" done\n");
