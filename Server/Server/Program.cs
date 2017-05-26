@@ -41,6 +41,10 @@ namespace Socket_Test
                     signal[i] = BitConverter.ToSingle(decompressed, sizeof(float) * i);
                 Console.Write(" done\n");
 
+                System.IO.DirectoryInfo di = new DirectoryInfo("fft"); //clean up fft folder for pics
+                foreach (FileInfo pic in di.GetFiles())
+                    pic.Delete();
+
                 /////////////////////////////////// CUDA STUFF ////////////////////////////////////////
                 Console.WriteLine("Start computing FFT with CUDA. Signal size = {0}...", signal.Length);
                 // if you need to compute fft of whole signal:
@@ -58,19 +62,6 @@ namespace Socket_Test
                         fft_to_draw[t] = fft[t + fft.Length / fft_to_draw.Length];
                     //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде (Вахтина) был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
                     //Console.WriteLine("FFT success");
-
-                    Console.Write("Save to fft{0}.png start...", j);
-                    System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
-                    chart.Size = new System.Drawing.Size(640, 320);
-                    chart.ChartAreas.Add("ChartArea1");
-                    chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
-                    chart.ChartAreas[0].AxisY.Maximum = 3.5;
-
-                    chart.Series.Add("fft");
-                    chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
-                    chart.Series["fft"].Points.DataBindY(fft_to_draw);
-                    chart.SaveImage("./fft/fft" + j.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
-                    Console.Write(" done\n");
                 }
                 Console.WriteLine("All PNGs are written");
                 Console.WriteLine("==== Session end ====");
@@ -122,7 +113,67 @@ namespace Socket_Test
             //}
 
             //CUDA.CUFT.Furie(signal, fft, signal.Length); // здесь почему то в моем коде . Вахтина был третий аргумент 1000, возможно ошибка но если траблы будут - поставить 1000 или у вахтина спросить
+                    Console.Write("Save to fft{0}.png start...", file_count);
+                    save_pngs(block_to_draw, fft_to_draw, file_count);
+                    Console.Write(" done\n");
+                Console.WriteLine("All PNGs are written");
 
+        static void save_pngs(float[] signal, float[] fft, int file_count)
+        {
+            System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
+            chart.Size = new System.Drawing.Size(1024, 512);
+            chart.ChartAreas.Add("ChartArea1");
+            chart.ChartAreas["ChartArea1"].BackColor = System.Drawing.Color.AliceBlue;
+            chart.ChartAreas["ChartArea1"].AxisX.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
+            chart.ChartAreas["ChartArea1"].AxisY.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
+            chart.ChartAreas["ChartArea1"].AxisX.LineColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea1"].AxisY.LineColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.Enabled = false;
+            chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.Enabled = false;
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Enabled = false;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorTickMark.Enabled = false;
+            chart.ChartAreas["ChartArea1"].AxisY.MajorTickMark.Enabled = false;
+            chart.ChartAreas["ChartArea1"].AxisY.MinorTickMark.Enabled = false;
+            //chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
+            //chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea1"].Position.X = 0;
+            chart.ChartAreas["ChartArea1"].Position.Width = 100;
+            chart.ChartAreas["ChartArea1"].Position.Y = 0;
+            chart.ChartAreas["ChartArea1"].Position.Height = 70;
+            //chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
+            //chart.ChartAreas[0].AxisY.Maximum = 3.5;
+            chart.Series.Add("fft");
+            chart.Series["fft"].Color = System.Drawing.Color.DarkBlue;
+            chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
+            chart.Series["fft"].Points.DataBindY(fft);
+
+            chart.ChartAreas.Add("ChartArea2");
+            chart.ChartAreas["ChartArea2"].BackColor = System.Drawing.Color.AliceBlue;
+            chart.ChartAreas["ChartArea2"].AxisX.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
+            chart.ChartAreas["ChartArea2"].AxisY.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
+            chart.ChartAreas["ChartArea2"].AxisX.LineColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea2"].AxisY.LineColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea2"].AxisX.LabelStyle.Enabled = false;
+            chart.ChartAreas["ChartArea2"].AxisY.LabelStyle.Enabled = false;
+            chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.Enabled = false;
+            chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Enabled = false;
+            chart.ChartAreas["ChartArea2"].AxisY.MajorTickMark.Enabled = false;
+            chart.ChartAreas["ChartArea2"].AxisY.MinorTickMark.Enabled = false;
+            //chart.ChartAreas["ChartArea2"].AxisX.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
+            //chart.ChartAreas["ChartArea2"].AxisY.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea2"].Position.X = 0;
+            chart.ChartAreas["ChartArea2"].Position.Width = 100;
+            chart.ChartAreas["ChartArea2"].Position.Y = 72;
+            chart.ChartAreas["ChartArea2"].Position.Height = 28;
+            chart.ChartAreas[1].AxisY.Minimum = 0; // temp for signal, not for fft
+            chart.ChartAreas[1].AxisY.Maximum = 3.5;
+            chart.Series.Add("signal");
+            chart.Series["signal"].Color = System.Drawing.Color.DarkBlue;
+            chart.Series["signal"].ChartArea = "ChartArea2";
+            chart.Series["signal"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Spline;
+            chart.Series["signal"].Points.DataBindY(signal);
+
+            chart.SaveImage("./fft/fft-" + file_count.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
         }
 
         static float[] SubArray(float[] data, int index, int length)
