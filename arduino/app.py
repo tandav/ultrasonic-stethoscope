@@ -2,8 +2,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
-import gzip
-import shutil
+import gzip, shutil
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -38,6 +37,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
             # see whether an exit was requested
             with exitMutex:
                 if self.exitFlag:
+                    port.close()
                     break
 
             # read one full chunk from the serial port
@@ -106,45 +106,17 @@ class SerialReader(threading.Thread): # inheritated from Thread
         else:
             return np.linspace(0, (num-1)*1e-6, num), data, rate
 
-    def get_new_chunks(self, num, downsample=1):
-        """ Wait when new chunk of length=num is ready, then return it.
-        Also return corresponding to chunk time values and running average sample rate
-        """
-        with self.dataMutex:  # lock the buffer and copy the requested data out
-            ptr = self.ptr
-            if ptr-num < 0:
-                data = self.buffer[ptr - ptr % num - num :].copy()
-            else:
-                data = self.buffer[ptr - ptr % num - num : ptr - ptr % num].copy()
-            rate = self.sps
-
-        # Convert array to float and rescale to voltage.
-        # Assume 3.3V / 12bits
-        # (we need calibration data to do a better job on this)
-        data = data.astype(np.float32) * (3.3 / 2**12)
-        if downsample > 1:  # if downsampling is requested, average N samples together
-            data = data.reshape(num // downsample,downsample).mean(axis=1)
-            num = data.shape[0]
-            return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
-        else:
-            return np.linspace(0, (num-1)*1e-6, num), data, rate
-
-    def get_ptr(self):
-        with self.dataMutex:  # lock the buffer loop
-            return self.ptr
-
     def exit(self):
         """ Instruct the serial thread to exit."""
         with self.exitMutex:
             self.exitFlag = True
 
 
-class sinus_wave(QtGui.QWidget):
+class adc_chart(QtGui.QWidget):
     def __init__(self):
-        super(sinus_wave, self).__init__()
+        super(adc_chart, self).__init__()
         self.init_ui()
         self.qt_connections()
-
 
         self.plotcurve = pg.PlotCurveItem()
         self.plotwidget.addItem(self.plotcurve)
@@ -156,7 +128,7 @@ class sinus_wave(QtGui.QWidget):
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        self.setWindowTitle('Signal from Arduino ADC')
+        self.setWindowTitle('Signal from Arduino\'s ADC')
         hbox = QtGui.QVBoxLayout()
         self.setLayout(hbox)
 
@@ -166,17 +138,13 @@ class sinus_wave(QtGui.QWidget):
         hbox.addWidget(self.plotwidget)
 
         self.record_start_button = QtGui.QPushButton("Record")
-        self.record_stop_button = QtGui.QPushButton("Stop Record")
-
         hbox.addWidget(self.record_start_button)
-        hbox.addWidget(self.record_stop_button)
 
         self.setGeometry(10, 10, 1000, 600)
         self.show()
 
     def qt_connections(self):
         self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
-        self.record_stop_button.clicked.connect(self.on_record_stop_button_clicked)
 
     def updateplot(self):
         global thread, recording
@@ -186,41 +154,26 @@ class sinus_wave(QtGui.QWidget):
             self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
     def on_record_start_button_clicked(self):
-        global recording, t2
-        recording = 1
-        print ("Record started...")
+        global recording
+        if recording == 0:
+            recording = 1
+            self.record_start_button.setText("Stop")
+            # print ("Record started...")
+            sys.stdout.write('Record start... ')
+            sys.stdout.flush()
+        elif recording == 1:
+            recording = 2
+            self.record_start_button.setText("Record")
+            sys.stdout.write('\rRecord start... stop\n')
 
-    def on_record_stop_button_clicked(self):
-        global recording, t2
-        recording = 2
-        print ("Record stopped")
-
-
-for i in range(10):
-    try:
-        s = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
-    except Exception as e:
-        if i == 9:
-            ('Cannot connect to device. Check the connection.')
-            break
-        print('searching device')
-        time.sleep(0.20)
-print('device connected successfully')
-# s = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
-
-# Create thread to read and buffer serial data.
-thread = SerialReader(s)
-thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
-
-rb = 1000 # number of chunks in the record-buffer (buffer that reads and than writes to file)
-record_buffer = np.array([], dtype=np.uint16)
+    def closeEvent(self, event):
+        global thread
+        thread.exit()
 
 
 def send_to_cuda():
-    global recording, rb, record_buffer, t2
+    global recording, record_buffer
 
-
-    
     # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
 
@@ -229,25 +182,26 @@ def send_to_cuda():
     record_buffer[low_values_indices] = 0
     record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
 
-    # saving data to file
+    # print("start write to file", len(record_buffer), 'values...', end='')
+    sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
+    sys.stdout.flush()
     with open('signal.dat', 'w') as f:
-        print("start write to file...", len(record_buffer))
         record_buffer.tofile(f)
-        print("write to file success", os.stat('signal.dat').st_size)
-
-
     filesize = os.stat('signal.dat').st_size
+    print(" done (", filesize, ' bytes)', sep='')
 
-    print('data compression start (', filesize / 1000000, 'MB ) ...')
+    # print('data compression', filesize / 1000000, 'MB...', end='')
+    sys.stdout.write('data compression' + str(filesize / 1000000) + 'MB...')
+    sys.stdout.flush()
+
     with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
     gzfilesize = os.stat('signal.dat.gz').st_size
-    print('data compression succes. File reduced to', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% from uncompressed)')
+    print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
 
     print('start sending data to CUDA server...')
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
-
     blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
     with open('signal.dat.gz', 'rb') as f:
         packet = f.read(blocksize)
@@ -266,15 +220,33 @@ def send_to_cuda():
 recording = 0 # 0 = do not record, 1 = recording started, 2 = recording has just finished
 
 def main():
+    for i in range(20):
+        try:
+            ser = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
+            # ser = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
+            print('device connected')
+            break
+        except Exception as e:
+            if i == 19:
+                print('Device not found. Check the connection.')
+                sys.exit()
+            # sys.stdout.write('\r')
+            sys.stdout.write('\rsearching device' + '.'*i + ' ')
+            sys.stdout.flush()
+            time.sleep(0.1)
+
+    # Create thread to read and buffer serial data.
+    global thread
+    thread = SerialReader(ser)
+    thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
+    global record_buffer
+    record_buffer = np.array([], dtype=np.uint16)
+
     app = QtGui.QApplication(sys.argv)
-    app.setApplicationName('Sinuswave')
-    ex = sinus_wave()
-    app.exec_()
-    # sys.exit(app.exec_())
-    # sys.exit(thread.exit())
-    # thread.exit()
+    adc = adc_chart() # create class instance
+    sys.exit(app.exec_())
 
 if __name__ == '__main__':
     main()
