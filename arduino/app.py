@@ -31,7 +31,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
         sps = None
         lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, t2
+        global record_buffer, recording, record_time, t2, rate
 
         while True:
             # see whether an exit was requested
@@ -64,16 +64,20 @@ class SerialReader(threading.Thread): # inheritated from Thread
                 buffer[self.ptr:self.ptr+self.chunkSize] = data
                 self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
 
+                if sps is not None:
+                    self.sps = sps
+
                 if recording == 1:
                     record_buffer = np.append(record_buffer, data)
+                    record_time += dt
 
                 if recording == 2:
                     recording = 0
+                    rate = sps
                     t2 = threading.Thread(target=send_to_cuda)
                     t2.start()
 
-                if sps is not None:
-                    self.sps = sps
+
 
     def get(self, num, downsample=1):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -172,17 +176,20 @@ class adc_chart(QtGui.QWidget):
 
 
 def send_to_cuda():
-    global recording, record_buffer
+    global recording, record_buffer, record_time, rate
+
+
+    somewhere here : record_time = 0
 
     # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
+    print
 
     # filter almost-zero values
-    low_values_indices = record_buffer < 0.01 # Where values are low
-    record_buffer[low_values_indices] = 0
-    record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
+    # low_values_indices = record_buffer < 0.01 # Where values are low
+    # record_buffer[low_values_indices] = 0
+    # record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
 
-    # print("start write to file", len(record_buffer), 'values...', end='')
     sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
     sys.stdout.flush()
     with open('signal.dat', 'w') as f:
@@ -190,7 +197,6 @@ def send_to_cuda():
     filesize = os.stat('signal.dat').st_size
     print(" done (", filesize, ' bytes)', sep='')
 
-    # print('data compression', filesize / 1000000, 'MB...', end='')
     sys.stdout.write('data compression' + str(filesize / 1000000) + 'MB...')
     sys.stdout.flush()
 
@@ -241,7 +247,7 @@ def main():
     thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
-    global record_buffer
+    global record_buffer, record_time, rate
     record_buffer = np.array([], dtype=np.uint16)
 
     app = QtGui.QApplication(sys.argv)
