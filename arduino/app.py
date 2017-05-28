@@ -83,8 +83,6 @@ class SerialReader(threading.Thread): # inheritated from Thread
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
 
-                # if recording == 2:
-
 
     def get(self, num, downsample=1):
         """ Return a tuple (time_values, voltage_values, rate)
