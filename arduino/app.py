@@ -283,14 +283,14 @@ def send_to_cuda():
 
 
 def main():
-    for i in range(20):
+    for i in range(21):
         try:
             ser = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
             # ser = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
-            print('device connected')
+            print('device connected\n')
             break
         except Exception as e:
-            if i == 19:
+            if i == 20:
                 print('Device not found. Check the connection.')
                 sys.exit()
             # sys.stdout.write('\r')
