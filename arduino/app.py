@@ -71,16 +71,13 @@ class SerialReader(threading.Thread): # inheritated from Thread
                 if sps is not None:
                     self.sps = sps
 
-                if recording == 1:
-                    record_buffer[self.values_recorded:self.values_recorded + self.chunkSize] = data
-                    # record_buffer = np.append(record_buffer, data)
+                if recording:
+                    record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
                     self.values_recorded += self.chunkSize
 
-                    if self.values_recorded >= values_to_record and values_to_record != 0: # maybe del second condition
-                        # print('***')
+                    if self.values_recorded >= values_to_record: # maybe del second condition
                         time1 = time.time()
-                        rate = self.sps
-                        recording = 0
+                        recording = False
                         self.values_recorded = 0
                         values_to_record = 0
                         t2 = threading.Thread(target=send_to_cuda)
@@ -308,13 +305,13 @@ def main():
     thread.start()
 
     global recording, record_buffer, record_time, rate, values_to_record, time0, time1
-    recording = 0 # 0 = do not record, 1 = recording started, 2 = recording has just finished
-    # record_buffer = np.array([], dtype=np.uint16)
+    recording        = False
     values_to_record = 0
-    record_time = 0
-    rate = 0
-    time0 = 0
-    time1 = 0
+    record_time      = 0
+    rate             = 0
+    time0            = 0
+    time1            = 0
+    # record_buffer = np.array([], dtype=np.uint16)
 
     app = QtGui.QApplication(sys.argv)
     adc = adc_chart() # create class instance
