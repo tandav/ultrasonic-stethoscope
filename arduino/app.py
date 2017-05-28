@@ -167,7 +167,7 @@ class adc_chart(QtGui.QWidget):
     def updateplot(self):
         global thread, recording
         if not recording:
-            t,v,r = thread.get(1000*1024, downsample=100)
+            t,v,r = thread.get(1000*1024, downsample=256)
             self.plotcurve.setData(t, v)
             self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
