@@ -33,7 +33,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, record_time, values_to_record, rate, t2, time1
+        global record_buffer, recording, values_to_record, t2, time1
 
         while True:
             # see whether an exit was requested
@@ -187,7 +187,6 @@ class adc_chart(QtGui.QWidget):
     def on_record_values_button(self):
         global recording, values_to_record, time0, record_buffer
         values_to_record = self.spin.value()
-        print(values_to_record)
         record_buffer = np.empty(values_to_record)
         recording = True
         time0 = time.time()
@@ -202,34 +201,20 @@ def send_to_cuda():
 
     # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
-    # print(record_buffer)
-    # print(len(record_buffer))
-    # print(record_buffer.dtype)
 
     record_time = np.float32(time1 - time0)
     rate = np.float32(len(record_buffer) / record_time)
+    sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
+
     record_buffer = np.append(record_buffer, [record_time, rate])
 
-    # record_buffer = np.append(record_buffer, [record_time, rate])
-    # record_buffer = np.append(record_buffer, record_time)
-    # record_buffer = np.append(record_buffer, rate)
-    # print(len(record_buffer))
 
 
-    # time_rate = np.array([record_time, rate])
-
-    # print('record time:', record_time, 's', 'rate', rate)
-    sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps\n')
-
-
-    # sys.stdout.write('start write to file ' + str(len(record_buffer) - 2) + ' values...') # - 2 cause last 2 values are not values of signal but record time and rate
     sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
     sys.stdout.flush()
     with open('signal.dat', 'w') as f:
         record_buffer.tofile(f)
 
-    # with open('time_rate.dat', 'w') as f:
-        # time_rate.tofile(f)
     filesize = os.stat('signal.dat').st_size
     print(" done (", filesize, ' bytes)', sep='')
 
@@ -293,11 +278,6 @@ def main():
     global recording, record_buffer, record_time, rate, values_to_record, time0, time1
     recording        = False
     values_to_record = 0
-    record_time      = 0
-    rate             = 0
-    time0            = 0
-    time1            = 0
-    # record_buffer = np.array([], dtype=np.uint16)
 
     app = QtGui.QApplication(sys.argv)
     adc = adc_chart() # create class instance
