@@ -30,9 +30,10 @@ class SerialReader(threading.Thread): # inheritated from Thread
         port = self.port
         count = 0
         sps = None
-        lastUpdate = pg.ptime.time()
+        lastUpdate = time.time()
+        # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, record_time, values_to_record, rate, t2
+        global record_buffer, recording, record_time, values_to_record, rate, t2, time1
 
         while True:
             # see whether an exit was requested
@@ -48,7 +49,9 @@ class SerialReader(threading.Thread): # inheritated from Thread
 
             # keep track of the acquisition rate in samples-per-second
             count += self.chunkSize
-            now = pg.ptime.time()
+            # now = pg.ptime.time()
+            now = time.time()
+
             dt = now-lastUpdate
             if dt > 1.0:
                 # sps is an exponential average of the running sample rate measurement
@@ -68,23 +71,23 @@ class SerialReader(threading.Thread): # inheritated from Thread
                 if sps is not None:
                     self.sps = sps
 
-                if self.values_recorded >= values_to_record and values_to_record != 0:
-                    print('***')
-                    recording = 2
-
                 if recording == 1:
-                    record_buffer = np.append(record_buffer, data)
+                    record_buffer[self.values_recorded:self.values_recorded + self.chunkSize] = data
+                    # record_buffer = np.append(record_buffer, data)
                     self.values_recorded += self.chunkSize
-                    record_time += dt
-                    rate += sps
 
-                if recording == 2:
-                    recording = 0
-                    self.values_recorded = 0
-                    rate /= values_to_record / self.chunkSize
-                    values_to_record = 0
-                    t2 = threading.Thread(target=send_to_cuda)
-                    t2.start()
+                    if self.values_recorded >= values_to_record and values_to_record != 0: # maybe del second condition
+                        # print('***')
+                        time1 = time.time()
+                        rate = self.sps
+                        recording = 0
+                        self.values_recorded = 0
+                        values_to_record = 0
+                        t2 = threading.Thread(target=send_to_cuda)
+                        t2.start()
+
+                # if recording == 2:
+
 
     def get(self, num, downsample=1):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -185,9 +188,11 @@ class adc_chart(QtGui.QWidget):
             sys.stdout.write('\rRecord start... stop\n')
 
     def on_record_values_button(self):
-        global recording, values_to_record
+        global recording, values_to_record, time0, record_buffer
         values_to_record = self.spin.value()
+        record_buffer = np.zeros(values_to_record, dtype=np.uint16)
         recording = 1
+        time0 = time.time()
 
     def closeEvent(self, event):
         global thread
@@ -195,13 +200,19 @@ class adc_chart(QtGui.QWidget):
 
 
 def send_to_cuda():
-    global recording, record_buffer, record_time, rate
+    global recording, record_buffer, record_time, rate, time0, time1
 
     # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
     # print(record_buffer)
     # print(len(record_buffer))
     # print(record_buffer.dtype)
+
+    record_time = time1 - time0
+
+    print ('math (ideal) number of values:', record_time * rate)
+    print ('REAL LIFE RATE:',  len(record_buffer) / record_time)
+
 
     rr = np.array([record_time, rate], dtype=np.float32)
     record_buffer = np.append(record_buffer, rr)
@@ -214,8 +225,8 @@ def send_to_cuda():
     # time_rate = np.array([record_time, rate])
 
     print('record time:', record_time, 'rate', rate)
-    record_time = 0
-    rate = 0
+    # record_time = 0
+    # rate = 0
 
     # print(record_buffer[-2], record_buffer[-1])
     # print(record_buffer.dtype)
@@ -238,39 +249,39 @@ def send_to_cuda():
     filesize = os.stat('signal.dat').st_size
     print(" done (", filesize, ' bytes)', sep='')
 
-    sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
-    sys.stdout.flush()
+    # sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
+    # sys.stdout.flush()
 
-    with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
-        shutil.copyfileobj(f_in, f_out)
-    gzfilesize = os.stat('signal.dat.gz').st_size
-    print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
+    # with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
+    #     shutil.copyfileobj(f_in, f_out)
+    # gzfilesize = os.stat('signal.dat.gz').st_size
+    # print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
 
-    print('start sending data to CUDA server...')
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
-    blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    with open('signal.dat.gz', 'rb') as f:
-        packet = f.read(blocksize)
-        i = 0
-        while packet:
-            s.send(packet)
-            packet = f.read(blocksize)
-            i += 1
-            if i % 100 == 0:
-                # print('data send:', f.tell() / filesize, '%')
-                print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
-
-    # with open('time_rate.dat', 'rb') as f:
-    #     packet = f.read(blocksize//512)
+    # print('start sending data to CUDA server...')
+    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
+    # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
+    # with open('signal.dat.gz', 'rb') as f:
+    #     packet = f.read(blocksize)
+    #     i = 0
     #     while packet:
     #         s.send(packet)
-    #         packet = f.read(blocksize//512)
-    # print('data send: 100% - success')
-    s.close()
+    #         packet = f.read(blocksize)
+    #         i += 1
+    #         if i % 100 == 0:
+    #             # print('data send:', f.tell() / filesize, '%')
+    #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
+
+    # # with open('time_rate.dat', 'rb') as f:
+    # #     packet = f.read(blocksize//512)
+    # #     while packet:
+    # #         s.send(packet)
+    # #         packet = f.read(blocksize//512)
+    # # print('data send: 100% - success')
+    # s.close()
     
-    record_buffer = np.array([], dtype=np.uint16)
-    print('==== session end ====\n')
+    # record_buffer = np.array([], dtype=np.uint16)
+    print('session end\n')
 
 
 def main():
@@ -295,12 +306,14 @@ def main():
     thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
-    global recording, record_buffer, record_time, rate, values_to_record
+    global recording, record_buffer, record_time, rate, values_to_record, time0, time1
     recording = 0 # 0 = do not record, 1 = recording started, 2 = recording has just finished
-    record_buffer = np.array([], dtype=np.uint16)
+    # record_buffer = np.array([], dtype=np.uint16)
     values_to_record = 0
     record_time = 0
     rate = 0
+    time0 = 0
+    time1 = 0
 
     app = QtGui.QApplication(sys.argv)
     adc = adc_chart() # create class instance
