@@ -206,14 +206,10 @@ def send_to_cuda():
     # print(len(record_buffer))
     # print(record_buffer.dtype)
 
-    record_time = time1 - time0
+    record_time = np.float32(time1 - time0)
+    rate = np.float32(len(record_buffer) / record_time)
+    record_buffer = np.append(record_buffer, [record_time, rate])
 
-    print ('math (ideal) number of values:', record_time * rate)
-    print ('REAL LIFE RATE:',  len(record_buffer) / record_time)
-
-
-    rr = np.array([record_time, rate], dtype=np.float32)
-    record_buffer = np.append(record_buffer, rr)
     # record_buffer = np.append(record_buffer, [record_time, rate])
     # record_buffer = np.append(record_buffer, record_time)
     # record_buffer = np.append(record_buffer, rate)
@@ -222,19 +218,9 @@ def send_to_cuda():
 
     # time_rate = np.array([record_time, rate])
 
-    print('record time:', record_time, 'rate', rate)
-    # record_time = 0
-    # rate = 0
+    # print('record time:', record_time, 's', 'rate', rate)
+    sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps\n')
 
-    # print(record_buffer[-2], record_buffer[-1])
-    # print(record_buffer.dtype)
-    # import matplotlib.pyplot as plt
-    # plt.plot(record_buffer[::100])
-    # plt.show()
-    # filter almost-zero values
-    # low_values_indices = record_buffer < 0.01 # Where values are low
-    # record_buffer[low_values_indices] = 0
-    # record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
 
     # sys.stdout.write('start write to file ' + str(len(record_buffer) - 2) + ' values...') # - 2 cause last 2 values are not values of signal but record time and rate
     sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
