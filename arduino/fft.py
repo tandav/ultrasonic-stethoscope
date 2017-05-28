@@ -33,7 +33,8 @@ import numpy as np
 # i = t*10000
 # j = i + 20000
 y = np.fromfile('signal.dat', dtype=np.float32)
-n = len(y)
-y = y[::]
+print ('len of signal:', len(y))
+# print (y[-4], y[-3], y[-2], y[-1])
+y = y[::100]
 plt.plot(y)
 plt.show()

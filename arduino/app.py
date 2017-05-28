@@ -199,49 +199,76 @@ def send_to_cuda():
 
     # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
-    record_buffer = np.append(record_buffer, record_time)
-    record_buffer = np.append(record_buffer, rate)
-    print('record time:', record_buffer[-2], 'rate', record_buffer[-1])
+    # print(record_buffer)
+    # print(len(record_buffer))
+    # print(record_buffer.dtype)
+
+    rr = np.array([record_time, rate], dtype=np.float32)
+    record_buffer = np.append(record_buffer, rr)
+    # record_buffer = np.append(record_buffer, [record_time, rate])
+    # record_buffer = np.append(record_buffer, record_time)
+    # record_buffer = np.append(record_buffer, rate)
+    # print(len(record_buffer))
+
+
+    # time_rate = np.array([record_time, rate])
+
+    print('record time:', record_time, 'rate', rate)
     record_time = 0
     rate = 0
 
+    # print(record_buffer[-2], record_buffer[-1])
+    # print(record_buffer.dtype)
+    # import matplotlib.pyplot as plt
+    # plt.plot(record_buffer[::100])
+    # plt.show()
     # filter almost-zero values
     # low_values_indices = record_buffer < 0.01 # Where values are low
     # record_buffer[low_values_indices] = 0
     # record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
 
-    sys.stdout.write('start write to file ' + str(len(record_buffer) - 2) + ' values...')
-    # sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
-    # sys.stdout.flush()
-    # with open('signal.dat', 'w') as f:
-    #     record_buffer.tofile(f)
-    # filesize = os.stat('signal.dat').st_size
-    # print(" done (", filesize, ' bytes)', sep='')
+    # sys.stdout.write('start write to file ' + str(len(record_buffer) - 2) + ' values...') # - 2 cause last 2 values are not values of signal but record time and rate
+    sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
+    sys.stdout.flush()
+    with open('signal.dat', 'w') as f:
+        record_buffer.tofile(f)
 
-    # sys.stdout.write('data compression' + str(filesize / 1000000) + 'MB...')
-    # sys.stdout.flush()
+    # with open('time_rate.dat', 'w') as f:
+        # time_rate.tofile(f)
+    filesize = os.stat('signal.dat').st_size
+    print(" done (", filesize, ' bytes)', sep='')
 
-    # with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
-    #     shutil.copyfileobj(f_in, f_out)
-    # gzfilesize = os.stat('signal.dat.gz').st_size
-    # print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
+    sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
+    sys.stdout.flush()
 
-    # print('start sending data to CUDA server...')
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
-    # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    # with open('signal.dat.gz', 'rb') as f:
-    #     packet = f.read(blocksize)
-    #     i = 0
+    with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    gzfilesize = os.stat('signal.dat.gz').st_size
+    print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
+
+    print('start sending data to CUDA server...')
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
+    blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
+    with open('signal.dat.gz', 'rb') as f:
+        packet = f.read(blocksize)
+        i = 0
+        while packet:
+            s.send(packet)
+            packet = f.read(blocksize)
+            i += 1
+            if i % 100 == 0:
+                # print('data send:', f.tell() / filesize, '%')
+                print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
+
+    # with open('time_rate.dat', 'rb') as f:
+    #     packet = f.read(blocksize//512)
     #     while packet:
     #         s.send(packet)
-    #         packet = f.read(blocksize)
-    #         i += 1
-    #         if i % 100 == 0:
-    #             # print('data send:', f.tell() / filesize, '%')
-    #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
-    #     print('data send: 100% - success')
-    # s.close()
+    #         packet = f.read(blocksize//512)
+    # print('data send: 100% - success')
+    s.close()
+    
     record_buffer = np.array([], dtype=np.uint16)
     print('==== session end ====\n')
 
