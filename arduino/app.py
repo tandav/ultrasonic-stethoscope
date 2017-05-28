@@ -154,7 +154,7 @@ class adc_chart(QtGui.QWidget):
         self.record_start_button = QtGui.QPushButton("Record")
         hbox.addWidget(self.record_start_button)
 
-        self.spin = pg.SpinBox(value=1048576,  bounds=[1024, None], suffix=' Values to record', siPrefix=True, dec=True, step=1)
+        self.spin = pg.SpinBox(value=1048576, int=True, bounds=[524288, None], suffix=' Values to record', step=524288, decimals=12)
         hbox.addWidget(self.spin)
 
         self.record_values_button = QtGui.QPushButton("Record Values")
@@ -190,8 +190,9 @@ class adc_chart(QtGui.QWidget):
     def on_record_values_button(self):
         global recording, values_to_record, time0, record_buffer
         values_to_record = self.spin.value()
-        record_buffer = np.zeros(values_to_record, dtype=np.uint16)
-        recording = 1
+        print(values_to_record)
+        record_buffer = np.empty(values_to_record)
+        recording = True
         time0 = time.time()
 
     def closeEvent(self, event):
