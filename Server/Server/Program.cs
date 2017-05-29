@@ -8,7 +8,7 @@ using System.Net;
 using System.IO;
 using System.IO.Compression;
 
-namespace Socket_Test
+namespace Server
 {
     class Program
     {
@@ -40,7 +40,6 @@ namespace Socket_Test
                     signal[i] = BitConverter.ToSingle(decompressed, sizeof(float) * i);
                 float record_time = BitConverter.ToSingle(decompressed, sizeof(float) * signal.Length);
                 float rate = BitConverter.ToSingle(decompressed, sizeof(float) * (signal.Length + 1));
-                //float record_time = BitConverter.ToSingle(decompressed, sizeof(float) * i);
                 Console.Write(" done\n");
 
                 System.IO.DirectoryInfo di = new DirectoryInfo("fft"); //clean up fft folder for pics
@@ -84,12 +83,11 @@ namespace Socket_Test
                     for (int j = 0; j < block_size / 2 + 1; j++)
                         fft[j] = Math.Abs(10f + (float)Math.Sin(0.0001 * j) * (j - block_size / 2));
 
-                    for (int j = 0; j < block_size / 2 + 1; j++)
+                    for (int j = 0; j < block_size / 2 + 1; j++) // Done?
                         freq[j] = (float)j / block_size * rate;
 
                     for (int j = 0; j < block_size; j++)
                         time[j] = record_time * ((float)i / block_size + (float)j / signal_len);
-
 
                     // optimize this big code block
                     float signal_avg = block[0];
@@ -149,7 +147,8 @@ namespace Socket_Test
                 }
                 Console.WriteLine("All PNGs are written");
                 Console.WriteLine("==== Session end ====");
-                Console.ReadKey();
+                //Console.ReadKey();
+                break;
             }
         }
 
@@ -158,28 +157,36 @@ namespace Socket_Test
             System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
             chart.Size = new System.Drawing.Size(1024, 512);
 
+            System.Drawing.Color darkblue = System.Drawing.Color.DarkBlue;
+
             chart.ChartAreas.Add("ChartArea1");
             chart.ChartAreas["ChartArea1"].BackColor = System.Drawing.Color.AliceBlue;
             chart.ChartAreas["ChartArea1"].AxisX.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
             chart.ChartAreas["ChartArea1"].AxisY.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
-            //chart.ChartAreas["ChartArea1"].AxisX.LineColor = System.Drawing.Color.DarkBlue;
-            //chart.ChartAreas["ChartArea1"].AxisY.LineColor = System.Drawing.Color.DarkBlue;
-            //chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.Enabled = false;
-            //chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.Enabled = false;
-            //chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Enabled = false;
-            //chart.ChartAreas["ChartArea1"].AxisX.MinorTickMark.Enabled = false;
-            //chart.ChartAreas["ChartArea1"].AxisY.MajorTickMark.Enabled = false;
-            //chart.ChartAreas["ChartArea1"].AxisY.MinorTickMark.Enabled = false;
-            //chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
-            //chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea1"].AxisX.LineColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisY.LineColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.ForeColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.ForeColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.LineColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisY.MajorTickMark.LineColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisX.Title = "Frequency, Hz";
+            chart.ChartAreas["ChartArea1"].AxisX.TitleForeColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisY.Title = "Amplitude, dB";
+            chart.ChartAreas["ChartArea1"].AxisY.TitleForeColor = darkblue;
+
+            chart.ChartAreas["ChartArea1"].BorderWidth = 1;
+            chart.ChartAreas["ChartArea1"].BorderDashStyle = System.Windows.Forms.DataVisualization.Charting.ChartDashStyle.Solid;
+            chart.ChartAreas["ChartArea1"].BorderColor = darkblue;
+
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Interval = 0.25;
             chart.ChartAreas["ChartArea1"].AxisX.IsLogarithmic = true;
             chart.ChartAreas["ChartArea1"].AxisY.IsLogarithmic = true;
             chart.ChartAreas["ChartArea1"].Position.X = 0;
             chart.ChartAreas["ChartArea1"].Position.Width = 95;
             chart.ChartAreas["ChartArea1"].Position.Y = 0;
             chart.ChartAreas["ChartArea1"].Position.Height = 70;
-            chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.Format = "0.";
-            chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.Format = "0.0";
+            chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.Format = "#.e+0";
+            chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.Format = "#.e+0";
 
             chart.ChartAreas["ChartArea1"].AxisX.Minimum = 10; // IMPORTANT this is influence on LogScale success and errors must be > 0 
 
@@ -199,18 +206,38 @@ namespace Socket_Test
             chart.ChartAreas["ChartArea2"].BackColor = System.Drawing.Color.AliceBlue;
             chart.ChartAreas["ChartArea2"].AxisX.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
             chart.ChartAreas["ChartArea2"].AxisY.MajorGrid.LineColor = System.Drawing.Color.LightSteelBlue;
-            //chart.ChartAreas["ChartArea2"].AxisX.LineColor = System.Drawing.Color.DarkBlue;
-            //chart.ChartAreas["ChartArea2"].AxisY.LineColor = System.Drawing.Color.DarkBlue;
+            chart.ChartAreas["ChartArea2"].AxisX.LineColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisY.LineColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisX.LabelStyle.ForeColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisY.LabelStyle.ForeColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.LineColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisY.MajorTickMark.LineColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisX.Title = "Time, seconds";
+            chart.ChartAreas["ChartArea2"].AxisX.TitleForeColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisY.Title = "Voltage, V";
+            chart.ChartAreas["ChartArea2"].AxisY.TitleForeColor = darkblue;
+
+            chart.ChartAreas["ChartArea2"].BorderWidth = 1;
+            chart.ChartAreas["ChartArea2"].BorderDashStyle = System.Windows.Forms.DataVisualization.Charting.ChartDashStyle.Solid;
+            chart.ChartAreas["ChartArea2"].BorderColor = darkblue;
             //chart.ChartAreas["ChartArea2"].AxisX.LabelStyle.Enabled = false;
             //chart.ChartAreas["ChartArea2"].AxisY.LabelStyle.Enabled = false;
             //chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.Enabled = false;
             //chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Enabled = false;
             //chart.ChartAreas["ChartArea2"].AxisY.MajorTickMark.Enabled = false;
             //chart.ChartAreas["ChartArea2"].AxisY.MinorTickMark.Enabled = false;
-            //chart.ChartAreas["ChartArea2"].AxisX.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
-            //chart.ChartAreas["ChartArea2"].AxisY.LabelStyle.ForeColor = System.Drawing.Color.DarkBlue;
-            chart.ChartAreas["ChartArea2"].Position.X = 0;
-            chart.ChartAreas["ChartArea2"].Position.Width = 95;
+            chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.Interval = 0.5;
+            chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.Size = 1.5f;
+
+            chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Enabled = true;
+            chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Size = 0.5f;
+
+            chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Interval = 0.1;
+            chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.LineColor = darkblue;
+
+            chart.ChartAreas["ChartArea2"].AlignWithChartArea = "ChartArea1";
+            //chart.ChartAreas["ChartArea2"].Position.X = 0;
+            //chart.ChartAreas["ChartArea2"].Position.Width = 95;
             chart.ChartAreas["ChartArea2"].Position.Y = 72;
             chart.ChartAreas["ChartArea2"].Position.Height = 28;
             chart.ChartAreas["ChartArea2"].AxisX.LabelStyle.Format = "0.##";
