@@ -11,17 +11,16 @@ rate = y[-1]
 print('record_time: ', record_time, 'rate: ', rate)
 
 y = y[:-2]
+n = len(y) # length of the signal
 
 
-Ts = 1.0 / rate; # sampling interval
-t = np.arange(0, record_time, Ts) # time vector
+t = np.linspace(0, record_time, n) # time vector
 
 # ff = 5;   # frequency of the signal
 # # y = np.sin(2*np.pi*ff*t)
 
-n = len(y) # length of the signal
 k = np.arange(n)
-T = n / Fs
+T = n / rate
 frq = k / T # two sides frequency range
 frq = frq[range(n // 2 + 1)] # one side frequency range
 
