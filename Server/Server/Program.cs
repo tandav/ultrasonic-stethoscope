@@ -101,41 +101,30 @@ namespace Server
                     for (int j = 1, k = 0, t = 0; j < block_size; j++)
                     {
                         signal_avg += block[j];
-                        time_avg += time[j];
+                        time_avg   += time[j];
                         n++;
                         if (j % (block_size / chart_points) == 0 || j + 1 == block_size)
                         {
                             block_to_draw[k] = signal_avg / n;
-                            time_to_draw[k] = time_avg / n;
-                            signal_avg = 0;
-                            time_avg = 0;
-                            n = 0;
+                            time_to_draw[k]  = time_avg / n;
+                            signal_avg       = 0;
+                            time_avg         = 0;
+                            n                = 0;
                             if (k + 1 < chart_points) k++;
                         }
 
                         if (j < block_size / 2 + 1)
                         {
-                            fft_avg += fft[j];
+                            fft_avg  += fft[j];
                             freq_avg += freq[j];
                             n2++;
                             if (j % ((block_size / 2 + 1) / chart_points) == 0 || j + 1 == (block_size / 2 + 1))
                             {
-                                fft_to_draw[t] = fft_avg / n2;
+                                fft_to_draw[t]  = fft_avg / n2;
                                 freq_to_draw[t] = freq_avg / n2;
-
-                                //if (fft_avg / n2 > 1e-10f)
-                                //{
-                                //    fft_to_draw[t] = fft_avg / n2;
-                                //}
-                                //else
-                                //{
-                                //    fft_to_draw[t] = 1E-10f;
-                                //}
-                                //Console.WriteLine(fft_to_draw[t]);
-
-                                fft_avg = 0;
-                                freq_avg = 0;
-                                n2 = 0;
+                                fft_avg         = 0;
+                                freq_avg        = 0;
+                                n2              = 0;
                                 if (t + 1 < chart_points) t++;
                             }
                         }
