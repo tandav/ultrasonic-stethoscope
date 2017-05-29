@@ -196,23 +196,18 @@ class adc_chart(QtGui.QWidget):
 
 def send_to_cuda():
     global recording, record_buffer, record_time, rate, time0, time1
-
-    # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
-    record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
+    
+    record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     n = len(record_buffer) # length of the signal
-
 
     record_time = np.float32(time1 - time0)
     rate = np.float32(n / record_time)
     sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
 
-
     calc_fft_localy(record_buffer, n, record_time, rate)
-
 
     # record_buffer = np.append(record_buffer, [record_time, rate]) # last two entries in file are record_time and rate
     # write_to_file_and_compress(record_buffer)
-
 
     # print('start sending data to CUDA server...')
     # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -258,25 +253,27 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
     sys.stdout.flush()
     t = np.linspace(0, record_time, n) # time vector
     frq = np.arange(n) / n * rate # two sides frequency range
-    frq = frq[range(n // 2 + 1)] # one side frequency range
+    frq = frq[range(n // 2)] # one side frequency range
     Y = np.fft.fft(record_buffer) / n # fft computing and normalization
-    Y = Y[range(n // 2 + 1)]
+    Y = Y[range(n // 2)]
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(2, 1)
+    
     ax[0].plot(t, record_buffer)
     ax[0].set_xlabel('Time, seconds')
     ax[0].set_ylabel('Voltage, V')
     ax[0].grid(True)
+
     ax[1].loglog(frq, abs(Y),'r') # plotting the spectrum
-    # ax[1].loglog(frq, abs(Y),'r') # plotting the spectrum
     ax[1].set_xlabel('Freq (Hz)')
     ax[1].set_ylabel('Amplitude, dB')
     # ax[1].set_xlim([1, 1e6])
     # ax[1].set_ylim([1e-6,1e-2])
     ax[1].grid()
     ax[1].xaxis.grid(which='minor', color='k', linestyle=':')
+
     plt.tight_layout()
-    plt.savefig('plot.png')
+    plt.savefig('plot.png', dpi=100)
     sys.stdout.write(' done\n')
 
 def main():
@@ -288,15 +285,14 @@ def main():
             break
         except Exception as e:
             if i == 60:
-                print('Device not found. Check the connection.')
+                print('\nDevice not found. Check the connection.')
                 sys.exit()
-            # sys.stdout.write('\r')
             sys.stdout.write('\rsearching device' + '.'*i + ' ')
             sys.stdout.flush()
             time.sleep(0.05)
 
-    # Create thread to read and buffer serial data.
-    global thread
+    
+    global thread # thread to read and buffer serial data.
     thread = SerialReader(ser)
     thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
