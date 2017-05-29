@@ -144,8 +144,7 @@ namespace Server
         static void save_pngs(float[] time, float[] signal, float[] freq, float[] fft, int file_count)
         {
             System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
-            chart.Size = new System.Drawing.Size(1024, 512);
-
+            chart.Size = new System.Drawing.Size(1400, 700);
             System.Drawing.Color darkblue = System.Drawing.Color.DarkBlue;
 
             chart.ChartAreas.Add("ChartArea1");
@@ -156,18 +155,29 @@ namespace Server
             chart.ChartAreas["ChartArea1"].AxisY.LineColor = darkblue;
             chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.ForeColor = darkblue;
             chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.ForeColor = darkblue;
-            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.LineColor = darkblue;
             chart.ChartAreas["ChartArea1"].AxisY.MajorTickMark.LineColor = darkblue;
+            //chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Interval = 1000;
+
+            chart.ChartAreas["ChartArea1"].AxisX.MinorGrid.Interval = 1;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorGrid.Enabled = true;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorGrid.LineColor = System.Drawing.Color.FromArgb(223, 231, 241);
+
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Enabled = true;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorTickMark.Enabled = true;
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Size = 1.5f;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorTickMark.Size = 0.5f;
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Interval = 1;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorTickMark.Interval = 1;
+            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.LineColor = darkblue;
+            chart.ChartAreas["ChartArea1"].AxisX.MinorTickMark.LineColor = darkblue;
+
             chart.ChartAreas["ChartArea1"].AxisX.Title = "Frequency, Hz";
             chart.ChartAreas["ChartArea1"].AxisX.TitleForeColor = darkblue;
             chart.ChartAreas["ChartArea1"].AxisY.Title = "Amplitude, dB";
             chart.ChartAreas["ChartArea1"].AxisY.TitleForeColor = darkblue;
-
             chart.ChartAreas["ChartArea1"].BorderWidth = 1;
             chart.ChartAreas["ChartArea1"].BorderDashStyle = System.Windows.Forms.DataVisualization.Charting.ChartDashStyle.Solid;
             chart.ChartAreas["ChartArea1"].BorderColor = darkblue;
-
-            chart.ChartAreas["ChartArea1"].AxisX.MajorTickMark.Interval = 0.25;
             chart.ChartAreas["ChartArea1"].AxisX.IsLogarithmic = true;
             chart.ChartAreas["ChartArea1"].AxisY.IsLogarithmic = true;
             chart.ChartAreas["ChartArea1"].Position.X = 0;
@@ -176,18 +186,12 @@ namespace Server
             chart.ChartAreas["ChartArea1"].Position.Height = 70;
             chart.ChartAreas["ChartArea1"].AxisX.LabelStyle.Format = "#.e+0";
             chart.ChartAreas["ChartArea1"].AxisY.LabelStyle.Format = "#.e+0";
-
             chart.ChartAreas["ChartArea1"].AxisX.Minimum = 10; // IMPORTANT this is influence on LogScale success and errors must be > 0 
-
             //chart.ChartAreas[0].AxisY.Minimum = 0; // temp for signal, not for fft
             //chart.ChartAreas[0].AxisY.Maximum = 0.000001;
             chart.Series.Add("fft");
             chart.Series["fft"].Color = System.Drawing.Color.DarkBlue;
             chart.Series["fft"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Line;
-            //for (int i = 0; i < freq.Length; i++)
-            //    chart.Series["fft"].Points.AddXY(freq[i], fft[i]);
-            //chart.Series["fft"].Points.DataBindY(fft);
-
             chart.Series["fft"].Points.DataBindXY(freq, fft);
 
 
@@ -201,11 +205,13 @@ namespace Server
             chart.ChartAreas["ChartArea2"].AxisY.LabelStyle.ForeColor = darkblue;
             chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.LineColor = darkblue;
             chart.ChartAreas["ChartArea2"].AxisY.MajorTickMark.LineColor = darkblue;
+            chart.ChartAreas["ChartArea2"].AxisX.MinorGrid.Interval = 0.1;
+            chart.ChartAreas["ChartArea2"].AxisX.MinorGrid.Enabled = true;
+            chart.ChartAreas["ChartArea2"].AxisX.MinorGrid.LineColor = System.Drawing.Color.FromArgb(223, 231, 241);
             chart.ChartAreas["ChartArea2"].AxisX.Title = "Time, seconds";
             chart.ChartAreas["ChartArea2"].AxisX.TitleForeColor = darkblue;
             chart.ChartAreas["ChartArea2"].AxisY.Title = "Voltage, V";
             chart.ChartAreas["ChartArea2"].AxisY.TitleForeColor = darkblue;
-
             chart.ChartAreas["ChartArea2"].BorderWidth = 1;
             chart.ChartAreas["ChartArea2"].BorderDashStyle = System.Windows.Forms.DataVisualization.Charting.ChartDashStyle.Solid;
             chart.ChartAreas["ChartArea2"].BorderColor = darkblue;
@@ -217,13 +223,10 @@ namespace Server
             //chart.ChartAreas["ChartArea2"].AxisY.MinorTickMark.Enabled = false;
             chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.Interval = 0.5;
             chart.ChartAreas["ChartArea2"].AxisX.MajorTickMark.Size = 1.5f;
-
             chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Enabled = true;
             chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Size = 0.5f;
-
             chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.Interval = 0.1;
             chart.ChartAreas["ChartArea2"].AxisX.MinorTickMark.LineColor = darkblue;
-
             chart.ChartAreas["ChartArea2"].AlignWithChartArea = "ChartArea1";
             //chart.ChartAreas["ChartArea2"].Position.X = 0;
             //chart.ChartAreas["ChartArea2"].Position.Width = 95;
@@ -236,8 +239,9 @@ namespace Server
             chart.Series.Add("signal");
             chart.Series["signal"].Color = System.Drawing.Color.DarkBlue;
             chart.Series["signal"].ChartArea = "ChartArea2";
-            chart.Series["signal"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.FastLine;
+            chart.Series["signal"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Line;
             chart.Series["signal"].Points.DataBindXY(time, signal);
+
 
             chart.SaveImage("./fft/fft-" + file_count.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
         }
