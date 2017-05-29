@@ -204,9 +204,35 @@ def send_to_cuda():
     rate = np.float32(len(record_buffer) / record_time)
     sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
 
+    sys.stdout.write('calculate FFT locally...')
+    sys.stdout.flush()
+    t = np.arange(0, record_time, 1. / rate) # time vector
+    n = len(record_buffer) # length of the signal
+    frq = np.arange(n) / n * rate # two sides frequency range
+    frq = frq[range(n // 2 + 1)] # one side frequency range
+    Y = np.fft.fft(record_buffer) / n # fft computing and normalization
+    Y = Y[range(n // 2 + 1)]
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(2, 1)
+    ax[0].plot(t[::100], record_buffer[::100])
+    ax[0].set_xlabel('Time, seconds')
+    ax[0].set_ylabel('Voltage, V')
+    ax[0].grid(True)
+    right = len(frq) // 16
+    step = 1
+    ax[1].loglog(frq[:right:step], abs(Y)[:right:step],'r') # plotting the spectrum
+    ax[1].set_xlabel('Freq (Hz)')
+    ax[1].set_ylabel('Amplitude, dB')
+    ax[1].set_xlim([1,1e4])
+    ax[1].set_ylim([1e-6,1e1])
+    ax[1].grid()
+    # ax[1].grid(which='major', color='k', linestyle='--')
+    ax[1].xaxis.grid(which='minor', color='k', linestyle=':')
+    plt.tight_layout()
+    plt.savefig('plot.png')
+    sys.stdout.write(' done\n')
+
     record_buffer = np.append(record_buffer, [record_time, rate])
-
-
 
     sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
     sys.stdout.flush()
@@ -216,38 +242,30 @@ def send_to_cuda():
     filesize = os.stat('signal.dat').st_size
     print(" done (", filesize, ' bytes)', sep='')
 
-    # sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
-    # sys.stdout.flush()
+    sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
+    sys.stdout.flush()
 
-    # with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
-    #     shutil.copyfileobj(f_in, f_out)
-    # gzfilesize = os.stat('signal.dat.gz').st_size
-    # print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
+    with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    gzfilesize = os.stat('signal.dat.gz').st_size
+    print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
 
-    # print('start sending data to CUDA server...')
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
-    # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    # with open('signal.dat.gz', 'rb') as f:
-    #     packet = f.read(blocksize)
-    #     i = 0
-    #     while packet:
-    #         s.send(packet)
-    #         packet = f.read(blocksize)
-    #         i += 1
-    #         if i % 100 == 0:
-    #             # print('data send:', f.tell() / filesize, '%')
-    #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
-
-    # # with open('time_rate.dat', 'rb') as f:
-    # #     packet = f.read(blocksize//512)
-    # #     while packet:
-    # #         s.send(packet)
-    # #         packet = f.read(blocksize//512)
-    # # print('data send: 100% - success')
-    # s.close()
+    print('start sending data to CUDA server...')
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
+    blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
+    with open('signal.dat.gz', 'rb') as f:
+        packet = f.read(blocksize)
+        i = 0
+        while packet:
+            s.send(packet)
+            packet = f.read(blocksize)
+            i += 1
+            if i % 100 == 0:
+                print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
+    print('data send: 100% - success')
+    s.close()
     
-    # record_buffer = np.array([], dtype=np.uint16)
     print('session end\n')
 
 
