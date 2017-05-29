@@ -3,12 +3,13 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
 import gzip, shutil
+import optparse
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, port, chunkSize=1000, chunks=5000):
+    def __init__(self, port, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -122,7 +123,10 @@ class SerialReader(threading.Thread): # inheritated from Thread
 
 
 class adc_chart(QtGui.QWidget):
-    def __init__(self):
+    def __init__(self, downsampling, chunk):
+        self.downsampling = downsampling  # how many values draw on plot if 1: draw all
+        self.chunk = chunk
+
         super(adc_chart, self).__init__()
         self.init_ui()
         self.qt_connections()
@@ -135,6 +139,7 @@ class adc_chart(QtGui.QWidget):
         self.timer = pg.QtCore.QTimer()
         self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
+
 
     def init_ui(self):
         self.setWindowTitle('Signal from Arduino\'s ADC')
@@ -149,7 +154,7 @@ class adc_chart(QtGui.QWidget):
         self.record_start_button = QtGui.QPushButton("Record")
         hbox.addWidget(self.record_start_button)
 
-        self.spin = pg.SpinBox(value=200000, int=True, bounds=[100000, None], suffix=' Values to record', step=100000, decimals=12)
+        self.spin = pg.SpinBox(value=self.chunk*100, int=True, bounds=[self.chunk*100, None], suffix=' Values to record', step=self.chunk*100, decimals=12, siPrefix=True)
         hbox.addWidget(self.spin)
 
         self.record_values_button = QtGui.QPushButton("Record Values")
@@ -165,7 +170,7 @@ class adc_chart(QtGui.QWidget):
     def updateplot(self):
         global thread, recording
         if not recording:
-            t,v,r = thread.get(1000*1024, downsample=100)
+            t,v,r = thread.get(1000*self.chunk, self.downsampling)
             self.plotcurve.setData(t, v)
             self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
@@ -195,7 +200,7 @@ class adc_chart(QtGui.QWidget):
 
 
 def send_to_cuda():
-    global recording, record_buffer, record_time, rate, time0, time1
+    global record_buffer, record_time, rate, time0, time1
     
     record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
     n = len(record_buffer) # length of the signal
@@ -260,12 +265,12 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
     fig, ax = plt.subplots(2, 1)
     
     ax[0].plot(t, record_buffer)
-    ax[0].set_xlabel('Time, seconds')
+    ax[0].set_xlabel('Time, ' + str(record_time)[:5] + ' seconds')
     ax[0].set_ylabel('Voltage, V')
     ax[0].grid(True)
 
     ax[1].loglog(frq, abs(Y),'r') # plotting the spectrum
-    ax[1].set_xlabel('Freq (Hz)')
+    ax[1].set_xlabel('Freq, Hz')
     ax[1].set_ylabel('Amplitude, dB')
     # ax[1].set_xlim([1, 1e6])
     # ax[1].set_ylim([1e-6,1e-2])
@@ -275,6 +280,7 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
     plt.tight_layout()
     plt.savefig('plot.png', dpi=100)
     sys.stdout.write(' done\n')
+    os.system('open plot.png')
 
 def main():
     for i in range(61):
@@ -291,18 +297,22 @@ def main():
             sys.stdout.flush()
             time.sleep(0.05)
 
-    
-    global thread # thread to read and buffer serial data.
-    thread = SerialReader(ser)
+    parser = optparse.OptionParser()
+    parser.add_option('-d', action='store', dest='downsampling', default=100)
+    options, args = parser.parse_args()
+
+    global thread, chunk # thread to read and buffer serial data.
+    chunk = 1000 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
+    thread = SerialReader(ser, chunk)
     thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
-    global recording, record_buffer, record_time, rate, values_to_record, time0, time1
+    global recording, values_to_record
     recording        = False
     values_to_record = 0
 
     app = QtGui.QApplication(sys.argv)
-    adc = adc_chart() # create class instance
+    adc = adc_chart(int(options.downsampling), chunk) # create class instance
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
