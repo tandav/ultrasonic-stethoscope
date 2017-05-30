@@ -50,22 +50,16 @@ namespace Server
                 Console.WriteLine("Start computing FFT with CUDA");
                 Console.WriteLine("Signal size = {0} \t record_time: {1} \t rate: {2}", signal.Length, record_time, rate);
 
-                // if you need to compute fft of whole signal:
-                //float[] fft = new float[signal.Length / 2 + 1];
-
-                //int block_size = 32768; // signal is processing by blocks
-                //int block_size = 2 * 600000; // signal is processing by blocks
-
-                int signal_len = signal.Length;
-                int block_size = (signal_len < 1048576) ? signal_len : 1048576; // you can try change 1048576 on real cuda server for better performance
+                // int signal_len = signal.Length;
+                int block_size = (signal_len < 5000000) ? signal_len : 5000000; // you can try change 1048576 on real cuda server for better performance
 
                 float[] block = new float[block_size];
                 float[] time = new float[block_size];
 
-                float[] fft = new float[block_size / 2 + 1];
-                float[] freq = new float[block_size / 2 + 1]; // /2 => one side frequency range
+                float[] fft = new float[block_size / 2];
+                float[] freq = new float[block_size / 2]; // /2 => one side frequency range
 
-                int chart_points = 1024 * 4; // how many values draw on chart
+                int chart_points = 5000; // how many values draw on chart
                 float[] block_to_draw = new float[chart_points]; // block of signal to draw on chart
                 float[] time_to_draw = new float[chart_points]; // block of signal to draw on chart
 
@@ -80,23 +74,23 @@ namespace Server
                     //CUDA.CUFT.Furie(block, fft, block_size); // normilised and (highly probably) abs(y)
                     //System.IO.File.WriteAllLines("fft.txt", fft.Select(tb => tb.ToString())); // save fft-shit to text file
                     //Fake FFT
-                    for (int j = 0; j < block_size / 2 + 1; j++)
+                    for (int j = 0; j < block_size / 2; j++)
                         fft[j] = Math.Abs(10f + (float)Math.Sin(0.0001 * j) * (j - block_size / 2));
 
-                    for (int j = 0; j < block_size / 2 + 1; j++) // Done?
+                    for (int j = 0; j < block_size / 2; j++) // Done?
                         freq[j] = (float)j / block_size * rate;
 
                     for (int j = 0; j < block_size; j++)
                         time[j] = record_time * ((float)i / block_size + (float)j / signal_len);
 
-                    // optimize this big code block
+                    // optimize this big code block (with .NET's Sum, Take, Skip)
                     float signal_avg = block[0];
                     float time_avg = time[0];
 
                     float fft_avg = fft[0];
                     float freq_avg = freq[0];
 
-                    int n = 1;
+                    int n = 1; 
                     int n2 = 1;
                     for (int j = 1, k = 0, t = 0; j < block_size; j++)
                     {
@@ -105,7 +99,7 @@ namespace Server
                         n++;
                         if (j % (block_size / chart_points) == 0 || j + 1 == block_size)
                         {
-                            block_to_draw[k] = signal_avg / n;
+                            block_to_draw[k] = signal_avg / n; // n here is constant, you ain't need to recalculate it each iteration
                             time_to_draw[k]  = time_avg / n;
                             signal_avg       = 0;
                             time_avg         = 0;
@@ -113,12 +107,12 @@ namespace Server
                             if (k + 1 < chart_points) k++;
                         }
 
-                        if (j < block_size / 2 + 1)
+                        if (j < block_size / 2)
                         {
                             fft_avg  += fft[j];
                             freq_avg += freq[j];
                             n2++;
-                            if (j % ((block_size / 2 + 1) / chart_points) == 0 || j + 1 == (block_size / 2 + 1))
+                            if (j % ((block_size / 2) / chart_points) == 0 || j + 1 == (block_size / 2))
                             {
                                 fft_to_draw[t]  = fft_avg / n2;
                                 freq_to_draw[t] = freq_avg / n2;
