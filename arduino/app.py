@@ -3,6 +3,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
 import gzip, shutil
+import optparse
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -21,6 +22,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
         self.exitFlag = False
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
+        self.values_recorded = 0
 
     def run(self):
         exitMutex = self.exitMutex
@@ -29,9 +31,10 @@ class SerialReader(threading.Thread): # inheritated from Thread
         port = self.port
         count = 0
         sps = None
-        lastUpdate = pg.ptime.time()
+        lastUpdate = time.time()
+        # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, t2
+        global record_buffer, recording, values_to_record, t2, time1
 
         while True:
             # see whether an exit was requested
@@ -47,7 +50,9 @@ class SerialReader(threading.Thread): # inheritated from Thread
 
             # keep track of the acquisition rate in samples-per-second
             count += self.chunkSize
-            now = pg.ptime.time()
+            # now = pg.ptime.time()
+            now = time.time()
+
             dt = now-lastUpdate
             if dt > 1.0:
                 # sps is an exponential average of the running sample rate measurement
@@ -64,16 +69,21 @@ class SerialReader(threading.Thread): # inheritated from Thread
                 buffer[self.ptr:self.ptr+self.chunkSize] = data
                 self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
 
-                if recording == 1:
-                    record_buffer = np.append(record_buffer, data)
-
-                if recording == 2:
-                    recording = 0
-                    t2 = threading.Thread(target=send_to_cuda)
-                    t2.start()
-
                 if sps is not None:
                     self.sps = sps
+
+                if recording:
+                    record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
+                    self.values_recorded += self.chunkSize
+
+                    if self.values_recorded >= values_to_record: # maybe del second condition
+                        time1 = time.time()
+                        recording = False
+                        self.values_recorded = 0
+                        values_to_record = 0
+                        t2 = threading.Thread(target=send_to_cuda)
+                        t2.start()
+
 
     def get(self, num, downsample=1):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -113,7 +123,10 @@ class SerialReader(threading.Thread): # inheritated from Thread
 
 
 class adc_chart(QtGui.QWidget):
-    def __init__(self):
+    def __init__(self, downsampling, chunk):
+        self.downsampling = downsampling  # how many values draw on plot if 1: draw all
+        self.chunk = chunk
+
         super(adc_chart, self).__init__()
         self.init_ui()
         self.qt_connections()
@@ -126,6 +139,7 @@ class adc_chart(QtGui.QWidget):
         self.timer = pg.QtCore.QTimer()
         self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
+
 
     def init_ui(self):
         self.setWindowTitle('Signal from Arduino\'s ADC')
@@ -140,16 +154,23 @@ class adc_chart(QtGui.QWidget):
         self.record_start_button = QtGui.QPushButton("Record")
         hbox.addWidget(self.record_start_button)
 
+        self.spin = pg.SpinBox(value=self.chunk*100, int=True, bounds=[self.chunk*100, None], suffix=' Values to record', step=self.chunk*100, decimals=12, siPrefix=True)
+        hbox.addWidget(self.spin)
+
+        self.record_values_button = QtGui.QPushButton("Record Values")
+        hbox.addWidget(self.record_values_button)
+
         self.setGeometry(10, 10, 1000, 600)
         self.show()
 
     def qt_connections(self):
         self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
+        self.record_values_button.clicked.connect(self.on_record_values_button)
 
     def updateplot(self):
         global thread, recording
         if not recording:
-            t,v,r = thread.get(1000*1024, downsample=100)
+            t,v,r = thread.get(1000*self.chunk, self.downsampling)
             self.plotcurve.setData(t, v)
             self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
 
@@ -166,32 +187,61 @@ class adc_chart(QtGui.QWidget):
             self.record_start_button.setText("Record")
             sys.stdout.write('\rRecord start... stop\n')
 
+    def on_record_values_button(self):
+        global recording, values_to_record, time0, record_buffer
+        values_to_record = self.spin.value()
+        record_buffer = np.empty(values_to_record)
+        recording = True
+        time0 = time.time()
+
     def closeEvent(self, event):
         global thread
         thread.exit()
 
 
 def send_to_cuda():
-    global recording, record_buffer
+    global record_buffer, record_time, rate, time0, time1
+    
+    record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
+    n = len(record_buffer) # length of the signal
 
-    # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
-    record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12)
+    record_time = np.float32(time1 - time0)
+    rate = np.float32(n / record_time)
+    sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
 
-    # filter almost-zero values
-    low_values_indices = record_buffer < 0.01 # Where values are low
-    record_buffer[low_values_indices] = 0
-    record_buffer = np.trim_zeros(record_buffer) # del zeros from start and end of the signal
+    calc_fft_localy(record_buffer, n, record_time, rate)
 
-    # print("start write to file", len(record_buffer), 'values...', end='')
-    sys.stdout.write('start write to file ' + str(len(record_buffer)) + ' values...')
+    # record_buffer = np.append(record_buffer, [record_time, rate]) # last two entries in file are record_time and rate
+    # write_to_file_and_compress(record_buffer)
+
+    # print('start sending data to CUDA server...')
+    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # s.connect(('192.168.119.170', 5005))  # (TCP_IP, TCP_PORT)
+    # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
+    # with open('signal.dat.gz', 'rb') as f:
+    #     packet = f.read(blocksize)
+    #     i = 0
+    #     while packet:
+    #         s.send(packet)
+    #         packet = f.read(blocksize)
+    #         i += 1
+    #         if i % 100 == 0:
+    #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
+    # print('data send: 100% - success')
+    # s.close() 
+
+    print('session end\n')
+
+def write_to_file_and_compress(arr):
+    sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
     sys.stdout.flush()
     with open('signal.dat', 'w') as f:
-        record_buffer.tofile(f)
+        arr.tofile(f)
+
     filesize = os.stat('signal.dat').st_size
     print(" done (", filesize, ' bytes)', sep='')
 
-    # print('data compression', filesize / 1000000, 'MB...', end='')
-    sys.stdout.write('data compression' + str(filesize / 1000000) + 'MB...')
+    sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
     sys.stdout.flush()
 
     with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
@@ -199,53 +249,70 @@ def send_to_cuda():
     gzfilesize = os.stat('signal.dat.gz').st_size
     print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
 
-    print('start sending data to CUDA server...')
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect(('192.168.1.37', 5005))  # (TCP_IP, TCP_PORT)
-    blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    with open('signal.dat.gz', 'rb') as f:
-        packet = f.read(blocksize)
-        i = 0
-        while packet:
-            s.send(packet)
-            packet = f.read(blocksize)
-            i += 1
-            if i % 100 == 0:
-                # print('data send:', f.tell() / filesize, '%')
-                print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
-        print('data send: 100% - success')
-    s.close()
-    print('==== session end ====\n')
 
-recording = 0 # 0 = do not record, 1 = recording started, 2 = recording has just finished
+def calc_fft_localy(record_buffer, n, record_time, rate):
+    '''
+    This method calculates fft with np.fft.fft and saves result to plot.png
+    '''
+    sys.stdout.write('calculate FFT locally...')
+    sys.stdout.flush()
+    t = np.linspace(0, record_time, n) # time vector
+    frq = np.arange(n) / n * rate # two sides frequency range
+    frq = frq[range(n // 2)] # one side frequency range
+    Y = np.fft.fft(record_buffer) / n # fft computing and normalization
+    Y = Y[range(n // 2)]
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(2, 1)
+    fig.suptitle('Signal from Arduino\'s ADC, rate = ' + str(rate)[:3] + 'sps' , fontsize=12)
+    ax[1].plot(t, record_buffer)
+    ax[1].set_xlabel('Time, ' + str(record_time)[:5] + ' seconds')
+    ax[1].set_ylabel('Voltage, V')
+    ax[1].grid(True)
+
+    ax[0].loglog(frq, abs(Y),'r') # plotting the spectrum
+    ax[0].set_xlabel('Freq, Hz')
+    ax[0].set_ylabel('Amplitude, dB')
+    # ax[0].set_xlim([1, 1e6])
+    # ax[0].set_ylim([1e-6,1e-2])
+    ax[0].grid()
+    ax[0].xaxis.grid(which='minor', color='k', linestyle=':')
+
+    plt.tight_layout()
+    plt.savefig('plot.png', dpi=100)
+    sys.stdout.write(' done\n')
+    os.system('open plot.png')
 
 def main():
-    for i in range(20):
+    for i in range(61):
         try:
             ser = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
             # ser = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
-            print('device connected')
+            print('device connected\n')
             break
         except Exception as e:
-            if i == 19:
-                print('Device not found. Check the connection.')
+            if i == 60:
+                print('\nDevice not found. Check the connection.')
                 sys.exit()
-            # sys.stdout.write('\r')
             sys.stdout.write('\rsearching device' + '.'*i + ' ')
             sys.stdout.flush()
-            time.sleep(0.1)
+            time.sleep(0.05)
 
-    # Create thread to read and buffer serial data.
-    global thread
-    thread = SerialReader(ser)
+    parser = optparse.OptionParser()
+    parser.add_option('-d', action='store', dest='downsampling', default=100)
+    options, args = parser.parse_args()
+
+    global thread, chunk # thread to read and buffer serial data.
+    chunk = 1000 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
+    thread = SerialReader(ser, chunk)
     thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
-    global record_buffer
-    record_buffer = np.array([], dtype=np.uint16)
+    global recording, values_to_record
+    recording        = False
+    values_to_record = 0
 
     app = QtGui.QApplication(sys.argv)
-    adc = adc_chart() # create class instance
+    adc = adc_chart(int(options.downsampling), chunk) # create class instance
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
