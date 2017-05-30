@@ -14,11 +14,9 @@ namespace Server
     {
         static void Main(string[] args)
         {
-
-
             while (true)
             {
-
+                //receive_and_write_to_file();
 
                 Console.Write("Decompression start...");
                 byte[] file = File.ReadAllBytes("signal.dat.gz");
@@ -34,7 +32,6 @@ namespace Server
                 foreach (FileInfo pic in di.GetFiles())
                     pic.Delete();
 
-
                 Console.WriteLine("Start computing FFT with CUDA");
                 Console.WriteLine("Signal size = {0} \t record_time: {1} \t rate: {2}", signal.Length, record_time, rate);
 
@@ -42,25 +39,23 @@ namespace Server
                 int block_size = (signal_len < 5000000) ? signal_len : 5000000;
 
                 float[] block = new float[block_size];
-                float[] time = new float[block_size];
+                float[] time  = new float[block_size];
+                float[] fft   = new float[block_size / 2];
+                float[] freq  = new float[block_size / 2]; // /2 => one side frequency range
 
-                float[] fft = new float[block_size / 2];
-                float[] freq = new float[block_size / 2]; // /2 => one side frequency range
-
-                int chart_points = 5000; // (block_size / 2) % chart_points == 0 (SHOULD BE)
-                float[] block_to_draw = new float[chart_points]; // block of signal to draw on chart
-                float[] time_to_draw = new float[chart_points]; // block of signal to draw on chart
-
-                float[] fft_to_draw = new float[chart_points];
-                float[] freq_to_draw = new float[chart_points];
-
+                int chart_points      = 5000; // (block_size / 2) % chart_points == 0 (SHOULD BE)
+                float[] block_to_draw = new float[chart_points];
+                float[] time_to_draw  = new float[chart_points];
+                float[] fft_to_draw   = new float[chart_points];
+                float[] freq_to_draw  = new float[chart_points];
+                int avg_points_signal = block_size / chart_points; // points to avg
+                int avg_points_fft = block_size / chart_points / 2;
 
                 for (int i = 0; i < signal_len; i += block_size)
                 {
                     Array.Copy(signal, i, block, 0, block_size);
 
                     //CUDA.CUFT.Furie(block, fft, block_size); // normilised and (highly probably) abs(y)
-                    //System.IO.File.WriteAllLines("fft.txt", fft.Select(tb => tb.ToString())); // save fft-shit to text file
                     //Fake FFT
                     for (int j = 0; j < block_size / 2; j++)
                         fft[j] = Math.Abs(-10f - (float)Math.Sin(0.01 * j) * (j - block_size / 2));
@@ -71,17 +66,8 @@ namespace Server
                     for (int j = 0; j < block_size; j++)
                         time[j] = record_time * ((float)i / block_size + (float)j / signal_len);
 
-                    // optimize this big code block (with .NET's Sum, Take, Skip)
-                    //float signal_avg = block[0];
-                    //float time_avg = time[0];
-
-                    //float fft_avg = fft[0];
-                    //float freq_avg = freq[0];
-
-                    // Avg 4 arrays to draw on chart
-                    int avg_points_signal = block_size / chart_points; // points to avg
-                    int avg_points_fft = block_size / chart_points / 2;
-                    for (int j = 0; j < chart_points; j++)
+                    
+                    for (int j = 0; j < chart_points; j++) // averaging arrays to plot less values 
                     {
                         block_to_draw[j] = block.Skip(j * avg_points_signal).Take(avg_points_signal).Sum() / avg_points_signal;
                         time_to_draw [j] = time .Skip(j * avg_points_signal).Take(avg_points_signal).Sum() / avg_points_signal;
@@ -89,13 +75,10 @@ namespace Server
                         freq_to_draw [j] = freq .Skip(j * avg_points_fft)   .Take(avg_points_fft)   .Sum() / avg_points_fft;
                     }
 
-                    Console.Write("Save to fft{0}.png start...", i / block_size);
                     save_pngs(time_to_draw, block_to_draw, freq_to_draw, fft_to_draw, i / block_size);
-                    Console.Write(" done\n");
                 }
-                Console.WriteLine("All PNGs are written");
-                Console.WriteLine("==== Session end ====");
-                //Console.ReadKey();
+                Console.WriteLine("all PNGs are written");
+                Console.WriteLine("session end");
                 break;
             }
         }
@@ -121,6 +104,8 @@ namespace Server
 
         static void save_pngs(float[] time, float[] signal, float[] freq, float[] fft, int file_count)
         {
+            Console.Write("Save to fft{0}.png start...", file_count);
+
             System.Windows.Forms.DataVisualization.Charting.Chart chart = new System.Windows.Forms.DataVisualization.Charting.Chart();
             chart.Size = new System.Drawing.Size(1400, 700);
             System.Drawing.Color darkblue = System.Drawing.Color.DarkBlue;
@@ -209,8 +194,10 @@ namespace Server
             chart.Series["signal"].ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Line;
             chart.Series["signal"].Points.DataBindXY(time, signal);
 
-
+            Console.Write("...");
             chart.SaveImage("./fft/fft-" + file_count.ToString() + ".png", System.Drawing.Imaging.ImageFormat.Png);
+            Console.Write(" done\n");
+
         }
 
         static string GetLocalIPAddress()
