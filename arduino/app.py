@@ -263,19 +263,7 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
     Y = Y[range(n // 2)]
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(2, 1)
-    
-    ax[0].plot(t, record_buffer)
-    ax[0].set_xlabel('Time, ' + str(record_time)[:5] + ' seconds')
-    ax[0].set_ylabel('Voltage, V')
-    ax[0].grid(True)
-
-    ax[1].loglog(frq, abs(Y),'r') # plotting the spectrum
-    ax[1].set_xlabel('Freq, Hz')
-    ax[1].set_ylabel('Amplitude, dB')
-    # ax[1].set_xlim([1, 1e6])
-    # ax[1].set_ylim([1e-6,1e-2])
-    ax[1].grid()
-    ax[1].xaxis.grid(which='minor', color='k', linestyle=':')
+    fig.suptitle('Signal from Arduino\'s ADC, rate = ' + str(rate)[:3] + 'sps' , fontsize=12)
 
     plt.tight_layout()
     plt.savefig('plot.png', dpi=100)
