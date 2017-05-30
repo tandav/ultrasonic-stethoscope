@@ -84,7 +84,6 @@ class SerialReader(threading.Thread): # inheritated from Thread
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
 
-
     def get(self, num, downsample=1):
         """ Return a tuple (time_values, voltage_values, rate)
           - voltage_values will contain the *num* most recently-collected samples
@@ -139,7 +138,6 @@ class adc_chart(QtGui.QWidget):
         self.timer = pg.QtCore.QTimer()
         self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
-
 
     def init_ui(self):
         self.setWindowTitle('Signal from Arduino\'s ADC')
@@ -260,19 +258,21 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
     frq = frq[range(n // 2)] # one side frequency range
     Y = np.fft.fft(record_buffer) / n # fft computing and normalization
     Y = Y[range(n // 2)]
+    Y = abs(Y)
+    
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(2, 1)
     fig.suptitle('Signal from Arduino\'s ADC, rate = ' + str(rate)[:3] + 'sps' , fontsize=12)
+    
     ax[1].plot(t, record_buffer)
     ax[1].set_xlabel('Time, ' + str(record_time)[:5] + ' seconds')
     ax[1].set_ylabel('Voltage, V')
     ax[1].grid(True)
-
-    ax[0].loglog(frq, abs(Y),'r') # plotting the spectrum
-    ax[0].set_xlabel('Freq, Hz')
-    ax[0].set_ylabel('Amplitude, dB')
+    ax[0].loglog(frq, Y,'r') # plotting the spectrum
     # ax[0].set_xlim([1, 1e6])
     # ax[0].set_ylim([1e-6,1e-2])
+    ax[0].set_xlabel('Freq, Hz')
+    ax[0].set_ylabel('Amplitude, dB')
     ax[0].grid()
     ax[0].xaxis.grid(which='minor', color='k', linestyle=':')
 
