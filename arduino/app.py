@@ -212,7 +212,7 @@ def send_to_cuda():
     calc_fft_localy(record_buffer, n, record_time, rate)
 
     # record_buffer = np.append(record_buffer, [record_time, rate]) # last two entries in file are record_time and rate
-    # write_to_file_and_compress(record_buffer)
+    # write_to_file_and_compress(record_buffer, 'signal.dat')
 
     # print('start sending data to CUDA server...')
     # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -232,23 +232,22 @@ def send_to_cuda():
 
     print('session end\n')
 
-def write_to_file_and_compress(arr):
+def write_to_file_and_compress(arr, filename):
     sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
     sys.stdout.flush()
-    with open('signal.dat', 'w') as f:
+    with open(filename, 'w') as f:
         arr.tofile(f)
 
-    filesize = os.stat('signal.dat').st_size
+    filesize = os.stat(filename).st_size
     print(" done (", filesize, ' bytes)', sep='')
 
     sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
     sys.stdout.flush()
 
-    with open('signal.dat', 'rb') as f_in, gzip.open('signal.dat.gz', 'wb') as f_out:
+    with open(filename, 'rb') as f_in, gzip.open(filename + '.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
-    gzfilesize = os.stat('signal.dat.gz').st_size
+    gzfilesize = os.stat(filename + '.gz').st_size
     print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
-
 
 def calc_fft_localy(record_buffer, n, record_time, rate):
     '''
