@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
 
 namespace Server
 {
@@ -16,38 +17,52 @@ namespace Server
         {
             while (true)
             {
-                //receive_and_write_to_file();
+                receive_and_write_to_file();
 
-                Console.Write("Decompression start...");
+                Console.Write("decompressing signal.dat.gz...");
                 byte[] file = File.ReadAllBytes("signal.dat.gz");
                 byte[] decompressed = Decompress(file);
-                float[] signal = new float[decompressed.Length / sizeof(float) - 2]; // -2 'cause metadata
+                float[] signal = new float[decompressed.Length / sizeof(float) - 2]; // -2 'cause metadata [record_time, rate] at the end of file
                 for (int i = 0; i < signal.Length; i++)
                     signal[i] = BitConverter.ToSingle(decompressed, sizeof(float) * i);
                 float record_time = BitConverter.ToSingle(decompressed, sizeof(float) * signal.Length);
                 float rate = BitConverter.ToSingle(decompressed, sizeof(float) * (signal.Length + 1));
                 Console.Write(" done\n");
 
+                receive_fft();
+                Console.Write("decompressing fft.dat.gz...");
+                byte[] fft_b = File.ReadAllBytes("fft.dat.gz");
+                byte[] fft_b_d = Decompress(fft_b);
+                int fft_dat_len = fft_b_d.Length / sizeof(float);
+                float[] freq_received = new float[fft_dat_len / 2]; // 1st half of file
+                float[] fft_received  = new float[fft_dat_len / 2]; // 2nd half of file
+                for (int i = 0; i < fft_dat_len / 2; i++)
+                {
+                    freq_received[i] = BitConverter.ToSingle(fft_b_d, sizeof(float) * i);
+                    fft_received [i] = BitConverter.ToSingle(fft_b_d, sizeof(float) * (i + fft_dat_len / 2));
+                }
+                Console.Write(" done\n");
+
                 System.IO.DirectoryInfo di = new DirectoryInfo("fft"); //clean up fft folder for pics
                 foreach (FileInfo pic in di.GetFiles())
                     pic.Delete();
 
-                Console.WriteLine("Start computing FFT with CUDA");
                 Console.WriteLine("Signal size = {0} \t record_time: {1} \t rate: {2}", signal.Length, record_time, rate);
+                Console.Write("Start computing FFT with CUDA...");
 
                 int signal_len = signal.Length;
                 int block_size = (signal_len < 5000000) ? signal_len : 5000000;
 
                 float[] block = new float[block_size];
                 float[] time  = new float[block_size];
+                float[] freq  = new float[block_size / 2]; 
                 float[] fft   = new float[block_size / 2];
-                float[] freq  = new float[block_size / 2]; // /2 => one side frequency range
-
+                
                 int chart_points      = 5000; // (block_size / 2) % chart_points == 0 (SHOULD BE)
                 float[] block_to_draw = new float[chart_points];
                 float[] time_to_draw  = new float[chart_points];
-                float[] fft_to_draw   = new float[chart_points];
                 float[] freq_to_draw  = new float[chart_points];
+                float[] fft_to_draw   = new float[chart_points];
                 int avg_points_signal = block_size / chart_points; // points to avg
                 int avg_points_fft = block_size / chart_points / 2;
 
@@ -58,15 +73,18 @@ namespace Server
                     //CUDA.CUFT.Furie(block, fft, block_size); // normilised and (highly probably) abs(y)
                     //Fake FFT
                     for (int j = 0; j < block_size / 2; j++)
-                        fft[j] = Math.Abs(-10f - (float)Math.Sin(0.01 * j) * (j - block_size / 2));
+                    {
+                        freq[j] = freq_received[j];
+                        fft [j] = fft_received [j];
+                        //fft[j] = Math.Abs(-10f - (float)Math.Sin(0.01 * j) * (j - block_size / 2));
+                    }
 
-                    for (int j = 0; j < block_size / 2; j++) // Done?
+                    for (int j = 0; j < block_size / 2; j++)
                         freq[j] = (float)j / block_size * rate;
 
                     for (int j = 0; j < block_size; j++)
                         time[j] = record_time * ((float)i / block_size + (float)j / signal_len);
 
-                    
                     for (int j = 0; j < chart_points; j++) // averaging arrays to plot less values 
                     {
                         block_to_draw[j] = block.Skip(j * avg_points_signal).Take(avg_points_signal).Sum() / avg_points_signal;
@@ -74,12 +92,11 @@ namespace Server
                         fft_to_draw  [j] = fft  .Skip(j * avg_points_fft)   .Take(avg_points_fft)   .Sum() / avg_points_fft;
                         freq_to_draw [j] = freq .Skip(j * avg_points_fft)   .Take(avg_points_fft)   .Sum() / avg_points_fft;
                     }
-
                     save_pngs(time_to_draw, block_to_draw, freq_to_draw, fft_to_draw, i / block_size);
                 }
                 Console.WriteLine("all PNGs are written");
-                Console.WriteLine("session end");
-                break;
+                Console.WriteLine("session end================================\n\n");
+                //break;
             }
         }
 
@@ -93,13 +110,32 @@ namespace Server
             using (var stream = client.GetStream())
             using (var output = File.Create("signal.dat.gz"))
             {
-                Console.Write("Client connected. Starting to receive the file...");
+                Console.Write("client connected. receiving the signal...");
                 var buffer = new byte[8192]; // blocksize = 8192 = 8KB
                 int bytesRead;
                 while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
                     output.Write(buffer, 0, bytesRead);
             }
-            Console.WriteLine(" done\n");
+            Console.WriteLine(" done");
+            listener.Stop();
+        }
+
+        static void receive_fft(bool receive_fft = false)
+        {
+            var listener_fft = new TcpListener(IPAddress.Any, 5005);
+            listener_fft.Start();
+            using (var client = listener_fft.AcceptTcpClient())
+            using (var stream = client.GetStream())
+            using (var output = File.Create("fft.dat.gz"))
+            {
+                Console.Write("receiving fft...");
+                var buffer = new byte[8192]; // blocksize = 8192 = 8KB
+                int bytesRead;
+                while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                    output.Write(buffer, 0, bytesRead);
+            }
+            Console.WriteLine(" done");
+            listener_fft.Stop();
         }
 
         static void save_pngs(float[] time, float[] signal, float[] freq, float[] fft, int file_count)
@@ -185,9 +221,12 @@ namespace Server
             chart.ChartAreas["SignalArea"].AxisX.MinorTickMark.Interval = 0.1;
             chart.ChartAreas["SignalArea"].AxisX.MinorTickMark.LineColor = darkblue;
             chart.ChartAreas["SignalArea"].AxisX.LabelStyle.Format = "0.##";
+            chart.ChartAreas["SignalArea"].AxisY.LabelStyle.Format = "0.##";
             chart.ChartAreas["SignalArea"].AxisX.Minimum = 0;
-            chart.ChartAreas["SignalArea"].AxisY.Minimum = 0;
-            chart.ChartAreas["SignalArea"].AxisY.Maximum = 3.5;
+            chart.ChartAreas["SignalArea"].AxisY.Minimum = signal.Min();
+            chart.ChartAreas["SignalArea"].AxisY.Maximum = signal.Max();
+            //chart.ChartAreas["SignalArea"].AxisY.Minimum = 0;
+            //chart.ChartAreas["SignalArea"].AxisY.Maximum = 3.5;
             chart.Series.Add("signal");
             chart.Series["signal"].Color = System.Drawing.Color.DarkBlue;
             chart.Series["signal"].ChartArea = "SignalArea";
