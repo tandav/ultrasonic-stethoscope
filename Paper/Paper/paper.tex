@@ -1,0 +1,280 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% University Assignment Title Page 
+% LaTeX Template
+% Version 1.0 (27/12/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% WikiBooks (http://en.wikibooks.org/wiki/LaTeX/Title_Creation)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+% 
+% Instructions for using this template:
+% This title page is capable of being compiled as is. This is not useful for 
+% including it in another document. To do this, you have two options: 
+%
+% 1) Copy/paste everything between \begin{document} and \end{document} 
+% starting at \begin{titlepage} and paste this into another LaTeX file where you 
+% want your title page.
+% OR
+% 2) Remove everything outside the \begin{titlepage} and \end{titlepage} and 
+% move this file to the same directory as the LaTeX file you wish to add it to. 
+% Then add \input{./title_page_1.tex} to your LaTeX file where you want your
+% title page.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\title{Title page with logo}
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[14pt]{extarticle}
+% \documentclass[bibliography=totocnumbered]{scrartcl}
+% \usepackage[english]{babel}
+\usepackage[russian]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\renewcommand{\baselinestretch}{1.5}
+\usepackage[left=3cm,right=1cm,top=1.5cm,bottom=2cm]{geometry}
+\setlength{\parindent}{0mm}
+\setlength{\parskip}{1em}
+
+\begin{document}
+
+\begin{titlepage}
+
+% \newgeometry{margin=2cm}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
+
+\center % Center everything on the page
+ 
+%----------------------------------------------------------------------------------------
+%	HEADING SECTIONS
+%----------------------------------------------------------------------------------------
+\textsc {
+\footnotesize{
+минобрнауки россии\\
+федеральное государственное бюджетное образовательное учреждение\\
+высшего профессионального образования}\\
+\large{Воронежский государственный университет}
+}\\[1.0cm] % Name of your university/college
+
+
+\textsc{\largeФакультет компьютерных наук}\\ % Major heading such as course name
+\textsc{\footnotesize010200 Математика и компьютерные науки}\\[1.0cm] 
+\textsc{\Large дипломная работа}\\[0.5cm] % Minor heading such as course title
+
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\HRule \\[0.4cm]
+{ \huge \bfseries Ультразвуковой стетоскоп}\\[0.4cm] % Title of your document
+\HRule \\[1.5cm]
+ 
+%----------------------------------------------------------------------------------------
+%	AUTHOR SECTION
+%----------------------------------------------------------------------------------------
+
+
+\begin{flushleft} \large
+\emph{Зав. кафедрой:} С.Д. \textsc{Кургалин}, д. ф-м н., проф.\\
+\emph{Студент:} А.А. \textsc{Родионов}, 3 курс, гр 6.1 \\ % Your name
+\emph{Руководитель:} Я.А. \textsc{Туровский}, к. мед. н , доцент % Supervisor's Name
+\end{flushleft}
+
+
+% If you don't want a supervisor, uncomment the two lines below and remove the section above
+% \Large \emph{Author:}\\
+% John \textsc{Smith}\\[3cm] % Your name
+
+%----------------------------------------------------------------------------------------
+%	DATE SECTION
+%----------------------------------------------------------------------------------------
+\vfill % Fill the rest of the page with whitespace
+\begin{center}
+Воронеж 2016
+\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage 
+\section{Введение}
+Целью данной курсовой работы является создание доступного и простого в производстве цифрового стетоскопа, способного организовать прослушивание легких и сердца человека.
+
+Особенностью данного стетоскопа является то что он может регистрировать сигнал в ультразвуковом диапазоне: до 100 кГц.
+
+В данной работе описывается создание ультразвукогого стетоскопа.
+
+В ходе дипломной работы был создан рабочий прототип прибора. Прибор позволяет получать сигнал от ультразвукового микрофона. Также было написано програмное обеспечение к этому прибору. Програмное обеспечение позволяет позволяет записывать и анализировать звуковые сигналы в реальном времени. Есть возможность рассмотреть различные характеристики сигнала, такие как спектр Фурье, скользящее среднее. Также есть возможность записывать аудиосигнал на жесткий диск для его последующей обработки.
+
+\subsection{Применение прибора на практике}
+Может юзаться в медицине: легкие, сердце.
+
+Данный прибор может использоваться в медицине для получения и анализа сигнала высокого качества. Например звук сердца и лёгких. 
+
+Это устройство поможет лучше анализировать звук сердца. С помошью визуализации сигнала можно получить больше информации о звуке внутренних органов, чем простое прослушивание.
+
+Также прибор можно использовать в других областях, где необходим анализ ультразвука. 
+
+Например изучение дельфинов или летучих мышей. 
+
+Сердечно-сосудистые заболевания - самая распространенная причина смерти в мире по данным Всемирной Организации Здравоохранения (ВОЗ). Также распространенными являются заболевания легких. Своевременное наблюдение за состоянием сердца и легких, и обнаружение заболеваний - важная задача здравоохранения.
+
+\newpage  
+\section{Описание устройства}
+Устройство состоит из нескольких частей, соединенных между собой. От аналогового стетоскопа берется мембрана и соединительная трубка. С одной стороны к соединительной трубке подсоединяется мембрана, с другой - микрофон. Сигнал с микрофона подается на усилитель. С усилителя сигнал подается на Аналогово-Цифровой-Преобразователь (АЦП). Аналогово-Цифровой-Преобразователь подключается к компьютеру через USB-порт.
+
+Мембрана и трубка присоединяется к микрофону для подавления шумов и лучшей передачи звука от сердца/легких. Также усилитель в свою очередь подключается к блоку питания.
+
+\begin{center}
+Краткая схема прибора:\\
+\noindent\small{{Мембрана → Соединительная Трубка → Микрофон → Усилитель → АЦП → Компьютер}}
+\end{center}
+
+% Commands to include a figure:
+\begin{figure}[H]
+\centering
+\includegraphics[width=14cm]{hardware.png}
+\caption{Собранный прототип}
+\end{figure}
+
+\subsection{Технические характеристики деталей стетоскопа}
+\subsubsection{Микрофон}
+В качестве микрофона был выбран SWEN MK-200. \\
+
+\begin{table}[h]
+\centering
+\caption{Технические характеристики SWEN MK-200}
+\label{my-label}
+\begin{tabular}{|l|l|}
+\hline
+Чувствительность, дБ           & -60 ± 3                    \\ \hline
+Диапазон частот, Гц            & 50 – 16 000                \\ \hline
+Размер микрофонного модуля, мм & 9×7                        \\ \hline
+Тип разъема                    & мини-джек Ø 3,5 мм (3 pin) \\ \hline
+Длина кабеля, м                & 1,8                        \\ \hline
+Вес, г                         & 63                         \\ \hline
+\end{tabular}
+\end{table}
+
+Микрофон был вынут из стандартного корпуса, чтобы лучше соединиться с трубкой, ведущей к мембране.
+
+\subsubsection{Усилитель}
+Усилитель для микрофона был создан самостоятельно в рамках данной работы.
+
+Была выбрана следующая схема усилителя:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=14cm]{circuit.jpg}
+\caption{Схема усилителя сигнала}
+\end{figure}
+
+\subsubsection{АЦП}
+
+% % Commands to include a figure:
+% \begin{figure}
+% \centering
+% \includegraphics[width=0.5\textwidth]{frog.jpg}
+% \caption{\label{fig:frog}This is a figure caption.}
+% \end{figure}
+
+\newpage
+\section{Описание компьютерной программы}
+\subsection{О программе}
+Компьютерная программа для обработки сигнала со стетоскопа написана на языке python c использованием библиотеки pyaudio (для работы со звуком) и библиотеки matplotlib (для визуализации сигналов с помощью графиков)
+\subsection{GUI Parameters}
+В данном участке кода можно выбрать параметры отображения Графического Интерфейса Пользователя (Graphical User Interface / GUI)
+Представлено три параметра:
+\begin{verbatim}
+timeDomain
+freqDomain
+lpcOverlay
+\end{verbatim}
+
+Каждый из параметров может принимать значение \verb|True| или \verb|False|. В соответсвии с этими параметрами на экране будут(\verb|True|) или не будут(\verb|False|) отображаться соответсвующие элементы.
+
+Параметр \verb|timeDomain| отвечает за отображение звуковой волны. (Зависимость амплитуды сигнала от времени). 
+
+Параметр \verb|freqDomain| отвечает за отображение спектра Фурье звукового сигнала. (Зависимость амплитуды сигнала от частоты). 
+
+Параметр \verb|lpcOverlay| отвечает за отображение усредненного спектра Фурье звукового сигнала. (Апроксимация спектра Фурье многочленами)
+
+\subsection{Stream Parameters}
+В данной секции можно настроить параметры захвата аудио с микрофона. Представлено шесть параметров настройки:
+\begin{verbatim}
+DEVICE
+CHUNK
+WINDOW
+FORMAT
+CHANNELS
+RATE
+\end{verbatim}
+
+Параметр \verb|DEVICE| позволяет выбрать входной порт аудиокарты. Значение этого параметра по умолчанию 0. Если у аудиокарты портов много, то необходимо указать соответсвуующее выбранному  порту значение этого парметра. 
+
+Параметр \verb|CHUNK| - это размер блока сигнала, захватываемого программой за одну итерацию программы. 
+
+Параметр \verb|WINDOW| отвечает за ширину окна программы и количество значений, отображаемых в окне.
+
+Параметр \verb|FORMAT| позволяет выбрать тип данных аудиосигнала. Поддерживаются значения  \verb|paFloat32, paInt32, paInt24, paInt16, paInt8, paUInt8|.
+
+Параметр \verb|CHANNELS| отвечает количество записываемых каналов. Может принимать значения 1 или 2. 
+
+Параметр \verb|RATE| позволяет выбрать частоту дискретизации входного сигнала в Герцах.
+
+\subsection{Spectral parameters}
+В данном участке кода представлено два параметра:
+\begin{verbatim}
+ORDER
+NFFT
+\end{verbatim}
+Параметр \verb|ORDER| отвечает за порядок многочлена, который апроксимирует Фурье-спектр сигнала.
+
+Параметр \verb|NFFT| - размер Фурье спектра по горизонтальной оси.
+\subsection{Порядок выполнения программы}
+Сначала создается аудиопоток на основе значений Stream Parameters. Затем на основе параметров GUI создаютсе те элементы UI, которые были выбраны пользователем. В этом участке кода можно также уточнить некоторые особенности отображения формы, такие, как наличие сетки (\verb| plt.grid()|) на графике, настройки цвета, количество отображаемых чисел на осях графика. Также можно выбрать границы значений по осям OX и OY для графиков. Также, при необходимости перевести какую-то из осей в логарифмический формат, нужно добавить  соответсвенно строчки:
+\begin{verbatim}
+plt.xscale('log')
+plt.yscale('log')
+\end{verbatim}
+
+После инициализации формы с задаными настройками запускается функция анимации: 
+\begin{verbatim}
+animation = FuncAnimation(fig, update, interval=10)
+\end{verbatim}
+В параметрах этой функции можно задать временной интервал между кадрами в милисекундах. Функция \verb|animation| запускает функцию \verb|update|. Эта функция обновляет график на каждом кадре анимации. Каждый кадр считывается очередной блок аудиосигнала (\verb|CHUNK|) и на его основе строятся графики, выбранные пользователем. 
+
+Чтобы построить график спектра Фурье сигнала, в функции \verb|spectral_estimate| выполняется преобразование фурье. Для этой цели используется библиотека numpy.
+
+Чтобы построить апроксимированный многочленом спектр Фурье, выполняется функция \verb|lpc_spectrum|.
+
+\section{Заключение}
+\newpage
+
+\begin{thebibliography}{9}
+\bibitem{latexcompanion} 
+Легочный Фонд России
+\\\texttt{http://legkie.org}
+ 
+\bibitem{einstein} 
+Albert Einstein. 
+\textit{Zur Elektrodynamik bewegter K{\"o}rper}. (German) 
+[\textit{On the electrodynamics of moving bodies}]. 
+Annalen der Physik, 322(10):891–921, 1905.
+ 
+\bibitem{knuthwebsite} 
+Knuth: Computers and Typesetting,
+\\\texttt{http://www-cs-faculty.stanford.edu/\~{}uno/abcde.html}
+\end{thebibliography}
+
+
+\end{document}
