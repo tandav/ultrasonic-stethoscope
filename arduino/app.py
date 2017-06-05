@@ -2,6 +2,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import time, threading, sys, serial, socket, os
+import serial.tools.list_ports
 import gzip, shutil
 import optparse
 
@@ -283,18 +284,22 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
 
 def main():
     for i in range(61):
-        try:
-            ser = serial.Serial('/dev/cu.usbmodem1421')    # Left MacBook USB
-            # ser = serial.Serial('/dev/cu.usbmodem1411') # Right MacBook USB
-            print('device connected\n')
-            break
-        except Exception as e:
+        ports = list(serial.tools.list_ports.comports())
+        for port in ports:
+            if 'Arduino' in port.description: 
+                # try / except
+                ser = serial.Serial(port.device)
+                print('device connected\n')
+                break
+        else:
             if i == 60:
                 print('\nDevice not found. Check the connection.')
                 sys.exit()
             sys.stdout.write('\rsearching device' + '.'*i + ' ')
             sys.stdout.flush()
             time.sleep(0.05)
+            continue  # executed if the loop ended normally (no break)
+        break  # executed if 'continue' was skipped (break)
 
     parser = optparse.OptionParser()
     parser.add_option('-d', action='store', dest='downsampling', default=100)
