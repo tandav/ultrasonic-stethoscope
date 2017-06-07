@@ -7,7 +7,7 @@ This repo contains software for Ultrasonic Stethoscope. It allows to get data fr
 3. Amplifier
 4. ADC
 5. Capturing data from ADC
-6. Data processing, CUDA calculations
+6. Data processing, send data to CUDA server
 7. charts output
 
-[Development on workflowy](https://workflowy.com/s/FP-f.q8PimCH5Z4)
+![plot-example](Server/fft-0.png)
