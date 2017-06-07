@@ -301,3 +301,14 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+*.toc
+
+*.gz
+
+*.out
+
+*.fls
+
+*.fdb_latexmk
+
+*.aux
