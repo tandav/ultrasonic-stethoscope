@@ -46,6 +46,7 @@
 \setlength{\parindent}{0mm}
 \setlength{\parskip}{1em}
 \usepackage{hyperref}
+\usepackage{subfiles}
 \hypersetup{
     colorlinks,
     citecolor=black,
@@ -54,62 +55,11 @@
     urlcolor=black
 }
 
+
 \begin{document}
+
 \begin{titlepage}
-
-% \newgeometry{margin=2cm}
-\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
-
-\center % Center everything on the page
- 
-%----------------------------------------------------------------------------------------
-%   HEADING SECTIONS
-%----------------------------------------------------------------------------------------
-\textsc {
-\footnotesize{
-минобрнауки россии\\
-федеральное государственное бюджетное образовательное учреждение\\
-высшего профессионального образования}\\
-\large{Воронежский государственный университет}
-}\\[1.0cm] % Name of your university/college
-
-
-\textsc{\largeФакультет компьютерных наук}\\ % Major heading such as course name
-\textsc{\footnotesize010200 Математика и компьютерные науки}\\[1.0cm] 
-\textsc{\Large курсовая работа}\\[0.5cm] % Minor heading such as course title
-
-
-%----------------------------------------------------------------------------------------
-%   TITLE SECTION
-%----------------------------------------------------------------------------------------
-
-\HRule \\[0.4cm]
-{ \huge \bfseries Ультразвуковой стетоскоп}\\[0.4cm] % Title of your document
-\HRule \\[1.5cm]
- 
-%----------------------------------------------------------------------------------------
-%   AUTHOR SECTION
-%----------------------------------------------------------------------------------------
-
-
-\begin{flushleft} \large
-\emph{Зав. кафедрой:} С.Д. \textsc{Кургалин}, д. ф-м н., проф.\\
-\emph{Студент:} А.А. \textsc{Родионов}, 3 курс, гр 6.1 \\ % Your name
-\emph{Руководитель:} Я.А. \textsc{Туровский}, к. мед. н , доцент % Supervisor's Name
-\end{flushleft}
-
-
-% If you don't want a supervisor, uncomment the two lines below and remove the section above
-% \Large \emph{Author:}\\
-% John \textsc{Smith}\\[3cm] % Your name
-
-%----------------------------------------------------------------------------------------
-%   DATE SECTION
-%----------------------------------------------------------------------------------------
-\vfill % Fill the rest of the page with whitespace
-\begin{center}
-Воронеж 2017
-\end{center}
+\subfile{sections/0-titlepage}
 \end{titlepage}
 
 \tableofcontents
