@@ -1,5 +1,5 @@
 # Ultrasonic Stethoscope
-Ultrasonic stethoscope is a device build on top of Arduino Due, PyGtgraph and NVidia CUDA. Device allows to get HQ sound (about 666 samples per second) and record ultrasonic range up to 333 kHz. Device is supposed to use for medical diagnostics of heart and lungs deseases.
+Ultrasonic stethoscope is a device build on top of Arduino Due, PyQtgraph and NVidia CUDA. Device allows to get HQ sound (about 666 samples per second) and record ultrasonic range up to 333 kHz. Device is supposed to use for medical diagnostics of heart and lungs deseases.
 
 This repo contains software for ultrasonic stethoscope and academic [paper](Paper) describing this project.
 
