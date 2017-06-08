@@ -3,8 +3,6 @@ Ultrasonic stethoscope is a device build on top of Arduino Due, PyQtgraph and NV
 
 This repo contains software for ultrasonic stethoscope and academic [paper](Paper) describing this project.
 
-
-
 ## Overview:
 1. Input Signal
 2. Ultrasonic mic

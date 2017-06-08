@@ -305,4 +305,14 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# LaTeX temp files
+*.toc
+*.gz
+*.out
+*.fls
+*.fdb_latexmk
+*.aux
+
+# App output
 arduino/plot.png

@@ -1,0 +1,50 @@
+\documentclass[14pt]{extarticle}
+\usepackage[russian]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage[colorinlistoftodos]{todonotes}
+\renewcommand{\baselinestretch}{1.5}
+\usepackage[left=3cm,right=1cm,top=1.5cm,bottom=2cm]{geometry}
+\setlength{\parindent}{0mm}
+\setlength{\parskip}{1em}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\usepackage{subfiles}
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=black
+}
+
+\begin{document}
+
+\begin{titlepage}
+\subfile{sections/0-titlepage}
+\end{titlepage}
+
+\tableofcontents
+\newpage 
+
+\section{Введение}
+\subfile{sections/1-introduction}
+\newpage  
+
+\section{Описание аппаратной части разработанной системы}
+\subfile{sections/2-hardware}
+\newpage
+
+\section{Описание программного обеспечения}
+\subfile{sections/3-software}
+\newpage
+
+\section{Заключение}
+\subfile{sections/4-conclusion}
+\newpage
+
+\subfile{sections/5-bibliography}
+
+\end{document}
