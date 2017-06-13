@@ -12,8 +12,11 @@ This repo contains software for ultrasonic stethoscope and academic [paper](Pape
 6. App: send data to NVidia CUDA Server
 7. CUDA Server: calculates fft very fast and sends fft.png (plot of signal's spectrum) back to client's app 
 
-## TODO
-- [ ] insert picture of device here
+## How this device looks:
+<img src="Paper/images/hardware.jpg" width=765px/>
 
-![plot](https://user-images.githubusercontent.com/5549677/26873219-b79b1884-4b81-11e7-9449-4979e5596dbe.png)
-![plot-example](Server/fft-0.png)
+## Local FFT plot example
+<img src="https://user-images.githubusercontent.com/5549677/26873219-b79b1884-4b81-11e7-9449-4979e5596dbe.png" width=800px/>
+
+## CUDA Server FFT plot example
+<img src="Server/fft-0.png" width=805px/>
