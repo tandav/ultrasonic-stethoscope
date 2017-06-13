@@ -1,19 +1,58 @@
-\documentclass[a4paper,14pt]{extarticle}
+%!TEX TS-program = xelatex
+%!TEX encoding = UTF-8 Unicode
+\documentclass[a4paper, 14pt]{extarticle}
 \usepackage[left=3cm, right=1.5cm, top=2cm, bottom=2cm]{geometry}
 \geometry{a4paper}                   % ... or a4paper or a5paper or ...
-\usepackage[T2A]{fontenc}
-\usepackage[utf8x]{inputenc}
-\usepackage[russian]{babel}
-\usepackage{tempora}% for text
-\usepackage{newtxmath}% for math
+\usepackage{fontspec,xltxtra,xunicode}
+\usepackage{listings} 
+\lstset{
+    breaklines=true,
+    basicstyle=\small\ttfamily,
+	inputencoding=utf8
+}
+
+% \setlength{\cftbeforesectionskip}{1.1pt}
+
+
+\defaultfontfeatures{Mapping=tex-text}
+\setmainfont{Times New Roman}
+\newfontfamily{\cyrillicfontsf}{Arial}
+\setsansfont{Helvetica}
+\newfontfamily{\cyrillicfonttt}{Menlo}
+\setmonofont{Menlo}
+\usepackage{newtxmath}
+
+\usepackage{caption}
+\captionsetup[figure]{name=Рисунок, labelsep=endash}
+\captionsetup[table]{labelsep=endash}
+
+\usepackage{tocloft}
+\cftsetindents{section}{0em}{2em}
+\cftsetindents{subsection}{0em}{2em}
+\setlength{\cftbeforesecskip}{0pt}
+% \setlength{\cftbeforetoctitleskip}{-3pt}
+% \setlength{\cftaftertoctitleskip}{0pt}
+
+\renewcommand\labelitemi{---}
+
+\usepackage{polyglossia}
+\setmainlanguage{russian}
+\setotherlanguage{english}
+\setkeys{russian}{babelshorthands=true}
+
+\makeatletter 
+\renewcommand\@biblabel[1]{#1} 
+\makeatother
+
+
 \usepackage{float}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{subcaption}
+\usepackage{subfiles}
 \usepackage[colorinlistoftodos]{todonotes}
 \renewcommand{\baselinestretch}{1.5}
 \PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
-\usepackage{subfiles}
 \hypersetup{
     colorlinks,
     citecolor=black,
@@ -21,6 +60,21 @@
     linkcolor=black,
     urlcolor=black
 }
+\usepackage{relsize}
+\renewcommand*{\UrlFont}{\ttfamily\smaller\relax}
+
+\usepackage{setspace}
+\newcommand{\sectionbreak}{\clearpage}
+\usepackage{titlesec}
+\titleformat{\section}[block]{\normalsize\bfseries\centering}{\thesection}{1ex}{}
+\titleformat{\subsection}[block]{\normalsize\bfseries}{\thesubsection}{1ex}{}
+\titleformat{\subsubsection}[block]{\normalsize\bfseries}{\thesubsubsection}{1ex}{}
+\usepackage{indentfirst}
+
+\addtocontents{toc}{\protect\vskip12pt}
+
+% \usepackage{etoolbox}
+% \patchcmd{\tableofcontents}{\@starttoc}{\vspace{-2cm}\@starttoc}{}{}
 
 \begin{document}
 
@@ -28,25 +82,44 @@
 \subfile{sections/0-titlepage}
 \end{titlepage}
 
+\subfile{sections/1-abstract}
+\newpage  
+
 \tableofcontents
 \newpage 
 
-\section{Введение}
-\subfile{sections/1-introduction}
+\section*{Введение}
+\addcontentsline{toc}{section}{\protect\numberline{}Введение}%
+\subfile{sections/2-introduction}
 \newpage  
 
-\section{Описание аппаратной части разработанной системы}
-\subfile{sections/2-hardware}
+\section{Цели и задачи}
+\subfile{sections/3-motivation}
 \newpage
+
+\section{Анализ предметной области}
+\subfile{sections/4-market}
+\newpage
+
+\section{Описание аппаратной части разработанной системы широкополосного стетоскопа}
+\subfile{sections/5-hardware}
+% \newpage
 
 \section{Описание программного обеспечения}
-\subfile{sections/3-software}
+\subfile{sections/6-software}
 \newpage
 
-\section{Заключение}
-\subfile{sections/4-conclusion}
+\section*{Выводы}
+\addcontentsline{toc}{section}{\protect\numberline{}Выводы}%
+\subfile{sections/7-conclusion}
 \newpage
 
-\subfile{sections/5-bibliography}
+\section*{Заключение}
+\addcontentsline{toc}{section}{\protect\numberline{}Заключение}%
+\subfile{sections/7-conclusion2}
+\newpage
+
+\addcontentsline{toc}{section}{\protect\numberline{}Список использованных источников}%
+\subfile{sections/8-bibliography}
 
 \end{document}

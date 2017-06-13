@@ -316,3 +316,5 @@ $RECYCLE.BIN/
 
 # App output
 arduino/plot.png
+
+*.xdv
