@@ -3,8 +3,12 @@
 *.gz
 data/
 
-# virtualenv
+# virtualenvs
 ultrasonic-steth/
+env/
+
+# python binaries
+*.pyc
 
 # learning and help images
 UV/
