@@ -2,16 +2,34 @@ from PyQt5 import QtCore, QtGui  # (the example applies equally well to PySide)
 import pyqtgraph as pg
 import numpy as np
 import generator
+from scipy.fftpack import fft
+
 
 def plots_update():
-    global fft_curve, ptr, fft_widget
-    # data = np.random.rand(size=(10,1000))
+    global signal_widget, signal_curve, fft_widget, fft_curve, ptr
 
-    t = np.arange(100)
-    y = np.random.rand(100)
+    t, y, rate, seconds, n = generator.signal(rate=4096, seconds=1)
 
-    fft_curve.setData(t, y)
+    # numpy.fft
+    # f = np.fft.rfftfreq(n, d=1./rate)
+    # a = np.fft.rfft(y)
+
+    # scipy.fftpack
+    f = np.fft.rfftfreq(n - 1, d=1./rate)
+    a = fft(y)[:n//2] # chose only real part
+
+    # pyFFTW
+    # TODO ...
+    
+    a = np.abs(a / n) # normalisation
+    
+    signal_curve.setData(t, y)
+    fft_curve.setData(f, a)
+
+
+
     if ptr == 0:
+        signal_widget.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
         fft_widget.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
     ptr += 1
 
@@ -26,7 +44,7 @@ pg.setConfigOption('foreground', 'k')
 # pg.setConfigOptions(antialias=True)
 
 
-signal_widget = pg.PlotWidget(title="Sifnal")
+signal_widget = pg.PlotWidget(title="Signal")
 signal_curve = signal_widget.plot(pen='b')
 
 
