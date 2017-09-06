@@ -11,9 +11,8 @@ import os
 import serial.tools.list_ports # TODO del??
 import gzip
 import shutil
-import optparse # TODO use argparse
+import argparse
 import generator
-# from serialreader import SerialReader
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -250,6 +249,8 @@ class AppGUI(QtGui.QWidget):
                 # f = np.fft.rfftfreq(n, d=1./rate)
                 # a = np.fft.rfft(v)
 
+
+
                 # scipy.fftpack
                 f = np.fft.rfftfreq(n - 1, d=1./rate)
                 a = fft(y)[:n//2] # fft + chose only real part
@@ -415,9 +416,11 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
 
 
 def main():
-    parser = optparse.OptionParser()
-    parser.add_option('-d', action='store', dest='downsampling', default=1)
-    options, args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--downsample', help="increase output verbosity")
+    args = parser.parse_args()
+    if args.downsample:
+        print('downsample={}'.format(args.downsample))
 
     global thread, chunkSize # thread to read and buffer serial data.
     chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
@@ -434,7 +437,7 @@ def main():
     first_draw_flag  = True
 
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(chunkSize=1000, downsampling=int(options.downsampling)) # create class instance
+    gui = AppGUI(chunkSize=1000, downsampling=args.downsample) # create class instance
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
