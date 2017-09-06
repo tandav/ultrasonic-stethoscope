@@ -6,15 +6,15 @@ import time
 import threading
 import sys
 import serial
+import serial.tools.list_ports
 import socket
 import os
-import serial.tools.list_ports # TODO del??
 import gzip
 import shutil
 import argparse
 import generator
 
-class SerialReader(threading.Thread): # inheritated from Thread
+class SerialReader(threading.Thread):  # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
@@ -342,6 +342,7 @@ def write_to_file(arr, ext, gzip=False):
             gzfilesize = os.stat(filename + '.gz').st_size
             print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
 
+
 def send_to_cuda():
         global record_buffer, record_time, rate, time0, time1
         
@@ -379,6 +380,7 @@ def send_to_cuda():
         # s.close()
 
         print('session end\n')
+
 
 def calc_fft_localy(record_buffer, n, record_time, rate):
     '''
@@ -424,7 +426,7 @@ def main():
 
     global thread, chunkSize # thread to read and buffer serial data.
     chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
-    thread = SerialReader(chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
+    thread           = SerialReader(chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
     thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
@@ -432,9 +434,6 @@ def main():
     recording        = False
     values_to_record = 0
     file_index       = 0
-
-    # for perfect autoscaling 
-    first_draw_flag  = True
 
     app = QtGui.QApplication(sys.argv)
     gui = AppGUI(chunkSize=1000, downsampling=args.downsample) # create class instance
