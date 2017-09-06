@@ -418,8 +418,9 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
 
 
 def main():
+    # argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--downsample', help="increase output verbosity")
+    parser.add_argument('-d', '--downsample', help='defines how much to reduce plots points')
     args = parser.parse_args()
     if args.downsample:
         print('downsample={}'.format(args.downsample))
