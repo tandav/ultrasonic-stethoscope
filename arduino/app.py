@@ -1,10 +1,19 @@
-import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
+from scipy.fftpack import fft
+import pyqtgraph as pg
 import numpy as np
-import time, threading, sys, serial, socket, os
-import serial.tools.list_ports
-import gzip, shutil
-import optparse
+import time
+import threading
+import sys
+import serial
+import socket
+import os
+import serial.tools.list_ports # TODO del??
+import gzip
+import shutil
+import optparse # TODO use argparse
+import generator
+# from serialreader import SerialReader
 
 class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
