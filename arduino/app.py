@@ -153,9 +153,9 @@ class SerialReader(threading.Thread): # inheritated from Thread
             self.exitFlag = True
 
 
-class UltrasonicSthethoscope(QtGui.QWidget):
+class AppGUI(QtGui.QWidget):
     def __init__(self, chunkSize, downsampling):
-        super(UltrasonicSthethoscope, self).__init__()
+        super(AppGUI, self).__init__()
 
         self.chunkSize = chunkSize
 
@@ -434,7 +434,7 @@ def main():
     first_draw_flag  = True
 
     app = QtGui.QApplication(sys.argv)
-    adc = UltrasonicSthethoscope(chunkSize=1000, downsampling=int(options.downsampling)) # create class instance
+    gui = AppGUI(chunkSize=1000, downsampling=int(options.downsampling)) # create class instance
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
