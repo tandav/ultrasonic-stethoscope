@@ -54,7 +54,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
                     break
 
             # read one full chunk from the serial port
-            data = port.read(self.chunkSize*2)
+            data = port.read(self.chunkSize*2) # *2 probably becaus of datatypes/bytes/things like that
             # convert data to 16bit int numpy array
             data = np.fromstring(data, dtype=np.uint16)
 
@@ -119,7 +119,8 @@ class SerialReader(threading.Thread): # inheritated from Thread
         # (we need calibration data to do a better job on this)
         data = data.astype(np.float32) * (3.3 / 2**12)
         if downsample > 1:  # if downsampling is requested, average N samples together
-            data = data.reshape(num // downsample,downsample).mean(axis=1)
+            # data = data.reshape(num // downsample,downsample).mean(axis=1)
+            data = data.reshape((num // downsample, downsample)).mean(axis=1)
             num = data.shape[0]
             return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
         else:
@@ -131,42 +132,64 @@ class SerialReader(threading.Thread): # inheritated from Thread
             self.exitFlag = True
 
 
-class adc_chart(QtGui.QWidget):
-    def __init__(self, downsampling, chunk):
-        self.downsampling = downsampling  # how many values draw on plot if 1: draw all
-        self.chunk = chunk
+class UltrasonicSthethoscope(QtGui.QWidget):
+    def __init__(self, chunkSize, downsampling):
+        super(UltrasonicSthethoscope, self).__init__()
 
-        super(adc_chart, self).__init__()
+        self.chunkSize = chunkSize
+
+        self.signal_plot_points = 1000 * chunkSize
+        self.signal_values_t = np.zeros(self.signal_plot_points)
+        self.signal_values_y = np.zeros(self.signal_plot_points)
+        # self.signal_values_v = np.zeros(self.chunkSize * 1000)
+        # self.ptr = 0
+
         self.init_ui()
         self.qt_connections()
 
-        self.plotcurve = pg.PlotCurveItem()
-        self.plotwidget.addItem(self.plotcurve)
-
         self.updateplot()
-
         self.timer = pg.QtCore.QTimer()
         self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
+        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('foreground', 'k')
+
         self.setWindowTitle('Signal from Arduino\'s ADC')
-        hbox = QtGui.QVBoxLayout()
-        self.setLayout(hbox)
 
-        self.plotwidget = pg.PlotWidget()
-        self.plotwidget.getPlotItem().setLabels(left=('ADC Signal', 'V'), bottom=('Time', 's'))
-        self.plotwidget.getPlotItem().setYRange(0.0, 3.3)
-        hbox.addWidget(self.plotwidget)
 
-        self.record_start_button = QtGui.QPushButton("Record")
-        hbox.addWidget(self.record_start_button)
+        self.signal_widget = pg.PlotWidget()
+        self.signal_widget.showGrid(x=True, y=True, alpha=0.12)
+        self.signal_widget.setYRange(0, 3.3)
+        self.signal_curve = self.signal_widget.plot(pen='b')
 
-        self.spin = pg.SpinBox(value=self.chunk*100, int=True, bounds=[self.chunk*100, None], suffix=' Values to record', step=self.chunk*100, decimals=12, siPrefix=True)
-        hbox.addWidget(self.spin)
 
-        self.record_values_button = QtGui.QPushButton("Record Values")
-        hbox.addWidget(self.record_values_button)
+        self.fft_widget = pg.PlotWidget(title='FFT')
+        self.fft_widget.showGrid(x=True, y=True, alpha=0.12)
+        self.fft_widget.setLogMode(x=True, y=False)
+        # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
+        self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
+        self.fft_curve = self.fft_widget.plot(pen='r')
+
+
+        self.hbox = QtGui.QVBoxLayout()
+        self.setLayout(self.hbox)
+        self.hbox.addWidget(self.signal_widget)
+        self.hbox.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+
+        self.record_start_button = QtGui.QPushButton('Record')
+        self.hbox.addWidget(self.record_start_button)
+
+        self.spin = pg.SpinBox(value=self.chunkSize*100, int=True, bounds=[self.chunkSize*100, None], suffix=' Values to record', step=self.chunkSize*100, decimals=12, siPrefix=True)
+        self.hbox.addWidget(self.spin)
+
+        self.seconds_to_record_label = QtGui.QLabel('about {:.2f} seconds'.format(self.spin.value()/666000))
+        self.hbox.addWidget(self.seconds_to_record_label)
+
+
+        self.record_values_button = QtGui.QPushButton('Record Values')
+        self.hbox.addWidget(self.record_values_button)
 
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -174,13 +197,66 @@ class adc_chart(QtGui.QWidget):
     def qt_connections(self):
         self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
         self.record_values_button.clicked.connect(self.on_record_values_button)
+        self.spin.valueChanged.connect(self.spinbox_value_changed)
 
     def updateplot(self):
         global thread, recording
+        
         if not recording:
-            t,v,r = thread.get(1000*self.chunk, self.downsampling)
-            self.plotcurve.setData(t, v)
-            self.plotwidget.getPlotItem().setTitle('Sample Rate: %0.2f'%r)
+            # t, v, rate, f, a = get_data_to_draw(values=300*self.chunkSize, downsampling=self.downsampling) # downsampling = 100
+            # t, v, rate, f, a = get_data_to_draw(values=600*self.chunkSize, downsampling=self.downsampling) # downsampling = 300
+            # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
+            # t, v, rate, f, a = self.get_data_to_draw(values=self.chunkSize, downsampling=1) # downsampling = 500
+            
+            t, y, rate = thread.get(num=100*self.chunkSize)
+            n = len(t)
+
+            temp_signal_values_t = self.signal_values_t
+            self.signal_values_t[:-n] = temp_signal_values_t[n:]
+            self.signal_values_t[-n:] = t
+
+            temp_signal_values_y = self.signal_values_y
+            self.signal_values_y[:-n] = temp_signal_values_y[n:]
+            self.signal_values_y[-n:] = y
+
+            
+            if rate == 0:  # occurs on start
+                f = np.arange(n//2)
+                a = np.arange(n//2)
+                return t, y, rate, f, a
+            else:  # calculate fft
+                # # numpy.fft
+                # f = np.fft.rfftfreq(n, d=1./rate)
+                # a = np.fft.rfft(v)
+
+                # scipy.fftpack
+                f = np.fft.rfftfreq(n - 1, d=1./rate)
+                a = fft(y)[:n//2] # fft + chose only real part
+
+                # pyFFTW
+                # TODO ...
+
+                a = np.abs(a / n) # normalisation
+                a = np.log(a)
+
+
+            # downsample
+            # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
+            # v = v.reshape((n//downsampling, downsampling)).mean(axis=1)
+            # f = f.reshape((n//2//downsampling, downsampling)).mean(axis=1)
+            # a = a.reshape((n//2//downsampling, downsampling)).mean(axis=1)
+            # f = f[:n//downsampling]
+            # a = a[:n//downsampling]
+
+            # print(t.shape, v.shape, f.shape, a.shape)
+
+            self.signal_curve.setData(t, y)
+            self.fft_curve.setData(f, a)
+            self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+
+    def spinbox_value_changed(self):
+        self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/666000))
+        # self.spin.suffix = ' Values to record (about )' + str(self.spin.value()/666000) + 'seconds'
 
     def on_record_start_button_clicked(self):
         global recording
@@ -207,55 +283,80 @@ class adc_chart(QtGui.QWidget):
         thread.exit()
 
 
+def write_to_file(arr, ext, gzip=False):
+        global file_index
+        sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
+        sys.stdout.flush()
+
+
+        data_dir = 'child-hospital-n1/'
+        fileprefix = 'fio-disease-'
+
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+
+        filename = data_dir + fileprefix + str(file_index) + '.' + ext
+
+
+        if ext == 'dat':
+            with open(filename, 'w') as f:
+                arr.tofile(f)
+        elif ext == 'txt':
+            np.savetxt(filename, arr)
+        else:
+            print('wrong file extension')
+
+        file_index += 1
+
+        filesize = os.stat(filename).st_size
+        print(" done (", filesize, ' bytes)', sep='')
+        print(filename)
+        if gzip:
+            sys.stdout.write('gzip data compression: ' + str(filesize / 1000000) + 'MB...')
+            sys.stdout.flush()
+
+            with open(filename, 'rb') as f_in, gzip.open(filename + '.gz', 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+            gzfilesize = os.stat(filename + '.gz').st_size
+            print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
+
 def send_to_cuda():
-    global record_buffer, record_time, rate, time0, time1
-    
-    record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
-    n = len(record_buffer) # length of the signal
+        global record_buffer, record_time, rate, time0, time1
+        
+        # old 
+        # record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
+        # new: add rescale to [-1, 1]
+        record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1# Convert array to float and rescale to voltage. Assume 3.3V / 12bits
+        
 
-    record_time = np.float32(time1 - time0)
-    rate = np.float32(n / record_time)
-    sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
+        n = len(record_buffer) # length of the signal
 
-    calc_fft_localy(record_buffer, n, record_time, rate)
+        record_time = np.float32(time1 - time0)
+        rate = np.float32(n / record_time)
+        sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
 
-    # record_buffer = np.append(record_buffer, [record_time, rate]) # last two entries in file are record_time and rate
-    # write_to_file_and_compress(record_buffer, 'signal.dat')
+        # calc_fft_localy(record_buffer, n, record_time, rate)
+        record_buffer = np.insert(record_buffer, 0, [record_time, rate]) # first two entries in file are record_time and rate
+        # write_to_file(record_buffer, compression=False)
+        write_to_file(record_buffer, 'dat', gzip=False)
 
-    # print('start sending data to CUDA server...')
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # s.connect(('192.168.119.170', 5005))  # (TCP_IP, TCP_PORT)
-    # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-    # with open('signal.dat.gz', 'rb') as f:
-    #     packet = f.read(blocksize)
-    #     i = 0
-    #     while packet:
-    #         s.send(packet)
-    #         packet = f.read(blocksize)
-    #         i += 1
-    #         if i % 100 == 0:
-    #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
-    # print('data send: 100% - success')
-    # s.close() 
+        # print('start sending data to CUDA server...')
+        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # s.connect(('192.168.119.170', 5005))  # (TCP_IP, TCP_PORT)
+        # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
+        # with open('signal.dat.gz', 'rb') as f:
+        #     packet = f.read(blocksize)
+        #     i = 0
+        #     while packet:
+        #         s.send(packet)
+        #         packet = f.read(blocksize)
+        #         i += 1
+        #         if i % 100 == 0:
+        #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
+        # print('data send: 100% - success')
+        # s.close()
 
-    print('session end\n')
-
-def write_to_file_and_compress(arr, filename):
-    sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
-    sys.stdout.flush()
-    with open(filename, 'w') as f:
-        arr.tofile(f)
-
-    filesize = os.stat(filename).st_size
-    print(" done (", filesize, ' bytes)', sep='')
-
-    sys.stdout.write('data compression: ' + str(filesize / 1000000) + 'MB...')
-    sys.stdout.flush()
-
-    with open(filename, 'rb') as f_in, gzip.open(filename + '.gz', 'wb') as f_out:
-        shutil.copyfileobj(f_in, f_out)
-    gzfilesize = os.stat(filename + '.gz').st_size
-    print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
+        print('session end\n')
 
 def calc_fft_localy(record_buffer, n, record_time, rate):
     '''
@@ -291,6 +392,7 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
     sys.stdout.write(' done\n')
     os.system('open plot.png')
 
+
 def main():
     for i in range(61):
         ports = list(serial.tools.list_ports.comports())
@@ -311,21 +413,25 @@ def main():
         break  # executed if 'continue' was skipped (break)
 
     parser = optparse.OptionParser()
-    parser.add_option('-d', action='store', dest='downsampling', default=100)
+    parser.add_option('-d', action='store', dest='downsampling', default=1)
     options, args = parser.parse_args()
 
-    global thread, chunk # thread to read and buffer serial data.
-    chunk = 1000 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
-    thread = SerialReader(ser, chunk)
-    thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
+    global thread, chunkSize # thread to read and buffer serial data.
+    chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
+    thread = SerialReader(port=ser, chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
+    thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
-    global recording, values_to_record
+    global recording, values_to_record, file_index
     recording        = False
     values_to_record = 0
+    file_index       = 0
+
+    # for perfect autoscaling 
+    first_draw_flag  = True
 
     app = QtGui.QApplication(sys.argv)
-    adc = adc_chart(int(options.downsampling), chunk) # create class instance
+    adc = UltrasonicSthethoscope(chunkSize=1000, downsampling=int(options.downsampling)) # create class instance
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
