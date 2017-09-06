@@ -19,7 +19,7 @@ class SerialReader(threading.Thread): # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, port, chunkSize=1024, chunks=5000):
+    def __init__(self, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -27,12 +27,33 @@ class SerialReader(threading.Thread): # inheritated from Thread
         self.chunks = chunks        # number of chunks to store in the buffer
         self.chunkSize = chunkSize  # size of a single chunk (items, not bytes)
         self.ptr = 0                # pointer to most (recently collected buffer index) + 1
-        self.port = port            # serial port handle
+        # self.port = port            # serial port handle
+        self.port = self.find_device_and_return_port()           # serial port handle
         self.sps = 0.0              # holds the average sample acquisition rate
         self.exitFlag = False
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
         self.values_recorded = 0
+
+    def find_device_and_return_port(self):
+        for i in range(61):
+            ports = list(serial.tools.list_ports.comports())
+            for port in ports:
+                if 'Arduino' in port.description: 
+                    # try / except
+                    ser = serial.Serial(port.device)
+                    print('device connected\n')
+                    break
+            else:
+                if i == 60:
+                    print('\nDevice not found. Check the connection.')
+                    sys.exit()
+                sys.stdout.write('\rsearching device' + '.'*i + ' ')
+                sys.stdout.flush()
+                time.sleep(0.05)
+                continue  # executed if the loop ended normally (no break)
+            break  # executed if 'continue' was skipped (break)
+        return ser
 
     def run(self):
         exitMutex = self.exitMutex
@@ -394,31 +415,13 @@ def calc_fft_localy(record_buffer, n, record_time, rate):
 
 
 def main():
-    for i in range(61):
-        ports = list(serial.tools.list_ports.comports())
-        for port in ports:
-            if 'Arduino' in port.description: 
-                # try / except
-                ser = serial.Serial(port.device)
-                print('device connected\n')
-                break
-        else:
-            if i == 60:
-                print('\nDevice not found. Check the connection.')
-                sys.exit()
-            sys.stdout.write('\rsearching device' + '.'*i + ' ')
-            sys.stdout.flush()
-            time.sleep(0.05)
-            continue  # executed if the loop ended normally (no break)
-        break  # executed if 'continue' was skipped (break)
-
     parser = optparse.OptionParser()
     parser.add_option('-d', action='store', dest='downsampling', default=1)
     options, args = parser.parse_args()
 
     global thread, chunkSize # thread to read and buffer serial data.
     chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
-    thread = SerialReader(port=ser, chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
+    thread = SerialReader(chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
     thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
