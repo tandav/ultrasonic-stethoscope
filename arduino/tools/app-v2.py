@@ -1,12 +1,12 @@
+from scipy.fftpack import fft
 from PyQt5 import QtCore, QtGui  # (the example applies equally well to PySide)
 import pyqtgraph as pg
 import numpy as np
 import generator
-from scipy.fftpack import fft
 
 
 def plots_update():
-    global signal_widget, signal_curve, fft_widget, fft_curve, ptr
+    global signal_widget, signal_curve, fft_widget, fft_curve, first_draw_flag
 
     t, y, rate, seconds, n = generator.signal(rate=4096, seconds=1)
 
@@ -26,12 +26,10 @@ def plots_update():
     signal_curve.setData(t, y)
     fft_curve.setData(f, a)
 
-
-
-    if ptr == 0:
+    if first_draw_flag:
         signal_widget.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
         fft_widget.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
-    ptr += 1
+        first_draw_flag = False
 
 
 ## Always start by initializing Qt (only once per application)
@@ -43,40 +41,35 @@ pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 # pg.setConfigOptions(antialias=True)
 
-
+# signal plot
 signal_widget = pg.PlotWidget(title="Signal")
+signal_widget.showGrid(x=True, y=True, alpha=0.3)
+signal_widget.setYRange(0, 0.5)
 signal_curve = signal_widget.plot(pen='b')
 
 
-
-# p2 = pg.PlotWidget()
-# x = np.cos(np.linspace(1, 2*np.pi, 1000))
-# y = np.abs(np.sin(np.linspace(1, 4*np.pi, 1000)))
-# p2.plot(x, y)
-# p2.showGrid(x=True, y=True)
-# p2.setLogMode(x=True, y=False)
-
-
-
-# p6 = win.addPlot(title="Updating plot")
+# fft plot
 fft_widget = pg.PlotWidget(title="FFT")
-fft_widget.setLogMode(x=True, y=False)
+fft_widget.showGrid(x=True, y=True, alpha=0.3)
+fft_widget.setLogMode(x=True, y=True)
 fft_curve = fft_widget.plot(pen='r')
 
-ptr = 0
+# for perfect autoscaling 
+first_draw_flag = True 
+
+# updating the plots
 timer = QtCore.QTimer()
-timer.timeout.connect(plots_update)
-timer.start(0)
+timer.timeout.connect(plots_update) # updateplot on each timertick
+timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
-
+# record_start_button = QtGui.QPushButton("Record")
+# hbox.addWidget(self.record_start_button)
 
 ## Create a grid layout to manage the widgets size and position
 layout = QtGui.QGridLayout()
 w.setLayout(layout)
 
-## Add widgets to the layout in their proper positions
-# layout.addWidget(p1, 0, 1, 2, 1)  # plot goes on right side, spanning 3 rows
-# layout.addWidget(p2, 5, 1, 2, 1)  # plot goes on right side, spanning 3 rows
+# google how to make layouts 
 layout.addWidget(signal_widget, 0, 0)  # plot goes on right side, spanning 3 rows
 layout.addWidget(fft_widget, 1, 0)  # plot goes on right side, spanning 3 rows
 
