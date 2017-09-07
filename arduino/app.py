@@ -380,21 +380,27 @@ def main():
     parser.add_argument('-d', '--downsample', help='defines how much to reduce plots points')
     args = parser.parse_args()
     if args.downsample:
+        downsample = args.downsample
         print('downsample={}'.format(args.downsample))
+    else:
+        downsample = 1
 
+    # serialreader params
     global thread, chunkSize # thread to read and buffer serial data.
     chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
     thread           = SerialReader(chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
     thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     thread.start()
 
+    # global params
     global recording, values_to_record, file_index
     recording        = False
     values_to_record = 0
     file_index       = 0
 
+    # init gui
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(chunkSize=chunkSize, downsampling=args.downsample) # create class instance
+    gui = AppGUI(chunkSize=chunkSize, downsampling=downsample) # create class instance
     sys.exit(app.exec_())
 
 
