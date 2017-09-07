@@ -1,5 +1,4 @@
-from pyqtgraph.Qt import QtCore, QtGui
-from PyQt5.QtGui import QApplication
+from pyqtgraph.Qt import QtCore, QtGui, QtCore
 from scipy.fftpack import fft
 import pyqtgraph as pg
 import numpy as np
@@ -162,9 +161,10 @@ class AppGUI(QtGui.QWidget):
         self.downsample = downsample
         self.rate = 1
         self.plot_points = 10000
-        self.signal_plot_points = 1000 * chunkSize
-        self.signal_values_t = np.zeros(self.signal_plot_points)
-        self.signal_values_y = np.zeros(self.signal_plot_points)
+        # self.fft_window = 
+        # self.signal_plot_points = 1000 * chunkSize
+        # self.signal_values_t = np.zeros(self.signal_plot_points)
+        # self.signal_values_y = np.zeros(self.signal_plot_points)
         # self.signal_values_v = np.zeros(self.chunkSize * 1000)
         # self.ptr = 0
 
@@ -180,41 +180,56 @@ class AppGUI(QtGui.QWidget):
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
-        self.setWindowTitle('Signal from Arduino\'s ADC')
+        self.setWindowTitle('Signal from stethoscope')
 
 
         self.signal_widget = pg.PlotWidget()
-        self.signal_widget.showGrid(x=True, y=True, alpha=0.12)
+        self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
         self.signal_widget.setYRange(0, 3.3)
         self.signal_curve = self.signal_widget.plot(pen='b')
 
 
         self.fft_widget = pg.PlotWidget(title='FFT')
-        self.fft_widget.showGrid(x=True, y=True, alpha=0.12)
+        self.fft_widget.showGrid(x=True, y=True, alpha=0.1)
         self.fft_widget.setLogMode(x=True, y=False)
         # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
 
-        self.hbox = QtGui.QVBoxLayout()
-        self.setLayout(self.hbox)
+        self.layout = QtGui.QVBoxLayout()
+        self.setLayout(self.layout)
 
-        self.hbox.addWidget(self.signal_widget)
-        self.hbox.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        self.slider = QtGui.QSlider()
+        self.slider.setOrientation(QtCore.Qt.Horizontal)
+        self.slider.setMinimum(1)
+        self.slider.setMaximum(30)
+        self.slider.setValue(20)
+        self.layout.addWidget(self.slider)
+
+        self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
+        self.layout.addWidget(self.slider_1_label)
+
+        self.layout.addWidget(self.signal_widget)
+        self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+
+        self.record_box = QtGui.QHBoxLayout()
 
         self.spin = pg.SpinBox( value=self.chunkSize*100, # if change, change also in suffix 
                                 int=True,
                                 bounds=[self.chunkSize*100, None],
                                 suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 100 / 666000),
                                 step=self.chunkSize*100, decimals=12, siPrefix=True)
-        self.hbox.addWidget(self.spin)
+        self.record_box.addWidget(self.spin)
 
         self.record_values_button = QtGui.QPushButton('Record Values')
-        self.hbox.addWidget(self.record_values_button)
+        self.record_box.addWidget(self.record_values_button)
         
+        self.layout.addLayout(self.record_box)
+
+
         self.progress = QtGui.QProgressBar()
-        self.hbox.addWidget(self.progress)
+        self.layout.addWidget(self.progress)
         
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -222,6 +237,12 @@ class AppGUI(QtGui.QWidget):
     def qt_connections(self):
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
+        self.slider.valueChanged.connect(self.slider_changed)
+    
+    def slider_changed(self):
+        # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
+        self.slider_1_label.setText('{}'.format(self.slider.value()))
+        
 
     def updateplot(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -235,19 +256,21 @@ class AppGUI(QtGui.QWidget):
             # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
             # t, v, rate, f, a = self.get_data_to_draw(values=self.chunkSize, downsampling=1) # downsampling = 500
             
-            t, y, rate = ser_reader_thread.get(num=100*self.chunkSize)
+            # t, y, rate = ser_reader_thread.get(num=100*self.chunkSize)
+            t, y, rate = ser_reader_thread.get(num=5000*self.chunkSize) # MAX TO GET - norm
             n = len(t)
 
             if rate > 0:
                 self.rate = rate
 
-                temp_signal_values_t = self.signal_values_t
-                self.signal_values_t[:-n] = temp_signal_values_t[n:]
-                self.signal_values_t[-n:] = t
 
-                temp_signal_values_y = self.signal_values_y
-                self.signal_values_y[:-n] = temp_signal_values_y[n:]
-                self.signal_values_y[-n:] = y
+                # temp_signal_values_t = self.signal_values_t
+                # self.signal_values_t[:-n] = temp_signal_values_t[n:]
+                # self.signal_values_t[-n:] = t
+
+                # temp_signal_values_y = self.signal_values_y
+                # self.signal_values_y[:-n] = temp_signal_values_y[n:]
+                # self.signal_values_y[-n:] = y
 
 
                 # calculate fft
@@ -256,14 +279,14 @@ class AppGUI(QtGui.QWidget):
                 # a = np.fft.rfft(v)
 
                 # scipy.fftpack
-                f = np.fft.rfftfreq(n - 1, d=1./rate)
-                a = fft(y)[:n//2] # fft + chose only real part
+                # f = np.fft.rfftfreq(n - 1, d=1./rate)
+                # a = fft(y)[:n//2] # fft + chose only real part
 
                 # pyFFTW
                 # TODO ...
 
-                a = np.abs(a / n) # normalisation
-                a = np.log(a)
+                # a = np.abs(a / n) # normalisation
+                # a = np.log(a)
 
                 # downsample
                 # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
@@ -274,8 +297,10 @@ class AppGUI(QtGui.QWidget):
                 # a = a[:n//downsampling]
                 # print(t.shape, v.shape, f.shape, a.shape)
 
+                self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
+                self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
                 self.signal_curve.setData(t, y)
-                self.fft_curve.setData(f, a)
+                # self.fft_curve.setData(f, a)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
     def spinbox_value_changed(self):
