@@ -137,7 +137,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         # Convert array to float and rescale to voltage.
         # Assume 3.3V / 12bits
         # (we need calibration data to do a better job on this)
-        data = data.astype(np.float32) * (3.3 / 2**12)
+        data = data.astype(np.float32) * (3.3 / 2**12) # TODO normalise here to [-1, 1]
         if downsample > 1:  # if downsampling is requested, average N samples together
             # data = data.reshape(num // downsample,downsample).mean(axis=1)
             data = data.reshape((num // downsample, downsample)).mean(axis=1)
