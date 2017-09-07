@@ -155,11 +155,13 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
-    def __init__(self, chunkSize, downsampling):
+    def __init__(self, chunkSize, downsample):
         super(AppGUI, self).__init__()
 
         self.chunkSize = chunkSize
+        self.downsample = downsample
         self.rate = 1
+        self.plot_points = 10000
         self.signal_plot_points = 1000 * chunkSize
         self.signal_values_t = np.zeros(self.signal_plot_points)
         self.signal_values_y = np.zeros(self.signal_plot_points)
@@ -233,7 +235,7 @@ class AppGUI(QtGui.QWidget):
             # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
             # t, v, rate, f, a = self.get_data_to_draw(values=self.chunkSize, downsampling=1) # downsampling = 500
             
-            t, y, rate = ser_reader_thread.get(num=100*self.chunkSize, downsample=1)
+            t, y, rate = ser_reader_thread.get(num=100*self.chunkSize)
             n = len(t)
             self.rate = rate
 
@@ -380,7 +382,7 @@ def main():
     parser.add_argument('-d', '--downsample', help='defines how much to reduce plots points')
     args = parser.parse_args()
     if args.downsample:
-        downsample = args.downsample
+        downsample = int(args.downsample)
         print('downsample={}'.format(args.downsample))
     else:
         downsample = 1
@@ -400,7 +402,7 @@ def main():
 
     # init gui
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(chunkSize=chunkSize, downsampling=downsample) # create class instance
+    gui = AppGUI(chunkSize=chunkSize, downsample=downsample) # create class instance
     sys.exit(app.exec_())
 
 
