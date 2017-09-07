@@ -198,8 +198,7 @@ class AppGUI(QtGui.QWidget):
         self.hbox = QtGui.QVBoxLayout()
         self.setLayout(self.hbox)
         
-        self.progress = QtGui.QProgressBar(self) # del self?
-        # self.progress = QtGui.QProgressBar()
+        self.progress = QtGui.QProgressBar()
         self.hbox.addWidget(self.progress)
 
         self.hbox.addWidget(self.signal_widget)
@@ -213,7 +212,6 @@ class AppGUI(QtGui.QWidget):
 
         self.seconds_to_record_label = QtGui.QLabel('about {:.2f} seconds'.format(self.spin.value()/666000))
         self.hbox.addWidget(self.seconds_to_record_label)
-
 
         self.record_values_button = QtGui.QPushButton('Record Values')
         self.hbox.addWidget(self.record_values_button)
@@ -286,11 +284,7 @@ class AppGUI(QtGui.QWidget):
             self.fft_curve.setData(f, a)
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
         else:
-            # time.time() - time0 < values_to_record * self.rate:
             self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - time0))
-            print(100 / (values_to_record / self.rate) * (time.time() - time0), )
-            # print(100 / time_to_record * (time.time() - self.record_start_time))
-            QApplication.processEvents() # try del
 
     def spinbox_value_changed(self):
         self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/self.rate))
@@ -320,17 +314,6 @@ class AppGUI(QtGui.QWidget):
     def closeEvent(self, event):
         global thread
         thread.exit()
-
-    # def progressbar_record(self):
-    #     self.record_start_time = time.time()
-    #     time_to_record = 2.
-    #     while time.time() - self.record_start_time < time_to_record:
-    #         self.progress.setValue(100 / time_to_record * (time.time() - self.record_start_time))
-    #         print(100 / time_to_record * (time.time() - self.record_start_time))
-    #         QApplication.processEvents()                
-
-    #     print('finish recording')
-    #     self.progress.setValue(0)
 
 
 def write_to_file(arr, ext, gzip=False):
