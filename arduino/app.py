@@ -65,7 +65,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, values_to_record, t2, time1
+        global record_buffer, recording, values_to_record, t2, record_end_time
 
         while True:
             # see whether an exit was requested
@@ -109,7 +109,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                     self.values_recorded += self.chunkSize
 
                     if self.values_recorded >= values_to_record: # maybe del second condition
-                        time1 = time.time()
+                        record_end_time = time.time()
                         recording = False
                         self.values_recorded = 0
                         values_to_record = 0
@@ -221,10 +221,10 @@ class AppGUI(QtGui.QWidget):
         self.spin.valueChanged.connect(self.spinbox_value_changed)
 
     def updateplot(self):
-        global thread, recording, values_to_record, time0
+        global thread, recording, values_to_record, record_start_time
         
         if recording:
-            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - time0))
+            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - record_start_time))
         else:
             self.progress.setValue(0)
             self
@@ -283,15 +283,14 @@ class AppGUI(QtGui.QWidget):
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
     def spinbox_value_changed(self):
-        self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/self.rate))
-        # self.spin.suffix = ' Values to record (about )' + str(self.spin.value()/666000) + 'seconds'
+        self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value() / self.rate))
 
     def record_values_button_clicked(self):
-        global recording, values_to_record, time0, record_buffer
+        global recording, values_to_record, record_start_time, record_buffer
         values_to_record = self.spin.value()
         record_buffer = np.empty(values_to_record)
         recording = True
-        time0 = time.time()
+        record_start_time = time.time()
 
     def closeEvent(self, event):
         global thread
@@ -337,7 +336,7 @@ def write_to_file(arr, ext, gzip=False):
 
 
 def send_to_cuda():
-        global record_buffer, record_time, rate, time0, time1
+        global record_buffer, record_time, rate, record_start_time, record_end_time
         
         # old 
         # record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
@@ -347,7 +346,7 @@ def send_to_cuda():
 
         n = len(record_buffer) # length of the signal
 
-        record_time = np.float32(time1 - time0)
+        record_time = np.float32(record_end_time - record_start_time)
         rate = np.float32(n / record_time)
         sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
 
