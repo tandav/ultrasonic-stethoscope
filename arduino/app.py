@@ -222,7 +222,7 @@ class AppGUI(QtGui.QWidget):
         self.spin.valueChanged.connect(self.spinbox_value_changed)
 
     def updateplot(self):
-        global thread, recording, values_to_record, record_start_time
+        global ser_reader_thread, recording, values_to_record, record_start_time
         
         if recording:
             self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - record_start_time))
@@ -233,7 +233,7 @@ class AppGUI(QtGui.QWidget):
             # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
             # t, v, rate, f, a = self.get_data_to_draw(values=self.chunkSize, downsampling=1) # downsampling = 500
             
-            t, y, rate = thread.get(num=100*self.chunkSize, downsample=1)
+            t, y, rate = ser_reader_thread.get(num=100*self.chunkSize, downsample=1)
             n = len(t)
             self.rate = rate
 
@@ -293,8 +293,8 @@ class AppGUI(QtGui.QWidget):
         record_start_time = time.time()
 
     def closeEvent(self, event):
-        global thread
-        thread.exit()
+        global ser_reader_thread
+        ser_reader_thread.exit()
 
 
 def write_to_file(arr, ext, gzip=False):
@@ -386,11 +386,11 @@ def main():
         downsample = 1
 
     # serialreader params
-    global thread, chunkSize # thread to read and buffer serial data.
+    global ser_reader_thread, chunkSize # thread to read and buffer serial data.
     chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
-    thread           = SerialReader(chunkSize=chunkSize, chunks=5000) # rename it to serialreader or sth like that
-    thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
-    thread.start()
+    ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=5000)
+    ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
+    ser_reader_thread.start()
 
     # global params
     global recording, values_to_record, file_index
