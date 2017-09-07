@@ -228,7 +228,7 @@ class AppGUI(QtGui.QWidget):
             # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
             # t, v, rate, f, a = self.get_data_to_draw(values=self.chunkSize, downsampling=1) # downsampling = 500
             
-            t, y, rate = thread.get(num=100*self.chunkSize)
+            t, y, rate = thread.get(num=100*self.chunkSize, downsample=1)
             n = len(t)
 
             temp_signal_values_t = self.signal_values_t
