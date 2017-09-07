@@ -223,7 +223,9 @@ class AppGUI(QtGui.QWidget):
     def updateplot(self):
         global thread, recording, values_to_record, time0
         
-        if not recording:
+        if recording:
+            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - time0))
+        else:
             self.progress.setValue(0)
             self
             # t, v, rate, f, a = get_data_to_draw(values=300*self.chunkSize, downsampling=self.downsampling) # downsampling = 100
@@ -279,8 +281,6 @@ class AppGUI(QtGui.QWidget):
             self.signal_curve.setData(t, y)
             self.fft_curve.setData(f, a)
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-        else:
-            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - time0))
 
     def spinbox_value_changed(self):
         self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/self.rate))
