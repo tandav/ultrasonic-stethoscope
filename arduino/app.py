@@ -204,9 +204,6 @@ class AppGUI(QtGui.QWidget):
         self.hbox.addWidget(self.signal_widget)
         self.hbox.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
-        self.record_start_button = QtGui.QPushButton('Record')
-        self.hbox.addWidget(self.record_start_button)
-
         self.spin = pg.SpinBox(value=self.chunkSize*100, int=True, bounds=[self.chunkSize*100, None], suffix=' Values to record', step=self.chunkSize*100, decimals=12, siPrefix=True)
         self.hbox.addWidget(self.spin)
 
@@ -220,7 +217,6 @@ class AppGUI(QtGui.QWidget):
         self.show()
 
     def qt_connections(self):
-        self.record_start_button.clicked.connect(self.record_start_button_clicked)
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
 
@@ -290,23 +286,9 @@ class AppGUI(QtGui.QWidget):
         self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/self.rate))
         # self.spin.suffix = ' Values to record (about )' + str(self.spin.value()/666000) + 'seconds'
 
-    def record_start_button_clicked(self):
-        global recording
-        if recording == 0:
-            recording = 1
-            self.record_start_button.setText("Stop")
-            # print ("Record started...")
-            sys.stdout.write('Record start... ')
-            sys.stdout.flush()
-        elif recording == 1:
-            recording = 2
-            self.record_start_button.setText("Record")
-            sys.stdout.write('\rRecord start... stop\n')
-
     def record_values_button_clicked(self):
         global recording, values_to_record, time0, record_buffer
         values_to_record = self.spin.value()
-        print(values_to_record)
         record_buffer = np.empty(values_to_record)
         recording = True
         time0 = time.time()
