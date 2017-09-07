@@ -159,7 +159,7 @@ class AppGUI(QtGui.QWidget):
         super(AppGUI, self).__init__()
 
         self.chunkSize = chunkSize
-        self.rate = 0
+        self.rate = 1
         self.signal_plot_points = 1000 * chunkSize
         self.signal_values_t = np.zeros(self.signal_plot_points)
         self.signal_values_y = np.zeros(self.signal_plot_points)
@@ -197,22 +197,23 @@ class AppGUI(QtGui.QWidget):
 
         self.hbox = QtGui.QVBoxLayout()
         self.setLayout(self.hbox)
-        
-        self.progress = QtGui.QProgressBar()
-        self.hbox.addWidget(self.progress)
 
         self.hbox.addWidget(self.signal_widget)
         self.hbox.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
-        self.spin = pg.SpinBox(value=self.chunkSize*100, int=True, bounds=[self.chunkSize*100, None], suffix=' Values to record', step=self.chunkSize*100, decimals=12, siPrefix=True)
+        self.spin = pg.SpinBox( value=self.chunkSize*100, # if change, change also in suffix 
+                                int=True,
+                                bounds=[self.chunkSize*100, None],
+                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 100 / 666000),
+                                step=self.chunkSize*100, decimals=12, siPrefix=True)
         self.hbox.addWidget(self.spin)
-
-        self.seconds_to_record_label = QtGui.QLabel('about {:.2f} seconds'.format(self.spin.value()/666000))
-        self.hbox.addWidget(self.seconds_to_record_label)
 
         self.record_values_button = QtGui.QPushButton('Record Values')
         self.hbox.addWidget(self.record_values_button)
-
+        
+        self.progress = QtGui.QProgressBar()
+        self.hbox.addWidget(self.progress)
+        
         self.setGeometry(10, 10, 1000, 600)
         self.show()
 
@@ -227,7 +228,6 @@ class AppGUI(QtGui.QWidget):
             self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - record_start_time))
         else:
             self.progress.setValue(0)
-            self
             # t, v, rate, f, a = get_data_to_draw(values=300*self.chunkSize, downsampling=self.downsampling) # downsampling = 100
             # t, v, rate, f, a = get_data_to_draw(values=600*self.chunkSize, downsampling=self.downsampling) # downsampling = 300
             # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
@@ -283,7 +283,7 @@ class AppGUI(QtGui.QWidget):
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
     def spinbox_value_changed(self):
-        self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value() / self.rate))
+        self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / self.rate))
 
     def record_values_button_clicked(self):
         global recording, values_to_record, record_start_time, record_buffer
