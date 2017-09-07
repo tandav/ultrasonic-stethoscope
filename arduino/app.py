@@ -227,7 +227,7 @@ class AppGUI(QtGui.QWidget):
         global ser_reader_thread, recording, values_to_record, record_start_time
         
         if recording:
-            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - record_start_time))
+            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
         else:
             self.progress.setValue(0)
             # t, v, rate, f, a = get_data_to_draw(values=300*self.chunkSize, downsampling=self.downsampling) # downsampling = 100
