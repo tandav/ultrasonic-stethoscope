@@ -1,4 +1,5 @@
 from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5.QtGui import QApplication
 from scipy.fftpack import fft
 import pyqtgraph as pg
 import numpy as np
@@ -157,7 +158,7 @@ class AppGUI(QtGui.QWidget):
         super(AppGUI, self).__init__()
 
         self.chunkSize = chunkSize
-
+        self.rate = 0
         self.signal_plot_points = 1000 * chunkSize
         self.signal_values_t = np.zeros(self.signal_plot_points)
         self.signal_values_y = np.zeros(self.signal_plot_points)
@@ -195,6 +196,11 @@ class AppGUI(QtGui.QWidget):
 
         self.hbox = QtGui.QVBoxLayout()
         self.setLayout(self.hbox)
+        
+        # self.progress = QtGui.QProgressBar(self) # del self?
+        self.progress = QtGui.QProgressBar()
+        self.hbox.addWidget(self.progress)
+
         self.hbox.addWidget(self.signal_widget)
         self.hbox.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
@@ -215,8 +221,8 @@ class AppGUI(QtGui.QWidget):
         self.show()
 
     def qt_connections(self):
-        self.record_start_button.clicked.connect(self.on_record_start_button_clicked)
-        self.record_values_button.clicked.connect(self.on_record_values_button)
+        self.record_start_button.clicked.connect(self.record_start_button_clicked)
+        self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
 
     def updateplot(self):
@@ -230,6 +236,7 @@ class AppGUI(QtGui.QWidget):
             
             t, y, rate = thread.get(num=100*self.chunkSize, downsample=1)
             n = len(t)
+            self.rate = rate
 
             temp_signal_values_t = self.signal_values_t
             self.signal_values_t[:-n] = temp_signal_values_t[n:]
@@ -280,7 +287,7 @@ class AppGUI(QtGui.QWidget):
         self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/666000))
         # self.spin.suffix = ' Values to record (about )' + str(self.spin.value()/666000) + 'seconds'
 
-    def on_record_start_button_clicked(self):
+    def record_start_button_clicked(self):
         global recording
         if recording == 0:
             recording = 1
@@ -293,16 +300,31 @@ class AppGUI(QtGui.QWidget):
             self.record_start_button.setText("Record")
             sys.stdout.write('\rRecord start... stop\n')
 
-    def on_record_values_button(self):
+    def record_values_button_clicked(self):
         global recording, values_to_record, time0, record_buffer
         values_to_record = self.spin.value()
         record_buffer = np.empty(values_to_record)
         recording = True
         time0 = time.time()
+        while time.time() - time0 < values_to_record * self.rate:
+            self.progress.setValue(100 / (values_to_record * self.rate) * (time.time() - time0))
+            # print(100 / time_to_record * (time.time() - self.record_start_time))
+            QApplication.processEvents() # try del
 
     def closeEvent(self, event):
         global thread
         thread.exit()
+
+    def progressbar_record(self):
+        self.record_start_time = time.time()
+        time_to_record = 2.
+        while time.time() - self.record_start_time < time_to_record:
+            self.progress.setValue(100 / time_to_record * (time.time() - self.record_start_time))
+            print(100 / time_to_record * (time.time() - self.record_start_time))
+            QApplication.processEvents()                
+
+        print('finish recording')
+        self.progress.setValue(0)
 
 
 def write_to_file(arr, ext, gzip=False):
