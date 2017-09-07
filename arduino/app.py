@@ -237,27 +237,23 @@ class AppGUI(QtGui.QWidget):
             
             t, y, rate = ser_reader_thread.get(num=100*self.chunkSize)
             n = len(t)
-            self.rate = rate
 
-            temp_signal_values_t = self.signal_values_t
-            self.signal_values_t[:-n] = temp_signal_values_t[n:]
-            self.signal_values_t[-n:] = t
+            if rate > 0:
+                self.rate = rate
 
-            temp_signal_values_y = self.signal_values_y
-            self.signal_values_y[:-n] = temp_signal_values_y[n:]
-            self.signal_values_y[-n:] = y
+                temp_signal_values_t = self.signal_values_t
+                self.signal_values_t[:-n] = temp_signal_values_t[n:]
+                self.signal_values_t[-n:] = t
 
-            
-            if rate == 0:  # occurs on start
-                f = np.arange(n//2)
-                a = np.arange(n//2)
-                return t, y, rate, f, a
-            else:  # calculate fft
+                temp_signal_values_y = self.signal_values_y
+                self.signal_values_y[:-n] = temp_signal_values_y[n:]
+                self.signal_values_y[-n:] = y
+
+
+                # calculate fft
                 # # numpy.fft
                 # f = np.fft.rfftfreq(n, d=1./rate)
                 # a = np.fft.rfft(v)
-
-
 
                 # scipy.fftpack
                 f = np.fft.rfftfreq(n - 1, d=1./rate)
@@ -269,20 +265,18 @@ class AppGUI(QtGui.QWidget):
                 a = np.abs(a / n) # normalisation
                 a = np.log(a)
 
+                # downsample
+                # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
+                # v = v.reshape((n//downsampling, downsampling)).mean(axis=1)
+                # f = f.reshape((n//2//downsampling, downsampling)).mean(axis=1)
+                # a = a.reshape((n//2//downsampling, downsampling)).mean(axis=1)
+                # f = f[:n//downsampling]
+                # a = a[:n//downsampling]
+                # print(t.shape, v.shape, f.shape, a.shape)
 
-            # downsample
-            # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
-            # v = v.reshape((n//downsampling, downsampling)).mean(axis=1)
-            # f = f.reshape((n//2//downsampling, downsampling)).mean(axis=1)
-            # a = a.reshape((n//2//downsampling, downsampling)).mean(axis=1)
-            # f = f[:n//downsampling]
-            # a = a[:n//downsampling]
-
-            # print(t.shape, v.shape, f.shape, a.shape)
-
-            self.signal_curve.setData(t, y)
-            self.fft_curve.setData(f, a)
-            self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+                self.signal_curve.setData(t, y)
+                self.fft_curve.setData(f, a)
+                self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / self.rate))
