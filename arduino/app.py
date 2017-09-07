@@ -104,6 +104,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                     self.sps = sps
 
                 if recording:
+                    # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
                     record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
                     self.values_recorded += self.chunkSize
 
@@ -197,8 +198,8 @@ class AppGUI(QtGui.QWidget):
         self.hbox = QtGui.QVBoxLayout()
         self.setLayout(self.hbox)
         
-        # self.progress = QtGui.QProgressBar(self) # del self?
-        self.progress = QtGui.QProgressBar()
+        self.progress = QtGui.QProgressBar(self) # del self?
+        # self.progress = QtGui.QProgressBar()
         self.hbox.addWidget(self.progress)
 
         self.hbox.addWidget(self.signal_widget)
@@ -226,9 +227,11 @@ class AppGUI(QtGui.QWidget):
         self.spin.valueChanged.connect(self.spinbox_value_changed)
 
     def updateplot(self):
-        global thread, recording
+        global thread, recording, values_to_record, time0
         
         if not recording:
+            self.progress.setValue(0)
+            self
             # t, v, rate, f, a = get_data_to_draw(values=300*self.chunkSize, downsampling=self.downsampling) # downsampling = 100
             # t, v, rate, f, a = get_data_to_draw(values=600*self.chunkSize, downsampling=self.downsampling) # downsampling = 300
             # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
@@ -282,9 +285,15 @@ class AppGUI(QtGui.QWidget):
             self.signal_curve.setData(t, y)
             self.fft_curve.setData(f, a)
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+        else:
+            # time.time() - time0 < values_to_record * self.rate:
+            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - time0))
+            print(100 / (values_to_record / self.rate) * (time.time() - time0), )
+            # print(100 / time_to_record * (time.time() - self.record_start_time))
+            QApplication.processEvents() # try del
 
     def spinbox_value_changed(self):
-        self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/666000))
+        self.seconds_to_record_label.setText('about {:.2f} seconds'.format(self.spin.value()/self.rate))
         # self.spin.suffix = ' Values to record (about )' + str(self.spin.value()/666000) + 'seconds'
 
     def record_start_button_clicked(self):
@@ -303,28 +312,25 @@ class AppGUI(QtGui.QWidget):
     def record_values_button_clicked(self):
         global recording, values_to_record, time0, record_buffer
         values_to_record = self.spin.value()
+        print(values_to_record)
         record_buffer = np.empty(values_to_record)
         recording = True
         time0 = time.time()
-        while time.time() - time0 < values_to_record * self.rate:
-            self.progress.setValue(100 / (values_to_record * self.rate) * (time.time() - time0))
-            # print(100 / time_to_record * (time.time() - self.record_start_time))
-            QApplication.processEvents() # try del
 
     def closeEvent(self, event):
         global thread
         thread.exit()
 
-    def progressbar_record(self):
-        self.record_start_time = time.time()
-        time_to_record = 2.
-        while time.time() - self.record_start_time < time_to_record:
-            self.progress.setValue(100 / time_to_record * (time.time() - self.record_start_time))
-            print(100 / time_to_record * (time.time() - self.record_start_time))
-            QApplication.processEvents()                
+    # def progressbar_record(self):
+    #     self.record_start_time = time.time()
+    #     time_to_record = 2.
+    #     while time.time() - self.record_start_time < time_to_record:
+    #         self.progress.setValue(100 / time_to_record * (time.time() - self.record_start_time))
+    #         print(100 / time_to_record * (time.time() - self.record_start_time))
+    #         QApplication.processEvents()                
 
-        print('finish recording')
-        self.progress.setValue(0)
+    #     print('finish recording')
+    #     self.progress.setValue(0)
 
 
 def write_to_file(arr, ext, gzip=False):
@@ -424,7 +430,7 @@ def main():
     file_index       = 0
 
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(chunkSize=1000, downsampling=args.downsample) # create class instance
+    gui = AppGUI(chunkSize=chunkSize, downsampling=args.downsample) # create class instance
     sys.exit(app.exec_())
 
 
