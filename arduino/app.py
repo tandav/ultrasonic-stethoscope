@@ -1,4 +1,4 @@
-from pyqtgraph.Qt import QtCore, QtGui, QtCore
+from pyqtgraph.Qt import QtCore, QtGui
 from scipy.fftpack import fft
 import pyqtgraph as pg
 import numpy as np
@@ -13,6 +13,9 @@ import gzip
 import shutil
 import argparse
 import generator
+import pyfftw
+import pickle
+from pathlib import Path
 
 class SerialReader(threading.Thread):  # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -154,21 +157,17 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
-    def __init__(self, chunkSize, downsample):
+    def __init__(self, downsample):
         super(AppGUI, self).__init__()
 
-        self.chunkSize = chunkSize
+        # self.chunkSize = chunkSize
         self.downsample = downsample
         self.rate = 1
         self.plot_points = 10000
-        # self.fft_window = 
-        # self.signal_plot_points = 1000 * chunkSize
-        # self.signal_values_t = np.zeros(self.signal_plot_points)
-        # self.signal_values_y = np.zeros(self.signal_plot_points)
-        # self.signal_values_v = np.zeros(self.chunkSize * 1000)
-        # self.ptr = 0
+        self.fft_window = ser_reader_thread.chunkSize
 
         self.init_ui()
+        self.init_pyfftw()
         self.qt_connections()
 
         self.updateplot()
@@ -181,13 +180,25 @@ class AppGUI(QtGui.QWidget):
         pg.setConfigOption('foreground', 'k')
 
         self.setWindowTitle('Signal from stethoscope')
+        self.layout = QtGui.QVBoxLayout()
 
+        chunkSize = ser_reader_thread.chunkSize
+
+        self.fft_slider_box = QtGui.QHBoxLayout()
+        self.fft_chunks_slider = QtGui.QSlider()
+        self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
+        # self.fft_chunks_slider.setRange(1, ser_reader_thread.chunks)
+        self.fft_chunks_slider.setRange(1, 500)
+        self.fft_chunks_slider.setValue(1)
+        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * chunkSize))
+        self.fft_slider_box.addWidget(self.fft_slider_label)
+        self.fft_slider_box.addWidget(self.fft_chunks_slider)
+        self.layout.addLayout(self.fft_slider_box)
 
         self.signal_widget = pg.PlotWidget()
         self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
         self.signal_widget.setYRange(0, 3.3)
         self.signal_curve = self.signal_widget.plot(pen='b')
-
 
         self.fft_widget = pg.PlotWidget(title='FFT')
         self.fft_widget.showGrid(x=True, y=True, alpha=0.1)
@@ -196,83 +207,62 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-
-        self.layout = QtGui.QVBoxLayout()
-        self.setLayout(self.layout)
-
-        self.slider = QtGui.QSlider()
-        self.slider.setOrientation(QtCore.Qt.Horizontal)
-        self.slider.setMinimum(1)
-        self.slider.setMaximum(30)
-        self.slider.setValue(20)
-        self.layout.addWidget(self.slider)
-
-        self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
-        self.layout.addWidget(self.slider_1_label)
-
         self.layout.addWidget(self.signal_widget)
         self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
-
-        self.spin = pg.SpinBox( value=self.chunkSize*100, # if change, change also in suffix 
+        self.spin = pg.SpinBox( value=chunkSize*100, # if change, change also in suffix 
                                 int=True,
-                                bounds=[self.chunkSize*100, None],
-                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 100 / 666000),
-                                step=self.chunkSize*100, decimals=12, siPrefix=True)
+                                bounds=[chunkSize*100, None],
+                                suffix=' Values to record ({:.2f} seconds)'.format(chunkSize * 100 / 666000),
+                                step=chunkSize*100, decimals=12, siPrefix=True)
         self.record_box.addWidget(self.spin)
-
         self.record_values_button = QtGui.QPushButton('Record Values')
         self.record_box.addWidget(self.record_values_button)
-        
         self.layout.addLayout(self.record_box)
-
 
         self.progress = QtGui.QProgressBar()
         self.layout.addWidget(self.progress)
-        
+
+        self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
         self.show()
 
     def qt_connections(self):
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
-        self.slider.valueChanged.connect(self.slider_changed)
+        self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
     
-    def slider_changed(self):
-        # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
-        self.slider_1_label.setText('{}'.format(self.slider.value()))
+    def init_pyfftw(self):
+        my_file = Path("wisdom")
+        if my_file.is_file():
+            with open('wisdom', 'rb') as file:
+                wisdom = pickle.load(file)
+            pyfftw.import_wisdom(wisdom)
         
+        self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
+        self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
+
+    def fft_slider_changed(self):
+        # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
+        self.fft_window = self.fft_chunks_slider.value() * ser_reader_thread.chunkSize
+        self.fft_slider_label.setText('FFT window: {}'.format(self.fft_window))
+        
+        # update pyFFTW
+        self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
+        self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
+
 
     def updateplot(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
         
         if recording:
-            self.progress.setValue(100 / (values_to_record / self.rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+            self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
         else:
             self.progress.setValue(0)
-            # t, v, rate, f, a = get_data_to_draw(values=300*self.chunkSize, downsampling=self.downsampling) # downsampling = 100
-            # t, v, rate, f, a = get_data_to_draw(values=600*self.chunkSize, downsampling=self.downsampling) # downsampling = 300
-            # t, v, rate, f, a = self.get_data_to_draw(values=1000*self.chunkSize, downsampling=self.downsampling) # downsampling = 200!!!!!!
-            # t, v, rate, f, a = self.get_data_to_draw(values=self.chunkSize, downsampling=1) # downsampling = 500
-            
-            # t, y, rate = ser_reader_thread.get(num=100*self.chunkSize)
-            t, y, rate = ser_reader_thread.get(num=5000*self.chunkSize) # MAX TO GET - norm
-            n = len(t)
+            t, y, rate = ser_reader_thread.get(num=ser_reader_thread.chunks*ser_reader_thread.chunkSize) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
-                self.rate = rate
-
-
-                # temp_signal_values_t = self.signal_values_t
-                # self.signal_values_t[:-n] = temp_signal_values_t[n:]
-                # self.signal_values_t[-n:] = t
-
-                # temp_signal_values_y = self.signal_values_y
-                # self.signal_values_y[:-n] = temp_signal_values_y[n:]
-                # self.signal_values_y[-n:] = y
-
-
                 # calculate fft
                 # # numpy.fft
                 # f = np.fft.rfftfreq(n, d=1./rate)
@@ -281,12 +271,20 @@ class AppGUI(QtGui.QWidget):
                 # scipy.fftpack
                 # f = np.fft.rfftfreq(n - 1, d=1./rate)
                 # a = fft(y)[:n//2] # fft + chose only real part
+                # chunkSize = ser_reader_thread.chunkSize
+                # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
+                # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
 
                 # pyFFTW
-                # TODO ...
+                # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
+                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
+                self.A[:] = y[-self.fft_window:]
+                a = self.py_fft_w()
+                # a = np.abs(a / self.fft_n)
+    
 
-                # a = np.abs(a / n) # normalisation
-                # a = np.log(a)
+                a = np.abs(a / self.fft_window) # normalisation
+                a = np.log(a)
 
                 # downsample
                 # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
@@ -300,11 +298,16 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
                 self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
                 self.signal_curve.setData(t, y)
-                # self.fft_curve.setData(f, a)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
+                # self.fft_curve.setClipToView(True)  # draw only visible points within ViewBox                
+                # self.fft_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                f = f[::self.downsample]
+                a = a[::self.downsample]
+                self.fft_curve.setData(f, a)
+
     def spinbox_value_changed(self):
-        self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / self.rate))
+        self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
 
     def record_values_button_clicked(self):
         global recording, values_to_record, record_start_time, record_buffer
@@ -419,9 +422,21 @@ def main():
     values_to_record = 0
     file_index       = 0
 
+
+    # # pyFFTW
+    # my_file = Path("wisdom")
+    # if my_file.is_file():
+    #     with open('wisdom', 'rb') as file:
+    #         wisdom = pickle.load(file)
+    #     pyfftw.import_wisdom(wisdom)
+    # global A, fft
+    # n = 1024*16
+    # A = pyfftw.empty_aligned(n, dtype='float32')
+    # fft = pyfftw.builders.rfft(A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
+
     # init gui
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(chunkSize=chunkSize, downsample=downsample) # create class instance
+    gui = AppGUI(downsample=downsample) # create class instance
     sys.exit(app.exec_())
 
 
