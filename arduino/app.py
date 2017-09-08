@@ -157,22 +157,29 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
-    def __init__(self, downsample):
+    def __init__(self, downsample, chunkSize=1024, signal_source='usb'):
         super(AppGUI, self).__init__()
 
-        # self.chunkSize = chunkSize
+        self.chunkSize = chunkSize
         self.downsample = downsample
         self.rate = 1
         self.plot_points = 10000
-        self.fft_window = ser_reader_thread.chunkSize
+        self.fft_window = self.chunkSize
+
 
         self.init_ui()
         self.init_pyfftw()
         self.qt_connections()
 
-        self.updateplot()
         self.timer = pg.QtCore.QTimer()
-        self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
+        if signal_source == 'usb':
+            self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
+            self.updateplot()
+        elif signal_source == 'virtual_generator':
+            self.timer.timeout.connect(self.updateplot_virtual_generator) # updateplot on each timertick
+            self.updateplot_virtual_generator()
+        else:
+            print('no signal source')
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
@@ -182,15 +189,15 @@ class AppGUI(QtGui.QWidget):
         self.setWindowTitle('Signal from stethoscope')
         self.layout = QtGui.QVBoxLayout()
 
-        chunkSize = ser_reader_thread.chunkSize
+        
 
         self.fft_slider_box = QtGui.QHBoxLayout()
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         # self.fft_chunks_slider.setRange(1, ser_reader_thread.chunks)
-        self.fft_chunks_slider.setRange(1, 500)
-        self.fft_chunks_slider.setValue(1)
-        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * chunkSize))
+        self.fft_chunks_slider.setRange(1, 64)
+        self.fft_chunks_slider.setValue(32)
+        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
         self.fft_slider_box.addWidget(self.fft_slider_label)
         self.fft_slider_box.addWidget(self.fft_chunks_slider)
         self.layout.addLayout(self.fft_slider_box)
@@ -211,11 +218,11 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
-        self.spin = pg.SpinBox( value=chunkSize*100, # if change, change also in suffix 
+        self.spin = pg.SpinBox( value=self.chunkSize*100, # if change, change also in suffix 
                                 int=True,
-                                bounds=[chunkSize*100, None],
-                                suffix=' Values to record ({:.2f} seconds)'.format(chunkSize * 100 / 666000),
-                                step=chunkSize*100, decimals=12, siPrefix=True)
+                                bounds=[self.chunkSize*100, None],
+                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 100 / 666000),
+                                step=self.chunkSize*100, decimals=12, siPrefix=True)
         self.record_box.addWidget(self.spin)
         self.record_values_button = QtGui.QPushButton('Record Values')
         self.record_box.addWidget(self.record_values_button)
@@ -245,13 +252,12 @@ class AppGUI(QtGui.QWidget):
 
     def fft_slider_changed(self):
         # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
-        self.fft_window = self.fft_chunks_slider.value() * ser_reader_thread.chunkSize
+        self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_slider_label.setText('FFT window: {}'.format(self.fft_window))
         
         # update pyFFTW
         self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
         self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
-
 
     def updateplot(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -305,6 +311,61 @@ class AppGUI(QtGui.QWidget):
                 f = f[::self.downsample]
                 a = a[::self.downsample]
                 self.fft_curve.setData(f, a)
+
+    def updateplot_virtual_generator(self):
+        global ser_reader_thread, recording, values_to_record, record_start_time
+        
+        t, y, rate = generator.signal(freq=40, rate=44100, seconds=1)
+
+
+        if recording:
+            self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+        else:
+            self.progress.setValue(0)
+
+            if rate > 0:
+                # calculate fft
+                # # numpy.fft
+                # f = np.fft.rfftfreq(n, d=1./rate)
+                # a = np.fft.rfft(v)
+
+                # scipy.fftpack
+                # f = np.fft.rfftfreq(n - 1, d=1./rate)
+                # a = fft(y)[:n//2] # fft + chose only real part
+                # chunkSize = ser_reader_thread.chunkSize
+                # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
+                # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
+
+                # pyFFTW
+                # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
+                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
+                self.A[:] = y[-self.fft_window:]
+                a = self.py_fft_w()
+                # a = np.abs(a / self.fft_n)
+    
+
+                a = np.abs(a / self.fft_window) # normalisation
+                a = np.log(a)
+
+                # downsample
+                # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
+                # v = v.reshape((n//downsampling, downsampling)).mean(axis=1)
+                # f = f.reshape((n//2//downsampling, downsampling)).mean(axis=1)
+                # a = a.reshape((n//2//downsampling, downsampling)).mean(axis=1)
+                # f = f[:n//downsampling]
+                # a = a[:n//downsampling]
+                # print(t.shape, v.shape, f.shape, a.shape)
+
+                self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
+                self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                self.signal_curve.setData(t, y)
+                self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+
+                # self.fft_curve.setClipToView(True)  # draw only visible points within ViewBox                
+                # self.fft_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                f = f[::self.downsample]
+                a = a[::self.downsample]
+                self.fft_curve.setData(f, a)    
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
@@ -402,6 +463,7 @@ def main():
     # argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--downsample', help='defines how much to reduce plots points')
+    parser.add_argument('-g', '--generator', action='store_true' ,help='gets signal for plots from virtual generator')
     args = parser.parse_args()
     if args.downsample:
         downsample = int(args.downsample)
@@ -409,12 +471,6 @@ def main():
     else:
         downsample = 1
 
-    # serialreader params
-    global ser_reader_thread, chunkSize # thread to read and buffer serial data.
-    chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
-    ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=5000)
-    ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
-    ser_reader_thread.start()
 
     # global params
     global recording, values_to_record, file_index
@@ -423,20 +479,22 @@ def main():
     file_index       = 0
 
 
-    # # pyFFTW
-    # my_file = Path("wisdom")
-    # if my_file.is_file():
-    #     with open('wisdom', 'rb') as file:
-    #         wisdom = pickle.load(file)
-    #     pyfftw.import_wisdom(wisdom)
-    # global A, fft
-    # n = 1024*16
-    # A = pyfftw.empty_aligned(n, dtype='float32')
-    # fft = pyfftw.builders.rfft(A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
-
     # init gui
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(downsample=downsample) # create class instance
+    if args.generator:
+        gui = AppGUI(downsample=downsample, chunkSize=1024, signal_source='virtual_generator') # create class instance
+    else:
+        # serialreader params
+        global ser_reader_thread, chunkSize # thread to read and buffer serial data.
+        chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
+        ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=5000)
+        ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
+        ser_reader_thread.start()
+        gui = AppGUI(downsample=downsample, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
+
+
+
+
     sys.exit(app.exec_())
 
 

@@ -5,6 +5,7 @@
 - Use `array.Average()` method.
 
 - [Real Time Audio Stuff (FFT/LPC Envelope from Audio Device) — Will Forfang](http://www.willforfang.com/misc-python/2015/12/9/real-time-audio-visualizationprocessing)
+- https://github.com/mherrmann/pyqt-resources/wiki
 
 ## authors
 - Родионов Александр Александрович

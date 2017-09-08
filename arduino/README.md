@@ -28,4 +28,10 @@ buffer fills this way:
 
 # TODO
 - BUG: if change initial spinbox value then it will be changing wrong, see `spinbox.step`
-- add FFT window slider
+- add FFT window slider + Label
+- how many points to draw on signal_plot - slider / spinbox
+    - how many chunks to fetch (1 - 5000)
+    - downsample
+    - use native pyqtgraph downsample???
+    - http://www.pyqtgraph.org/documentation/graphicsItems/plotitem.html#pyqtgraph.PlotItem.setClipToView - типа чтобы не рисовать точки которые не в окне, ну наверное мне это не надо, хотя мб можно
+- widget - to window
