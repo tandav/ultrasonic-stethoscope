@@ -370,6 +370,15 @@ class AppGUI(QtGui.QWidget):
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
 
+    def keyPressEvent(self, event):
+        if type(event) == QtGui.QKeyEvent and event.key() == QtCore.Qt.Key_Space:
+            #here accept the event and do something
+            print(event.key())
+            self.record_values_button_clicked()
+            event.accept()
+        else:
+            event.ignore()
+
     def record_values_button_clicked(self):
         global recording, values_to_record, record_start_time, record_buffer
         values_to_record = self.spin.value()
