@@ -138,7 +138,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         # Convert array to float and rescale to voltage.
         # Assume 3.3V / 12bits
         # (we need calibration data to do a better job on this)
-        data = data.astype(np.float32) * (3.3 / 2**12) # TODO normalise here to [-1, 1]
+        data = data.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1 # TODO normalise here to [-1, 1]
         return np.linspace(0, (num-1)*1e-6, num), data, rate
 
     def exit(self):
@@ -196,7 +196,7 @@ class AppGUI(QtGui.QWidget):
 
         self.signal_widget = pg.PlotWidget()
         self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
-        self.signal_widget.setYRange(0, 3.3)
+        self.signal_widget.setYRange(-1, 1)
         self.signal_curve = self.signal_widget.plot(pen='b')
 
         self.fft_widget = pg.PlotWidget(title='FFT')
