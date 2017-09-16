@@ -44,7 +44,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 if 'Arduino' in port.description: 
                     # try / except
                     ser = serial.Serial(port.device)
-                    print('device connected\n')
+                    print('device connected')
                     break
             else:
                 if i == 60:
@@ -163,8 +163,10 @@ class AppGUI(QtGui.QWidget):
         self.chunkSize = chunkSize
         self.downsample = downsample
         self.rate = 1
-        self.plot_points = 10000
+        # self.plot_points = 10000
         self.fft_window = self.chunkSize
+        self.signal = np.zeros(1024 * 3000)
+
 
 
         self.init_ui()
@@ -301,9 +303,18 @@ class AppGUI(QtGui.QWidget):
                 a = self.py_fft_w()
                 # a = np.abs(a / self.fft_n)
     
-
+                a = a[:-1] ## del / rip ??
+                f = f[:-1]
+                # f = f[1:]
+                # a = a[1:]
                 a = np.abs(a / self.fft_window) # normalisation
-                a = np.log(a)
+                a = np.log(a) # часто ошибка - сделать try, else
+                # try:
+                    # print(np.where(a == 0), a[-3:])
+                    # a = np.abs(a / self.fft_window) # normalisation
+                    # a = np.log(a) # часто ошибка - сделать try, else
+                # except Exception as e:
+                    # print('log error', e)
 
                 # downsample
                 # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
@@ -314,16 +325,29 @@ class AppGUI(QtGui.QWidget):
                 # a = a[:n//downsampling]
                 # print(t.shape, v.shape, f.shape, a.shape)
 
+
+
+                # n = len(t)
+                # t = t[n//2:]
+                # y = y[n//2:]
                 self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
-                self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                self.signal_curve.setData(t, y)
+                # self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                self.signal_curve.setDownsampling(ds=self.downsample, auto=False) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                try:
+                    self.signal_curve.setData(t, y)
+                except Exception as e:
+                    print('cannot signal_curve.setData(t, y)' , e)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
                 # self.fft_curve.setClipToView(True)  # draw only visible points within ViewBox                
                 # self.fft_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                f = f[::self.downsample]
-                a = a[::self.downsample]
-                self.fft_curve.setData(f, a)
+                # self.fft_curve.setDownsampling(ds=self.downsample, auto=False) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                # f = f[::self.downsample]
+                # a = a[::self.downsample]
+                try:
+                    self.fft_curve.setData(f, a)
+                except Exception as e:
+                    print('cannot fft_curve.setData(f, a)' , e)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -386,7 +410,6 @@ class AppGUI(QtGui.QWidget):
     def keyPressEvent(self, event):
         if type(event) == QtGui.QKeyEvent and event.key() == QtCore.Qt.Key_Space:
             #here accept the event and do something
-            print(event.key())
             self.record_values_button_clicked()
             event.accept()
         else:
@@ -509,8 +532,13 @@ def main():
     else:
         # serialreader params
         global ser_reader_thread, chunkSize # thread to read and buffer serial data.
-        chunkSize        = 1024 # 1000 instead of 1024 because of Vakhtin's CUDA.FFT bugs
-        ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=5000)
+        k = 4
+        chunkSize = 1024 // k
+        chunks    = 2000 * k
+
+        # chunkSize = 1024
+        # chunks    = 3000
+        ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=chunks)
         ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
         ser_reader_thread.start()
         gui = AppGUI(downsample=downsample, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
