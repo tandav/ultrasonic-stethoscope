@@ -1,7 +1,6 @@
 from pyqtgraph.Qt import QtCore, QtGui
 from scipy.fftpack import fft
 from pathlib import Path
-from audiolazy import lazy_lpc as lpc
 import pyqtgraph as pg
 import numpy as np
 import time
@@ -315,7 +314,6 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 self.fft_curve.setData(f, a)
-
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
