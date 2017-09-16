@@ -446,11 +446,7 @@ def main():
     parser.add_argument('-p', '--plotpoints', help='number of points to draw')
     parser.add_argument('-g', '--generator', action='store_true' ,help='gets signal for plots from virtual generator')
     args = parser.parse_args()
-    if args.plotpoints:
-        plotpoints = int(args.plotpoints)
-        print('plotpoints={}'.format(args.plotpoints))
-    else:
-        plotpoints = 2048
+
 
 
     # global params
@@ -471,9 +467,12 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        if (chunkSize * chunks) % int(args.plotpoints) != 0:
-            plotpoints = 2048
-            print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
+        plotpoints = 2048
+        if args.plotpoints:
+            if (chunkSize * chunks) % int(args.plotpoints) == 0:
+                plotpoints = int(args.plotpoints)
+            else:
+                print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
 
 
         # chunkSize = 1024
