@@ -271,12 +271,6 @@ class AppGUI(QtGui.QWidget):
             t, y, rate = ser_reader_thread.get(num=ser_reader_thread.chunks*ser_reader_thread.chunkSize) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
-                # self.signal_t = np.roll(self.signal_t, -ser_reader_thread.chunkSize)
-                # self.signal_t[-ser_reader_thread.chunkSize:] = t
-
-                # self.signal_y = np.roll(self.signal_y, -ser_reader_thread.chunkSize)
-                # self.signal_y[-ser_reader_thread.chunkSize:] = y
-
                 # calculate fft
                 # # numpy.fft
                 # f = np.fft.rfftfreq(n, d=1./rate)
@@ -294,18 +288,10 @@ class AppGUI(QtGui.QWidget):
                 self.A[:] = y[-self.fft_window:]
                 a = self.py_fft_w()
     
-                a = a[:-1] ## del / rip ??
+                a = a[:-1] # sometimes there is a zero in the end of array
                 f = f[:-1]
-                # f = f[1:]
-                # a = a[1:]
                 a = np.abs(a / self.fft_window) # normalisation
                 a = np.log(a) # часто ошибка - сделать try, else
-                # try:
-                    # print(np.where(a == 0), a[-3:])
-                    # a = np.abs(a / self.fft_window) # normalisation
-                    # a = np.log(a) # часто ошибка - сделать try, else
-                # except Exception as e:
-                    # print('log error', e)
 
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
