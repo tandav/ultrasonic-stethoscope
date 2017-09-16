@@ -211,10 +211,10 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
-        self.spin = pg.SpinBox( value=self.chunkSize*100, # if change, change also in suffix 
+        self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
                                 int=True,
                                 bounds=[self.chunkSize*100, None],
-                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 100 / 666000),
+                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 1300 / 666000),
                                 step=self.chunkSize*100, decimals=12, siPrefix=True)
         self.record_box.addWidget(self.spin)
         self.record_name_textbox = QtGui.QLineEdit(self)
