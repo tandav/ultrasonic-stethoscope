@@ -281,6 +281,7 @@ class AppGUI(QtGui.QWidget):
                 # chunkSize = ser_reader_thread.chunkSize
                 # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
                 # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
+                
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
                 f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
