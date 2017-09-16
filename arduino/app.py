@@ -196,8 +196,11 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         # self.fft_chunks_slider.setRange(1, ser_reader_thread.chunks)
-        self.fft_chunks_slider.setRange(1, 64)
-        self.fft_chunks_slider.setValue(32)
+        self.fft_chunks_slider.setRange(1, 16)
+        self.fft_chunks_slider.setValue(1)
+
+        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.fft_chunks_slider.setTickInterval(1)
         self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
         self.fft_slider_box.addWidget(self.fft_slider_label)
         self.fft_slider_box.addWidget(self.fft_chunks_slider)
