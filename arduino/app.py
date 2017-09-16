@@ -1,5 +1,7 @@
 from pyqtgraph.Qt import QtCore, QtGui
 from scipy.fftpack import fft
+from pathlib import Path
+from audiolazy import lazy_lpc as lpc
 import pyqtgraph as pg
 import numpy as np
 import time
@@ -15,7 +17,6 @@ import argparse
 import generator
 import pyfftw
 import pickle
-from pathlib import Path
 
 class SerialReader(threading.Thread):  # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
