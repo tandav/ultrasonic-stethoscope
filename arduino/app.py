@@ -184,10 +184,9 @@ class AppGUI(QtGui.QWidget):
         self.fft_slider_box = QtGui.QHBoxLayout()
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
-        # self.fft_chunks_slider.setRange(1, ser_reader_thread.chunks)
-        self.fft_chunks_slider.setRange(1, 64)
-        self.fft_chunks_slider.setValue(1)
-
+        self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
+        self.fft_chunks_slider.setValue(64)
+        self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
         self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
@@ -447,14 +446,11 @@ def main():
     parser.add_argument('-g', '--generator', action='store_true' ,help='gets signal for plots from virtual generator')
     args = parser.parse_args()
 
-
-
     # global params
     global recording, values_to_record, file_index
     recording        = False
     values_to_record = 0
     file_index       = 0
-
 
     # init gui
     app = QtGui.QApplication(sys.argv)
@@ -481,9 +477,6 @@ def main():
         ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
         ser_reader_thread.start()
         gui = AppGUI(plotpoints=plotpoints, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
-
-
-
 
     sys.exit(app.exec_())
 
