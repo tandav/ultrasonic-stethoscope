@@ -227,6 +227,11 @@ class AppGUI(QtGui.QWidget):
         self.progress = QtGui.QProgressBar()
         self.layout.addWidget(self.progress)
 
+        # self.spec_widget = pg.PlotWidget()
+        # self.fft_curve = self.spec_widget.ImageItem()
+        # self.img = pg.ImageItem()
+        # self.layout.addWidget(self.spec_widget)
+
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -304,7 +309,7 @@ class AppGUI(QtGui.QWidget):
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
         
-        t, y, rate = generator.signal(freq=40, rate=44100, seconds=1)
+        t, y, rate = generator.signal(freq=40, rate=65536, seconds=1)
 
 
         if recording:
@@ -456,7 +461,7 @@ def main():
     # init gui
     app = QtGui.QApplication(sys.argv)
     if args.generator:
-        gui = AppGUI(downsample=downsample, chunkSize=1024, signal_source='virtual_generator') # create class instance
+        gui = AppGUI(plotpoints=2048, chunkSize=1024, signal_source='virtual_generator') # create class instance
     else:
         # serialreader params
         global ser_reader_thread, chunkSize # thread to read and buffer serial data.

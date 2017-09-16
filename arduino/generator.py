@@ -23,8 +23,7 @@ from time import time
 def signal(freq=440, rate=44100, seconds=10):
     # T = 1./rate; # sampling interval / period
     # t = np.arange(0, seconds, T) # time vector
-    t = np.linspace(0, seconds, rate)  # time vector
-
+    t = np.linspace(0, seconds, seconds*rate)  # time vector
 
     # num = data.shape[0]
     # return np.linspace(0, (num-1)*1e-6, num), data, rate
