@@ -118,15 +118,12 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
 
-    def get(self, num, downsample=1):
+    def get(self, num):
         """ Return a tuple (time_values, voltage_values, rate)
           - voltage_values will contain the *num* most recently-collected samples
             as a 32bit float array.
           - time_values assumes samples are collected at 1MS/s
           - rate is the running average sample rate.
-        If *downsample* is > 1, then the number of values returned will be
-        reduced by averaging that number of consecutive samples together. In
-        this case, the voltage array will be returned as 32bit float.
         """
         with self.dataMutex:  # lock the buffer and copy the requested data out
             ptr = self.ptr
@@ -142,13 +139,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         # Assume 3.3V / 12bits
         # (we need calibration data to do a better job on this)
         data = data.astype(np.float32) * (3.3 / 2**12) # TODO normalise here to [-1, 1]
-        if downsample > 1:  # if downsampling is requested, average N samples together
-            # data = data.reshape(num // downsample,downsample).mean(axis=1)
-            data = data.reshape((num // downsample, downsample)).mean(axis=1)
-            num = data.shape[0]
-            return np.linspace(0, (num-1)*1e-6*downsample, num), data, rate
-        else:
-            return np.linspace(0, (num-1)*1e-6, num), data, rate
+        return np.linspace(0, (num-1)*1e-6, num), data, rate
 
     def exit(self):
         """ Instruct the serial thread to exit."""
@@ -157,13 +148,12 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
-    def __init__(self, downsample, chunkSize=1024, signal_source='usb'):
+    def __init__(self, plotpoints, chunkSize=1024, signal_source='usb'):
         super(AppGUI, self).__init__()
 
         self.chunkSize = chunkSize
-        self.downsample = downsample
         self.rate = 1
-        self.plot_points = 2048
+        self.plot_points = plotpoints
         self.fft_window = self.chunkSize
 
         self.init_ui()
@@ -320,6 +310,7 @@ class AppGUI(QtGui.QWidget):
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
                 y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+                print(len(t))
 
                 # self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
                 # self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
@@ -370,30 +361,13 @@ class AppGUI(QtGui.QWidget):
                 f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
                 self.A[:] = y[-self.fft_window:]
                 a = self.py_fft_w()
-                # a = np.abs(a / self.fft_n)
-    
 
                 a = np.abs(a / self.fft_window) # normalisation
                 a = np.log(a)
 
-                # downsample
-                # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
-                # v = v.reshape((n//downsampling, downsampling)).mean(axis=1)
-                # f = f.reshape((n//2//downsampling, downsampling)).mean(axis=1)
-                # a = a.reshape((n//2//downsampling, downsampling)).mean(axis=1)
-                # f = f[:n//downsampling]
-                # a = a[:n//downsampling]
-                # print(t.shape, v.shape, f.shape, a.shape)
-
-                self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
-                self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
-                # self.fft_curve.setClipToView(True)  # draw only visible points within ViewBox                
-                # self.fft_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                f = f[::self.downsample]
-                a = a[::self.downsample]
                 self.fft_curve.setData(f, a)    
 
     def spinbox_value_changed(self):
@@ -500,14 +474,14 @@ def send_to_cuda():
 def main():
     # argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--downsample', help='defines how much to reduce plots points')
+    parser.add_argument('-p', '--plotpoints', help='number of points to draw')
     parser.add_argument('-g', '--generator', action='store_true' ,help='gets signal for plots from virtual generator')
     args = parser.parse_args()
-    if args.downsample:
-        downsample = int(args.downsample)
-        print('downsample={}'.format(args.downsample))
+    if args.plotpoints:
+        plotpoints = int(args.plotpoints)
+        print('plotpoints={}'.format(args.plotpoints))
     else:
-        downsample = 1
+        plotpoints = 2048
 
 
     # global params
@@ -528,12 +502,17 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
+        if (chunkSize * chunks) % int(args.plotpoints) != 0:
+            plotpoints = plotpoints // chunkSize * chunkSize
+            print('buffer is not divisible by plotpoints. plotpoints was set to the nearest valid value: {}'.format(plotpoints))
+
+
         # chunkSize = 1024
         # chunks    = 3000
         ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=chunks)
         ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
         ser_reader_thread.start()
-        gui = AppGUI(downsample=downsample, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
+        gui = AppGUI(plotpoints=plotpoints, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
 
 
 
