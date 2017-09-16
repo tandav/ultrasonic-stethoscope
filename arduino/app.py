@@ -310,27 +310,11 @@ class AppGUI(QtGui.QWidget):
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
                 y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
-                print(len(t))
 
-                # self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
-                # self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                # self.signal_curve.setDownsampling(ds=self.downsample, auto=False) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                try:
-                    self.signal_curve.setData(t, y)
-                    # self.signal_curve.setData(self.signal_y)
-                except Exception as e:
-                    print('cannot signal_curve.setData(t, y)' , e)
+                self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+                self.fft_curve.setData(f, a)
 
-                # self.fft_curve.setClipToView(True)  # draw only visible points within ViewBox                
-                # self.fft_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                # self.fft_curve.setDownsampling(ds=self.downsample, auto=False) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                # f = f[::self.downsample]
-                # a = a[::self.downsample]
-                try:
-                    self.fft_curve.setData(f, a)
-                except Exception as e:
-                    print('cannot fft_curve.setData(f, a)' , e)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -503,8 +487,8 @@ def main():
         chunks    = 2000 * k
 
         if (chunkSize * chunks) % int(args.plotpoints) != 0:
-            plotpoints = plotpoints // chunkSize * chunkSize
-            print('buffer is not divisible by plotpoints. plotpoints was set to the nearest valid value: {}'.format(plotpoints))
+            plotpoints = 2048
+            print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
 
 
         # chunkSize = 1024
