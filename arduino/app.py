@@ -156,6 +156,11 @@ class AppGUI(QtGui.QWidget):
         self.plot_points = plotpoints
         self.fft_window = self.chunkSize
 
+
+        self.img_array = np.zeros((50, self.fft_window//2))
+
+
+
         self.init_ui()
         self.init_pyfftw()
         self.qt_connections()
@@ -185,7 +190,8 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(64)
+        # self.fft_chunks_slider.setValue(64)
+        self.fft_chunks_slider.setValue(1)
         self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
@@ -206,8 +212,8 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        self.layout.addWidget(self.signal_widget)
-        self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        # self.layout.addWidget(self.signal_widget)
+        # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
         self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
@@ -227,11 +233,26 @@ class AppGUI(QtGui.QWidget):
         self.progress = QtGui.QProgressBar()
         self.layout.addWidget(self.progress)
 
-        # self.spec_widget = pg.PlotWidget()
-        # self.fft_curve = self.spec_widget.ImageItem()
-        # self.img = pg.ImageItem()
-        # self.layout.addWidget(self.spec_widget)
 
+        self.glayout = pg.GraphicsLayout()
+        self.vb = self.glayout.addViewBox()
+        self.img = pg.ImageItem()
+        self.vb.addItem(self.img)
+        # self.sp_box = QtGui.QHBoxLayout()
+
+        # self.spec_widget = pg.ViewBox()
+        # self.spec_widget = pg.GraphicsView()
+        # self.vb = pg.ViewBox()
+        # self.img = pg.ImageItem()
+
+        # self.sp_box.addWidget(self.img)
+
+        # self.vb.addItem(self.img)
+        # self.layout.addLayout(self.sp_box)
+
+        self.layout.addWidget(self.glayout)
+
+        # self.layout.setContentsMargins(200, 0, 200, 0)
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -256,7 +277,7 @@ class AppGUI(QtGui.QWidget):
         # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
         self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_slider_label.setText('FFT window: {}'.format(self.fft_window))
-        
+
         # update pyFFTW
         self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
         self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
@@ -305,6 +326,26 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 self.fft_curve.setData(f, a)
+                
+
+
+
+                # spectroram
+                # data = np.random.rand(100, 100)
+                # self.spec_widget.setImage(data, autoLevels=True)
+
+                # normalized, windowed frequencies in data chunk
+
+                # roll down one and replace leading edge with new data
+
+
+
+
+                self.img_array = np.roll(self.img_array, -1, 0)
+                self.img_array[-1:] = a
+                self.spec_widget.setImage(self.img_array, autoLevels=False)
+
+
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
