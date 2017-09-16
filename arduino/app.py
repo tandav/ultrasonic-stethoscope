@@ -183,6 +183,7 @@ class AppGUI(QtGui.QWidget):
         self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
+        global record_name
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -224,6 +225,10 @@ class AppGUI(QtGui.QWidget):
                                 suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 100 / 666000),
                                 step=self.chunkSize*100, decimals=12, siPrefix=True)
         self.record_box.addWidget(self.spin)
+        self.record_name_textbox = QtGui.QLineEdit(self)
+        self.record_name_textbox.setText('lungs')
+        record_name = self.record_name_textbox.text()
+        self.record_box.addWidget(self.record_name_textbox)
         self.record_values_button = QtGui.QPushButton('Record Values')
         self.record_box.addWidget(self.record_values_button)
         self.layout.addLayout(self.record_box)
@@ -239,6 +244,7 @@ class AppGUI(QtGui.QWidget):
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
         self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
+        self.record_name_textbox.textChanged.connect(self.record_name_changed)
     
     def init_pyfftw(self):
         my_file = Path("wisdom")
@@ -258,6 +264,10 @@ class AppGUI(QtGui.QWidget):
         # update pyFFTW
         self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
         self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
+
+    def record_name_changed(self):
+        global record_name
+        record_name = self.record_name_textbox.text()
 
     def updateplot(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -392,13 +402,14 @@ class AppGUI(QtGui.QWidget):
 
 
 def write_to_file(arr, ext, gzip=False):
-        global file_index
+        global file_index, record_name
         sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
         sys.stdout.flush()
 
 
-        data_dir = 'child-hospital-n1/'
-        fileprefix = 'fio-disease-'
+        data_dir = 'child-hospital-n1-2/'
+        # fileprefix = 'fio-disease-'
+        fileprefix = record_name + '-'
 
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
