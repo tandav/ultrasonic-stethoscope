@@ -163,11 +163,8 @@ class AppGUI(QtGui.QWidget):
         self.chunkSize = chunkSize
         self.downsample = downsample
         self.rate = 1
-        # self.plot_points = 10000
+        self.plot_points = 2048
         self.fft_window = self.chunkSize
-        self.signal = np.zeros(1024 * 3000)
-
-
 
         self.init_ui()
         self.init_pyfftw()
@@ -198,7 +195,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         # self.fft_chunks_slider.setRange(1, ser_reader_thread.chunks)
-        self.fft_chunks_slider.setRange(1, 16)
+        self.fft_chunks_slider.setRange(1, 64)
         self.fft_chunks_slider.setValue(1)
 
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
@@ -284,6 +281,12 @@ class AppGUI(QtGui.QWidget):
             t, y, rate = ser_reader_thread.get(num=ser_reader_thread.chunks*ser_reader_thread.chunkSize) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
+                # self.signal_t = np.roll(self.signal_t, -ser_reader_thread.chunkSize)
+                # self.signal_t[-ser_reader_thread.chunkSize:] = t
+
+                # self.signal_y = np.roll(self.signal_y, -ser_reader_thread.chunkSize)
+                # self.signal_y[-ser_reader_thread.chunkSize:] = y
+
                 # calculate fft
                 # # numpy.fft
                 # f = np.fft.rfftfreq(n, d=1./rate)
@@ -295,13 +298,11 @@ class AppGUI(QtGui.QWidget):
                 # chunkSize = ser_reader_thread.chunkSize
                 # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
                 # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
-
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
                 f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
                 self.A[:] = y[-self.fft_window:]
                 a = self.py_fft_w()
-                # a = np.abs(a / self.fft_n)
     
                 a = a[:-1] ## del / rip ??
                 f = f[:-1]
@@ -316,25 +317,16 @@ class AppGUI(QtGui.QWidget):
                 # except Exception as e:
                     # print('log error', e)
 
-                # downsample
-                # t = t.reshape((n//downsampling, downsampling)).mean(axis=1)
-                # v = v.reshape((n//downsampling, downsampling)).mean(axis=1)
-                # f = f.reshape((n//2//downsampling, downsampling)).mean(axis=1)
-                # a = a.reshape((n//2//downsampling, downsampling)).mean(axis=1)
-                # f = f[:n//downsampling]
-                # a = a[:n//downsampling]
-                # print(t.shape, v.shape, f.shape, a.shape)
+                n = len(t)
+                t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+                y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
 
-
-
-                # n = len(t)
-                # t = t[n//2:]
-                # y = y[n//2:]
-                self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
+                # self.signal_curve.setClipToView(True)  # draw only visible points within ViewBox
                 # self.signal_curve.setDownsampling(ds=self.downsample, auto=True) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
-                self.signal_curve.setDownsampling(ds=self.downsample, auto=False) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
+                # self.signal_curve.setDownsampling(ds=self.downsample, auto=False) # ‘subsample’: Downsample by taking the first of N samples. This method is fastest and least accurate. ‘mean’: Downsample by taking the mean of N samples. ‘peak’: Downsample by drawing a saw wave that follows the min and max of the original data. This method produces the best visual representation of the data but is slower.
                 try:
                     self.signal_curve.setData(t, y)
+                    # self.signal_curve.setData(self.signal_y)
                 except Exception as e:
                     print('cannot signal_curve.setData(t, y)' , e)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
@@ -532,7 +524,7 @@ def main():
     else:
         # serialreader params
         global ser_reader_thread, chunkSize # thread to read and buffer serial data.
-        k = 4
+        k = 1
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
