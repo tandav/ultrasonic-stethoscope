@@ -234,10 +234,17 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.progress)
 
 
-        self.glayout = pg.GraphicsLayout()
-        self.vb = self.glayout.addViewBox()
-        self.img = pg.ImageItem()
-        self.vb.addItem(self.img)
+
+        self.glayout = pg.GraphicsLayoutWidget()
+        self.view = self.glayout.addViewBox()
+        # self.view.setAspectLocked(True)
+        self.img = pg.ImageItem(border='w')
+        self.view.addItem(self.img)
+        self.view.setRange(QtCore.QRectF(0, 0, 600, 600))
+        # self.glayout = pg.GraphicsLayout()
+        # self.vb = self.glayout.addViewBox()
+        # self.img = pg.ImageItem()
+        # self.vb.addItem(self.img)
         # self.sp_box = QtGui.QHBoxLayout()
 
         # self.spec_widget = pg.ViewBox()
@@ -383,7 +390,10 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
 
-                self.fft_curve.setData(f, a)    
+                self.fft_curve.setData(f, a)
+
+                data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
+                self.img.setImage(data)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
