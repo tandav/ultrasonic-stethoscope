@@ -207,7 +207,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_curve = self.fft_widget.plot(pen='r')
 
         self.layout.addWidget(self.signal_widget)
-        self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
         self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
@@ -284,14 +284,14 @@ class AppGUI(QtGui.QWidget):
                 
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
-                self.A[:] = y[-self.fft_window:]
-                a = self.py_fft_w()
+                # f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
+                # self.A[:] = y[-self.fft_window:]
+                # a = self.py_fft_w()
     
-                a = a[:-1] # sometimes there is a zero in the end of array
-                f = f[:-1]
-                a = np.abs(a / self.fft_window) # normalisation
-                a = np.log(a) # часто ошибка - сделать try, else
+                # a = a[:-1] # sometimes there is a zero in the end of array
+                # f = f[:-1]
+                # a = np.abs(a / self.fft_window) # normalisation
+                # a = np.log(a) # часто ошибка - сделать try, else
 
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
@@ -299,7 +299,7 @@ class AppGUI(QtGui.QWidget):
 
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                self.fft_curve.setData(f, a)
+                # self.fft_curve.setData(f, a)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
