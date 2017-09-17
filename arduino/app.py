@@ -156,10 +156,9 @@ class AppGUI(QtGui.QWidget):
         self.plot_points = plotpoints
         self.fft_window = self.chunkSize
 
-
-        self.img_array = np.zeros((50, self.fft_window//2))
-
-
+        self.k = 2
+        self.img_array = np.zeros((self.fft_window//self.k, self.fft_window//self.k//2), dtype='float32')
+        self.hann_win = np.hanning(self.fft_window)
 
         self.init_ui()
         self.init_pyfftw()
@@ -183,8 +182,6 @@ class AppGUI(QtGui.QWidget):
 
         self.setWindowTitle('Signal from stethoscope')
         self.layout = QtGui.QVBoxLayout()
-
-        
 
         self.fft_slider_box = QtGui.QHBoxLayout()
         self.fft_chunks_slider = QtGui.QSlider()
@@ -233,30 +230,24 @@ class AppGUI(QtGui.QWidget):
         self.progress = QtGui.QProgressBar()
         self.layout.addWidget(self.progress)
 
-
-
         self.glayout = pg.GraphicsLayoutWidget()
         self.view = self.glayout.addViewBox()
+
+        # self.glayout.setContentsMargins(0, 0, 0, 0)
+        # self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
         # self.view.setAspectLocked(True)
         self.img = pg.ImageItem(border='w')
         self.view.addItem(self.img)
-        self.view.setRange(QtCore.QRectF(0, 0, 600, 600))
-        # self.glayout = pg.GraphicsLayout()
-        # self.vb = self.glayout.addViewBox()
-        # self.img = pg.ImageItem()
-        # self.vb.addItem(self.img)
-        # self.sp_box = QtGui.QHBoxLayout()
+                # bipolar colormap
+        pos = np.array([0., 1., 0.5, 0.25, 0.75])
+        color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], (0, 0, 255, 255), (255, 0, 0, 255)], dtype=np.ubyte)
+        cmap = pg.ColorMap(pos, color)
+        lut = cmap.getLookupTable(0.0, 1.0, 256)
 
-        # self.spec_widget = pg.ViewBox()
-        # self.spec_widget = pg.GraphicsView()
-        # self.vb = pg.ViewBox()
-        # self.img = pg.ImageItem()
-
-        # self.sp_box.addWidget(self.img)
-
-        # self.vb.addItem(self.img)
-        # self.layout.addLayout(self.sp_box)
-
+        # set colormap
+        self.img.setLookupTable(lut)
+        self.img.setLevels([-50,40])
+        # self.view.setRange(QtCore.QRectF(0, 0, 600, 600))
         self.layout.addWidget(self.glayout)
 
         # self.layout.setContentsMargins(200, 0, 200, 0)
@@ -318,13 +309,19 @@ class AppGUI(QtGui.QWidget):
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
                 f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
-                self.A[:] = y[-self.fft_window:]
-                a = self.py_fft_w()
+                self.A[:] = y[-self.fft_window:]*self.hann_win
+                a = self.py_fft_w() / self.fft_window # fft + normalisation
     
                 a = a[:-1] # sometimes there is a zero in the end of array
                 f = f[:-1]
-                a = np.abs(a / self.fft_window) # normalisation
-                a = np.log(a) # часто ошибка - сделать try, else
+                
+                try:
+                    a = np.abs(a ) # magnitude
+                    # a = np.log(a) # часто ошибка - сделать try, else
+                    a = 20 * np.log10(a) # часто ошибка - сделать try, else
+                except Exception as e:
+                    print('log(0) error',e )
+
 
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
@@ -333,25 +330,12 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 self.fft_curve.setData(f, a)
-                
-
-
 
                 # spectroram
-                # data = np.random.rand(100, 100)
-                # self.spec_widget.setImage(data, autoLevels=True)
-
-                # normalized, windowed frequencies in data chunk
-
-                # roll down one and replace leading edge with new data
-
-
-
 
                 self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1:] = a
-                self.spec_widget.setImage(self.img_array, autoLevels=False)
-
+                self.img_array[-1:] = a[:self.img_array.shape[0]//self.k:]
+                self.img.setImage(self.img_array, autoLevels=False)
 
 
     def updateplot_virtual_generator(self):
