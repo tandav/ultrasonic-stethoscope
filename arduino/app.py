@@ -209,8 +209,8 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        # self.layout.addWidget(self.signal_widget)
-        # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        self.layout.addWidget(self.signal_widget)
+        self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
         self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
@@ -322,7 +322,6 @@ class AppGUI(QtGui.QWidget):
                 except Exception as e:
                     print('log(0) error',e )
 
-
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
                 y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
@@ -331,17 +330,16 @@ class AppGUI(QtGui.QWidget):
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 self.fft_curve.setData(f, a)
 
-                # spectroram
+                # spectrogram
 
                 self.img_array = np.roll(self.img_array, -1, 0)
                 self.img_array[-1:] = a[:self.img_array.shape[0]//self.k:]
                 self.img.setImage(self.img_array, autoLevels=False)
 
-
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
         
-        t, y, rate = generator.signal(freq=40, rate=65536, seconds=1)
+        t, y, rate = generator.signal(freq=4000, rate=65536, seconds=1)
 
 
         if recording:
@@ -376,8 +374,8 @@ class AppGUI(QtGui.QWidget):
 
                 self.fft_curve.setData(f, a)
 
-                data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
-                self.img.setImage(data)
+                # data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
+                # self.img.setImage(data)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
