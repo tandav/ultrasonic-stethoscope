@@ -156,7 +156,7 @@ class AppGUI(QtGui.QWidget):
         self.plot_points = plotpoints
         self.NFFT = self.chunkSize
 
-        self.img_array = np.zeros((1024, self.plot_points)) # rename to (plot_width, plot_height)
+        self.img_array = np.zeros((128, self.plot_points)) # rename to (plot_width, plot_height)
         # self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
@@ -187,7 +187,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
         # self.fft_chunks_slider.setValue(64)
-        self.fft_chunks_slider.setValue(4)
+        self.fft_chunks_slider.setValue(64)
         self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
@@ -236,7 +236,8 @@ class AppGUI(QtGui.QWidget):
         # self.view.setAspectLocked(True)
         self.img = pg.ImageItem(border='w')
         self.view.addItem(self.img)
-                # bipolar colormap
+        
+        # bipolar colormap
         pos = np.array([0., 1., 0.5, 0.25, 0.75])
         color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], (0, 0, 255, 255), (255, 0, 0, 255)], dtype=np.ubyte)
         cmap = pg.ColorMap(pos, color)
@@ -244,7 +245,9 @@ class AppGUI(QtGui.QWidget):
 
         # set colormap
         self.img.setLookupTable(lut)
-        self.img.setLevels([-50,40])
+        # self.img.setLevels([- 255,10])
+        self.img.setLevels([-255, 20])
+        # self.img.setLevels([-200, 40])
         # self.view.setRange(QtCore.QRectF(0, 0, 600, 600))
         self.layout.addWidget(self.glayout)
 
@@ -325,8 +328,8 @@ class AppGUI(QtGui.QWidget):
                 # print(self.img_array.shape, a.shape, self.plot_points)
                 self.img_array = np.roll(self.img_array, -1, 0)
                 self.img_array[-1:] = a[:self.plot_points]
-                # self.img.setImage(self.img_array, autoLevels=False)
-                self.img.setImage(self.img_array, autoLevels=True)
+                self.img.setImage(self.img_array, autoLevels=False)
+                # self.img.setImage(self.img_array, autoLevels=True)
 
 
 
@@ -337,7 +340,6 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 self.fft_curve.setData(f, a)
-
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -506,7 +508,7 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        plotpoints = 1024
+        plotpoints = 512
         if args.plotpoints:
             if (chunkSize * chunks) % int(args.plotpoints) == 0:
                 plotpoints = int(args.plotpoints)
