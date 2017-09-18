@@ -154,14 +154,14 @@ class AppGUI(QtGui.QWidget):
         self.chunkSize = chunkSize
         self.rate = 1
         self.plot_points = plotpoints
-        self.fft_window = self.chunkSize
+        self.NFFT = self.chunkSize
 
         self.k = 2
-        self.img_array = np.zeros((self.fft_window//self.k, self.fft_window//self.k//2), dtype='float32')
-        self.hann_win = np.hanning(self.fft_window)
+        self.img_array = np.zeros((self.NFFT//self.k, self.NFFT//self.k//2), dtype='float32')
+        self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
-        self.init_pyfftw()
+        self.init_pyfftw()==
         self.qt_connections()
 
         self.timer = pg.QtCore.QTimer()
@@ -189,7 +189,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
         # self.fft_chunks_slider.setValue(64)
         self.fft_chunks_slider.setValue(1)
-        self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
+        self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
         self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
@@ -268,16 +268,16 @@ class AppGUI(QtGui.QWidget):
                 wisdom = pickle.load(file)
             pyfftw.import_wisdom(wisdom)
         
-        self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
+        self.A = pyfftw.empty_aligned(self.NFFT, dtype='float32')
         self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
 
     def fft_slider_changed(self):
         # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
-        self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
-        self.fft_slider_label.setText('FFT window: {}'.format(self.fft_window))
+        self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
 
         # update pyFFTW
-        self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
+        self.A = pyfftw.empty_aligned(self.NFFT, dtype='float32')
         self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
 
     def record_name_changed(self):
@@ -303,14 +303,14 @@ class AppGUI(QtGui.QWidget):
                 # f = np.fft.rfftfreq(n - 1, d=1./rate)
                 # a = fft(y)[:n//2] # fft + chose only real part
                 # chunkSize = ser_reader_thread.chunkSize
-                # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
-                # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
+                # f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
+                # a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
                 
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
-                self.A[:] = y[-self.fft_window:]*self.hann_win
-                a = self.py_fft_w() / self.fft_window # fft + normalisation
+                f = np.fft.rfftfreq(self.NFFT, d=1. / rate)
+                self.A[:] = y[-self.NFFT:]*self.hann_win
+                a = self.py_fft_w() / self.NFFT # fft + normalisation
     
                 a = a[:-1] # sometimes there is a zero in the end of array
                 f = f[:-1]
@@ -357,16 +357,16 @@ class AppGUI(QtGui.QWidget):
                 # f = np.fft.rfftfreq(n - 1, d=1./rate)
                 # a = fft(y)[:n//2] # fft + chose only real part
                 # chunkSize = ser_reader_thread.chunkSize
-                # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
-                # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
+                # f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
+                # a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
 
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
-                self.A[:] = y[-self.fft_window:]
+                f = np.fft.rfftfreq(self.NFFT, d=1. / rate)
+                self.A[:] = y[-self.NFFT:]
                 a = self.py_fft_w()
 
-                a = np.abs(a / self.fft_window) # normalisation
+                a = np.abs(a / self.NFFT) # normalisation
                 a = np.log(a)
 
                 self.signal_curve.setData(t, y)
@@ -374,8 +374,8 @@ class AppGUI(QtGui.QWidget):
 
                 self.fft_curve.setData(f, a)
 
-                # data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
-                # self.img.setImage(data)
+                data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
+                self.img.setImage(a)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
