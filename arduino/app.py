@@ -231,27 +231,17 @@ class AppGUI(QtGui.QWidget):
 
         self.glayout = pg.GraphicsLayoutWidget()
         self.view = self.glayout.addViewBox()
-        # self.glayout.setContentsMargins(0, 0, 0, 0)
-        # self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
-        # self.view.setAspectLocked(True)
         self.img = pg.ImageItem(border='w')
         self.view.addItem(self.img)
-        
         # bipolar colormap
         pos = np.array([0., 1., 0.5, 0.25, 0.75])
         color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], (0, 0, 255, 255), (255, 0, 0, 255)], dtype=np.ubyte)
         cmap = pg.ColorMap(pos, color)
         lut = cmap.getLookupTable(0.0, 1.0, 256)
-
         # set colormap
         self.img.setLookupTable(lut)
-        # self.img.setLevels([- 255,10])
-        self.img.setLevels([-255, 20])
-        # self.img.setLevels([-200, 40])
-        # self.view.setRange(QtCore.QRectF(0, 0, 600, 600))
+        self.img.setLevels([-140, -50])
         self.layout.addWidget(self.glayout)
-
-        # self.layout.setContentsMargins(200, 0, 200, 0)
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -330,7 +320,7 @@ class AppGUI(QtGui.QWidget):
                 self.img_array[-1:] = a[:self.plot_points]
                 self.img.setImage(self.img_array, autoLevels=False)
                 # self.img.setImage(self.img_array, autoLevels=True)
-
+                print(self.img_array[-1, -0], self.img_array[-1, -1])
 
 
                 n = len(t)
@@ -508,7 +498,7 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        plotpoints = 512
+        plotpoints = 1024
         if args.plotpoints:
             if (chunkSize * chunks) % int(args.plotpoints) == 0:
                 plotpoints = int(args.plotpoints)
