@@ -156,8 +156,8 @@ class AppGUI(QtGui.QWidget):
         self.plot_points = plotpoints
         self.NFFT = self.chunkSize
 
-        self.img_array = np.zeros((1024, self.NFFT//2+1))
-        self.hann_win = np.hanning(self.NFFT)
+        self.img_array = np.zeros((1024, self.plot_points)) # rename to (plot_width, plot_height)
+        # self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
         self.init_pyfftw()
@@ -187,7 +187,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
         # self.fft_chunks_slider.setValue(64)
-        self.fft_chunks_slider.setValue(1)
+        self.fft_chunks_slider.setValue(4)
         self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
@@ -208,8 +208,8 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        self.layout.addWidget(self.signal_widget)
-        self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        # self.layout.addWidget(self.signal_widget)
+        # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
         self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
@@ -306,8 +306,9 @@ class AppGUI(QtGui.QWidget):
                 
                 # pyFFTW
                 # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
+                # print(self.A.shape, y.shape, self.NFFT)
                 f = np.fft.rfftfreq(self.NFFT, d=1. / rate)
-                self.A[:] = y[-self.NFFT:]*self.hann_win
+                self.A[:] = y[-self.NFFT:]*np.hanning(self.NFFT)
                 a = self.py_fft_w() / self.NFFT # fft + normalisation
     
                 a = a[:-1] # sometimes there is a zero in the end of array
@@ -320,6 +321,15 @@ class AppGUI(QtGui.QWidget):
                 except Exception as e:
                     print('log(0) error',e )
 
+                # spectrogram
+                # print(self.img_array.shape, a.shape, self.plot_points)
+                self.img_array = np.roll(self.img_array, -1, 0)
+                self.img_array[-1:] = a[:self.plot_points]
+                # self.img.setImage(self.img_array, autoLevels=False)
+                self.img.setImage(self.img_array, autoLevels=True)
+
+
+
                 n = len(t)
                 t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
                 y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
@@ -328,11 +338,6 @@ class AppGUI(QtGui.QWidget):
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 self.fft_curve.setData(f, a)
 
-                # spectrogram
-
-                self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1:] = a[:self.img_array.shape[0]//self.k:]
-                self.img.setImage(self.img_array, autoLevels=False)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -372,14 +377,8 @@ class AppGUI(QtGui.QWidget):
                 self.fft_curve.setData(f, a)
 
                 # spectrogram
-                # img_array = np.zeros((self.NFFT//2, 1024), dtype='float32')
                 self.img_array = np.roll(self.img_array, -1, 0)
                 self.img_array[-1:] = a[:self.NFFT]
-
-
-                # data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
-                
-
                 self.img.setImage(self.img_array)
 
     def spinbox_value_changed(self):
@@ -507,7 +506,7 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        plotpoints = 2048
+        plotpoints = 1024
         if args.plotpoints:
             if (chunkSize * chunks) % int(args.plotpoints) == 0:
                 plotpoints = int(args.plotpoints)
