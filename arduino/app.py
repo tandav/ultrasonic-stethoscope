@@ -156,12 +156,11 @@ class AppGUI(QtGui.QWidget):
         self.plot_points = plotpoints
         self.NFFT = self.chunkSize
 
-        self.k = 2
-        self.img_array = np.zeros((self.NFFT//self.k, self.NFFT//self.k//2), dtype='float32')
+        self.img_array = np.zeros((1024, self.NFFT//2+1))
         self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
-        self.init_pyfftw()==
+        self.init_pyfftw()
         self.qt_connections()
 
         self.timer = pg.QtCore.QTimer()
@@ -232,7 +231,6 @@ class AppGUI(QtGui.QWidget):
 
         self.glayout = pg.GraphicsLayoutWidget()
         self.view = self.glayout.addViewBox()
-
         # self.glayout.setContentsMargins(0, 0, 0, 0)
         # self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
         # self.view.setAspectLocked(True)
@@ -371,11 +369,18 @@ class AppGUI(QtGui.QWidget):
 
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-
                 self.fft_curve.setData(f, a)
 
-                data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
-                self.img.setImage(a)
+                # spectrogram
+                # img_array = np.zeros((self.NFFT//2, 1024), dtype='float32')
+                self.img_array = np.roll(self.img_array, -1, 0)
+                self.img_array[-1:] = a[:self.NFFT]
+
+
+                # data = np.random.normal(size=(600, 600), loc=1024, scale=64).astype(np.uint16)
+                
+
+                self.img.setImage(self.img_array)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
