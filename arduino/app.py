@@ -170,7 +170,7 @@ class AppGUI(QtGui.QWidget):
             self.updateplot_virtual_generator()
         else:
             print('no signal source')
-        self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
+        self.timer.start(40) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
         global record_name
@@ -184,8 +184,8 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
-        # self.fft_chunks_slider.setValue(64)
-        self.fft_chunks_slider.setValue(128)
+        self.fft_chunks_slider.setValue(64)
+        # self.fft_chunks_slider.setValue(128)
         self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
@@ -206,7 +206,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        # self.layout.addWidget(self.signal_widget)
+        self.layout.addWidget(self.signal_widget)
         # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
@@ -266,10 +266,18 @@ class AppGUI(QtGui.QWidget):
             self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
         else:
             self.progress.setValue(0)
-            t, y, rate = ser_reader_thread.get(num=ser_reader_thread.chunks*ser_reader_thread.chunkSize) # MAX num=chunks*chunkSize (in SerialReader class)
+            n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
+            t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
 
+                # downsampling (cutting high ultrasonics)
+                downsample = 16 # 666000 / 16 = 41625 ~= 44100
+                # if downsample > 1:  # if downsampling is requested, average N samples together
+                y = y.reshape(n//downsample, downsample).mean(axis=1)
+                n = y.shape[0]
+                t =  np.linspace(0, (n-1)*1e-6*downsample, n)
+                rate /= downsample
 
                 # calculate fft
                 f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
@@ -299,7 +307,7 @@ class AppGUI(QtGui.QWidget):
 
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                self.fft_curve.setData(f, a)
+                # self.fft_curve.setData(f, a)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -456,7 +464,7 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        plotpoints = 1024//2
+        plotpoints = 1024
         if args.plotpoints:
             if (chunkSize * chunks) % int(args.plotpoints) == 0:
                 plotpoints = int(args.plotpoints)
