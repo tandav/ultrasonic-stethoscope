@@ -255,10 +255,6 @@ class AppGUI(QtGui.QWidget):
         self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
 
-        # update pyFFTW
-        self.A = pyfftw.empty_aligned(self.NFFT, dtype='float32')
-        self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
-
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
@@ -460,7 +456,7 @@ def main():
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        plotpoints = 1024
+        plotpoints = 1024//2
         if args.plotpoints:
             if (chunkSize * chunks) % int(args.plotpoints) == 0:
                 plotpoints = int(args.plotpoints)
