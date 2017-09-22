@@ -20,7 +20,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, chunkSize=1024, chunks=5000):
+    def __init__(self, signal, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -35,6 +35,8 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
         self.values_recorded = 0
+        self.signal = signal
+
 
     def find_device_and_return_port(self):
         for i in range(61):
@@ -66,7 +68,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT
+        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui
 
         while True:
             # see whether an exit was requested
@@ -104,7 +106,10 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 if sps is not None:
                     self.sps = sps
 
-                    
+                if self.ptr % NFFT//2 == 0:
+                    # print('>>>>', self.ptr, NFFT)
+                    # gui.updateplot()
+                    self.signal.emit()
 
                 if recording:
                     # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
@@ -149,28 +154,29 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
+    read_collected = QtCore.pyqtSignal()
     def __init__(self, plotpoints, chunkSize=1024, signal_source='usb'):
         super(AppGUI, self).__init__()
         self.chunkSize = chunkSize
         self.rate = 1
         self.plot_points = plotpoints
 
-        self.img_array = np.zeros((128, self.plot_points)) # rename to (plot_width, plot_height)
+        self.img_array = np.zeros((512//2, self.plot_points)) # rename to (plot_width, plot_height)
         # self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
         self.qt_connections()
 
-        self.timer = pg.QtCore.QTimer()
-        if signal_source == 'usb':
-            self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
-            self.updateplot()
-        elif signal_source == 'virtual_generator':
-            self.timer.timeout.connect(self.updateplot_virtual_generator) # updateplot on each timertick
-            self.updateplot_virtual_generator()
-        else:
-            print('no signal source')
-        self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
+        # self.timer = pg.QtCore.QTimer()
+        # if signal_source == 'usb':
+        #     self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
+        #     self.updateplot()
+        # elif signal_source == 'virtual_generator':
+        #     self.timer.timeout.connect(self.updateplot_virtual_generator) # updateplot on each timertick
+        #     self.updateplot_virtual_generator()
+        # else:
+        #     print('no signal source')
+        # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
         global record_name, NFFT
@@ -263,7 +269,8 @@ class AppGUI(QtGui.QWidget):
 
     def updateplot(self):
         global ser_reader_thread, recording, values_to_record, record_start_time, NFFT
-        
+
+
         if recording:
             self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
         else:
@@ -290,7 +297,7 @@ class AppGUI(QtGui.QWidget):
                 # f = f[:-1]
                 
                 try:
-                    a = np.abs(a ) # magnitude
+                    a = np.abs(a) # magnitude
                     # a = np.log(a) # часто ошибка - сделать try, else
                     a = 20 * np.log10(a) # часто ошибка - сделать try, else
                 except Exception as e:
@@ -313,9 +320,7 @@ class AppGUI(QtGui.QWidget):
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
-        
         t, y, rate = generator.signal(freq=4000, rate=65536, seconds=1)
-
 
         if recording:
             self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
@@ -450,7 +455,7 @@ def main():
     args = parser.parse_args()
 
     # global params
-    global recording, values_to_record, file_index, NFFT
+    global recording, values_to_record, file_index, NFFT, gui, ser_reader_thread, chunkSize
     recording        = False
     values_to_record = 0
     file_index       = 0
@@ -462,25 +467,23 @@ def main():
         gui = AppGUI(plotpoints=2048, chunkSize=1024, signal_source='virtual_generator') # create class instance
     else:
         # serialreader params
-        global ser_reader_thread, chunkSize # thread to read and buffer serial data.
         k = 1
         chunkSize = 1024 // k
         chunks    = 2000 * k
 
-        plotpoints = 1024
+        plotpoints = 1024//2//2
         if args.plotpoints:
             if (chunkSize * chunks) % int(args.plotpoints) == 0:
                 plotpoints = int(args.plotpoints)
             else:
                 print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
+        gui = AppGUI(plotpoints=plotpoints, chunkSize=chunkSize, signal_source='usb') # create class instance
 
+    gui.read_collected.connect(gui.updateplot)
+    ser_reader_thread           = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
+    ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
+    ser_reader_thread.start()
 
-        # chunkSize = 1024
-        # chunks    = 3000
-        ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=chunks)
-        ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
-        ser_reader_thread.start()
-        gui = AppGUI(plotpoints=plotpoints, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
 
     sys.exit(app.exec_())
 
