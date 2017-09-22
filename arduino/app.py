@@ -14,7 +14,6 @@ import gzip
 import shutil
 import argparse
 import generator
-import pyfftw
 import pickle
 
 class SerialReader(threading.Thread):  # inheritated from Thread
@@ -160,7 +159,6 @@ class AppGUI(QtGui.QWidget):
         # self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
-        self.init_pyfftw()
         self.qt_connections()
 
         self.timer = pg.QtCore.QTimer()
@@ -187,7 +185,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
         # self.fft_chunks_slider.setValue(64)
-        self.fft_chunks_slider.setValue(64)
+        self.fft_chunks_slider.setValue(128)
         self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
@@ -251,16 +249,6 @@ class AppGUI(QtGui.QWidget):
         self.spin.valueChanged.connect(self.spinbox_value_changed)
         self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
-    
-    def init_pyfftw(self):
-        my_file = Path("wisdom")
-        if my_file.is_file():
-            with open('wisdom', 'rb') as file:
-                wisdom = pickle.load(file)
-            pyfftw.import_wisdom(wisdom)
-        
-        self.A = pyfftw.empty_aligned(self.NFFT, dtype='float32')
-        self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
 
     def fft_slider_changed(self):
         # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
@@ -285,27 +273,15 @@ class AppGUI(QtGui.QWidget):
             t, y, rate = ser_reader_thread.get(num=ser_reader_thread.chunks*ser_reader_thread.chunkSize) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
-                # calculate fft
-                # # numpy.fft
-                # f = np.fft.rfftfreq(n, d=1./rate)
-                # a = np.fft.rfft(v)
 
-                # scipy.fftpack
-                # f = np.fft.rfftfreq(n - 1, d=1./rate)
-                # a = fft(y)[:n//2] # fft + chose only real part
-                # chunkSize = ser_reader_thread.chunkSize
-                # f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
-                # a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
+
+                # calculate fft
+                f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
+                a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
                 
-                # pyFFTW
-                # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                # print(self.A.shape, y.shape, self.NFFT)
-                f = np.fft.rfftfreq(self.NFFT, d=1. / rate)
-                self.A[:] = y[-self.NFFT:]*np.hanning(self.NFFT)
-                a = self.py_fft_w() / self.NFFT # fft + normalisation
-    
-                a = a[:-1] # sometimes there is a zero in the end of array
-                f = f[:-1]
+                # sometimes there is a zero in the end of array
+                # a = a[:-1] 
+                # f = f[:-1]
                 
                 try:
                     a = np.abs(a ) # magnitude
@@ -315,12 +291,10 @@ class AppGUI(QtGui.QWidget):
                     print('log(0) error',e )
 
                 # spectrogram
-                # print(self.img_array.shape, a.shape, self.plot_points)
                 self.img_array = np.roll(self.img_array, -1, 0)
                 self.img_array[-1:] = a[:self.plot_points]
-                self.img.setImage(self.img_array, autoLevels=False)
-                # self.img.setImage(self.img_array, autoLevels=True)
-                print(self.img_array[-1, -0], self.img_array[-1, -1])
+                # self.img.setImage(self.img_array, autoLevels=False)
+                self.img.setImage(self.img_array, autoLevels=True)
 
 
                 n = len(t)
@@ -344,22 +318,9 @@ class AppGUI(QtGui.QWidget):
 
             if rate > 0:
                 # calculate fft
-                # # numpy.fft
-                # f = np.fft.rfftfreq(n, d=1./rate)
-                # a = np.fft.rfft(v)
+                f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
+                a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
 
-                # scipy.fftpack
-                # f = np.fft.rfftfreq(n - 1, d=1./rate)
-                # a = fft(y)[:n//2] # fft + chose only real part
-                # chunkSize = ser_reader_thread.chunkSize
-                # f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
-                # a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
-
-                # pyFFTW
-                # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                f = np.fft.rfftfreq(self.NFFT, d=1. / rate)
-                self.A[:] = y[-self.NFFT:]
-                a = self.py_fft_w()
 
                 a = np.abs(a / self.NFFT) # normalisation
                 a = np.log(a)
@@ -370,8 +331,9 @@ class AppGUI(QtGui.QWidget):
 
                 # spectrogram
                 self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1:] = a[:self.NFFT]
-                self.img.setImage(self.img_array)
+                self.img_array[-1:] = a[:self.plot_points]
+                # self.img.setImage(self.img_array, autoLevels=False)
+                self.img.setImage(self.img_array, autoLevels=True)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
