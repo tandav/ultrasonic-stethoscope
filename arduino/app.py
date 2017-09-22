@@ -78,7 +78,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                     break
 
             # read one full chunk from the serial port
-            data = port.read(self.chunkSize*2) # *2 probably becaus of datatypes/bytes/things like that
+            data = port.read(self.chunkSize*2) # *2 probably because of datatypes/bytes/things like that
             # convert data to 16bit int numpy array
             data = np.fromstring(data, dtype=np.uint16)
 
@@ -106,9 +106,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 if sps is not None:
                     self.sps = sps
 
-                if self.ptr % NFFT//2 == 0:
-                    # print('>>>>', self.ptr, NFFT)
-                    # gui.updateplot()
+                if self.ptr % (NFFT * downsample // 2) == 0: # //2 because fft windows are overlapping at the half of NFFT
                     self.signal.emit()
 
                 if recording:
@@ -162,10 +160,12 @@ class AppGUI(QtGui.QWidget):
         self.plot_points = plotpoints
 
         self.img_array = np.zeros((512//2, self.plot_points)) # rename to (plot_width, plot_height)
-        # self.hann_win = np.hanning(self.NFFT)
 
         self.init_ui()
         self.qt_connections()
+
+        self.hann_win = np.hanning(NFFT)
+
 
         # self.timer = pg.QtCore.QTimer()
         # if signal_source == 'usb':
@@ -179,7 +179,7 @@ class AppGUI(QtGui.QWidget):
         # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        global record_name, NFFT
+        global record_name, NFFT, downsample
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -190,7 +190,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(64)
+        self.fft_chunks_slider.setValue(8)
         # self.fft_chunks_slider.setValue(128)
         NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
@@ -244,7 +244,8 @@ class AppGUI(QtGui.QWidget):
         lut = cmap.getLookupTable(0.0, 1.0, 256)
         # set colormap
         self.img.setLookupTable(lut)
-        self.img.setLevels([-140, -50])
+        # self.img.setLevels([-140, -50])
+        self.img.setLevels([-50, 20])
         self.layout.addWidget(self.glayout)
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
@@ -262,36 +263,39 @@ class AppGUI(QtGui.QWidget):
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
         NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
+        self.hann_win = np.hanning(NFFT)
 
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
 
     def updateplot(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample
 
 
         if recording:
             self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
         else:
             self.progress.setValue(0)
-            n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
-            t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
+            # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
+            # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
+            t, y, rate = ser_reader_thread.get(num=NFFT*downsample) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
 
                 # downsampling (cutting high ultrasonics)
-                downsample = 16 # 666000 / 16 = 41625 ~= 44100
-                # if downsample > 1:  # if downsampling is requested, average N samples together
+                n = y.shape[0]
                 y = y.reshape(n//downsample, downsample).mean(axis=1)
                 n = y.shape[0]
                 t =  np.linspace(0, (n-1)*1e-6*downsample, n)
                 rate /= downsample
-
+                
                 # calculate fft
                 f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-                a = fft(y[-NFFT:])[:NFFT//2] # fft + chose only real part
+                # a = fft(y[-NFFT:])[:NFFT//2] # fft + chose only real part
+                a = fft(y*self.hann_win)[:NFFT//2] # fft + chose only real part
                 
+                # print(np.hanning(NFFT).shape, NFFT, y.shape)
                 # sometimes there is a zero in the end of array
                 # a = a[:-1] 
                 # f = f[:-1]
@@ -309,14 +313,14 @@ class AppGUI(QtGui.QWidget):
                 # self.img.setImage(self.img_array, autoLevels=False)
                 self.img.setImage(self.img_array, autoLevels=True)
 
-
-                n = len(t)
-                t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
-                y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+                # print(self.img_array[0][0], self.img_array[0][-1])
+                # n = len(t)
+                # t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+                # y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
 
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                # self.fft_curve.setData(f, a)
+                self.fft_curve.setData(f, a)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -455,11 +459,11 @@ def main():
     args = parser.parse_args()
 
     # global params
-    global recording, values_to_record, file_index, NFFT, gui, ser_reader_thread, chunkSize
+    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample
+    downsample = 32 # 666000 / 16 = 41625 ~= 44100
     recording        = False
     values_to_record = 0
     file_index       = 0
-    NFFT = 1024
 
     # init gui
     app = QtGui.QApplication(sys.argv)
