@@ -106,10 +106,11 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 if sps is not None:
                     self.sps = sps
 
-                if self.ptr % NFFT// 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                    self.signal.emit()
+                # if self.ptr % NFFT// 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
+                #     self.signal.emit()
 
                 if recording:
+                    self.signal.emit()
                     # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
                     record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
                     self.values_recorded += self.chunkSize
@@ -121,6 +122,8 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         values_to_record = 0
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
+                elif self.ptr % NFFT// 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
+                    self.signal.emit()
 
     def get(self, num):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -273,8 +276,11 @@ class AppGUI(QtGui.QWidget):
         global ser_reader_thread, recording, values_to_record, record_start_time, NFFT
 
 
-        if recording:
+        while recording:
+            # while 
+            # old
             self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+            time.sleep(0.3)
         else:
             self.progress.setValue(0)
             # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
