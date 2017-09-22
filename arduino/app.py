@@ -66,7 +66,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, values_to_record, t2, record_end_time
+        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT
 
         while True:
             # see whether an exit was requested
@@ -103,6 +103,8 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
                 if sps is not None:
                     self.sps = sps
+
+                    
 
                 if recording:
                     # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
@@ -149,11 +151,9 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 class AppGUI(QtGui.QWidget):
     def __init__(self, plotpoints, chunkSize=1024, signal_source='usb'):
         super(AppGUI, self).__init__()
-
         self.chunkSize = chunkSize
         self.rate = 1
         self.plot_points = plotpoints
-        self.NFFT = self.chunkSize
 
         self.img_array = np.zeros((128, self.plot_points)) # rename to (plot_width, plot_height)
         # self.hann_win = np.hanning(self.NFFT)
@@ -170,10 +170,10 @@ class AppGUI(QtGui.QWidget):
             self.updateplot_virtual_generator()
         else:
             print('no signal source')
-        self.timer.start(40) # Timer tick. Set 0 to update as fast as possible
+        self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        global record_name
+        global record_name, NFFT
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -186,7 +186,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
         self.fft_chunks_slider.setValue(64)
         # self.fft_chunks_slider.setValue(128)
-        self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        NFFT = self.fft_chunks_slider.value() * self.chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
         self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
@@ -251,16 +251,18 @@ class AppGUI(QtGui.QWidget):
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
 
     def fft_slider_changed(self):
-        # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
-        self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
-        self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
+        global NFFT
+        # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
+        NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
 
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
 
     def updateplot(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT
         
         if recording:
             self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
@@ -280,8 +282,8 @@ class AppGUI(QtGui.QWidget):
                 rate /= downsample
 
                 # calculate fft
-                f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
-                a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
+                f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
+                a = fft(y[-NFFT:])[:NFFT//2] # fft + chose only real part
                 
                 # sometimes there is a zero in the end of array
                 # a = a[:-1] 
@@ -322,11 +324,11 @@ class AppGUI(QtGui.QWidget):
 
             if rate > 0:
                 # calculate fft
-                f = np.fft.rfftfreq(self.NFFT - 1, d=1./rate)
-                a = fft(y[-self.NFFT:])[:self.NFFT//2] # fft + chose only real part
+                f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
+                a = fft(y[-NFFT:])[:NFFT//2] # fft + chose only real part
 
 
-                a = np.abs(a / self.NFFT) # normalisation
+                a = np.abs(a / NFFT) # normalisation
                 a = np.log(a)
 
                 self.signal_curve.setData(t, y)
@@ -448,10 +450,11 @@ def main():
     args = parser.parse_args()
 
     # global params
-    global recording, values_to_record, file_index
+    global recording, values_to_record, file_index, NFFT
     recording        = False
     values_to_record = 0
     file_index       = 0
+    NFFT = 1024
 
     # init gui
     app = QtGui.QApplication(sys.argv)
