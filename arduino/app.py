@@ -106,7 +106,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 if sps is not None:
                     self.sps = sps
 
-                if self.ptr % (NFFT * downsample // 2) == 0: # //2 because fft windows are overlapping at the half of NFFT
+                if self.ptr % NFFT// 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                     self.signal.emit()
 
                 if recording:
@@ -179,7 +179,7 @@ class AppGUI(QtGui.QWidget):
         # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        global record_name, NFFT, downsample
+        global record_name, NFFT
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -270,7 +270,7 @@ class AppGUI(QtGui.QWidget):
         record_name = self.record_name_textbox.text()
 
     def updateplot(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT
 
 
         if recording:
@@ -279,16 +279,10 @@ class AppGUI(QtGui.QWidget):
             self.progress.setValue(0)
             # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
             # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-            t, y, rate = ser_reader_thread.get(num=NFFT*downsample) # MAX num=chunks*chunkSize (in SerialReader class)
+            t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
 
-                # downsampling (cutting high ultrasonics)
-                n = y.shape[0]
-                y = y.reshape(n//downsample, downsample).mean(axis=1)
-                n = y.shape[0]
-                t =  np.linspace(0, (n-1)*1e-6*downsample, n)
-                rate /= downsample
                 
                 # calculate fft
                 f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
@@ -459,8 +453,7 @@ def main():
     args = parser.parse_args()
 
     # global params
-    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample
-    downsample = 32 # 666000 / 16 = 41625 ~= 44100
+    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize
     recording        = False
     values_to_record = 0
     file_index       = 0
