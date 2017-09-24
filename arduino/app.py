@@ -164,7 +164,7 @@ class AppGUI(QtGui.QWidget):
         # self.plot_points = plotpoints
         self.plot_points_y = plot_points_y
         self.plot_points_x = plot_points_x
-        self.img_array = np.zeros((self.plot_points_y, self.plot_points_x)) # rename to (plot_width, plot_height)
+        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
 
         self.init_ui()
         self.qt_connections()
@@ -340,10 +340,10 @@ class AppGUI(QtGui.QWidget):
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 # self.fft_curve.setData(f, a)
-        t1 = time.time()
-        self.avg_sum += t1 - t0
-        self.avg_iters += 1
-        print(self.avg_sum / self.avg_iters)
+        # t1 = time.time()
+        # self.avg_sum += t1 - t0
+        # self.avg_iters += 1
+        # print('dt=', self.avg_sum / self.avg_iters)
         # print(t1 - t0)
 
     def updateplot_virtual_generator(self):
@@ -476,39 +476,23 @@ def send_to_cuda():
 
 
 def main():
-    # argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--plotpoints', help='number of points to draw')
-    parser.add_argument('-g', '--generator', action='store_true' ,help='gets signal for plots from virtual generator')
-    args = parser.parse_args()
-
     # global params
     global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample
     recording        = False
     values_to_record = 0
     file_index       = 0
-
-    downsample = 16
+    downsample       = 16
+    plot_points_x    = 1024//2//2
+    k                = 1
+    chunkSize        = 1024 // k
+    chunks           = 2000 * k
 
     # init gui
     app = QtGui.QApplication(sys.argv)
-    if args.generator:
-        gui = AppGUI(plotpoints=2048, chunkSize=1024, signal_source='virtual_generator') # create class instance
-    else:
-        # serialreader params
-        k = 1
-        chunkSize = 1024 // k
-        chunks    = 2000 * k
-
-        plotpoints = 1024//2//2
-        if args.plotpoints:
-            if (chunkSize * chunks) % int(args.plotpoints) == 0:
-                plotpoints = int(args.plotpoints)
-            else:
-                print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
-        gui = AppGUI(plot_points_x=plotpoints, signal_source='usb') # create class instance
-
+    gui = AppGUI(plot_points_x=plot_points_x, signal_source='usb') # create class instance
     gui.read_collected.connect(gui.updateplot)
+
+
     ser_reader_thread           = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
     ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     ser_reader_thread.start()
