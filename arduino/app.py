@@ -185,7 +185,7 @@ class AppGUI(QtGui.QWidget):
         # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        global record_name, NFFT, chunkSize
+        global record_name, NFFT, chunkSize, downsample
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -205,6 +205,45 @@ class AppGUI(QtGui.QWidget):
         self.fft_slider_box.addWidget(self.fft_slider_label)
         self.fft_slider_box.addWidget(self.fft_chunks_slider)
         self.layout.addLayout(self.fft_slider_box)
+
+        self.downsample_slider_box = QtGui.QHBoxLayout()
+        self.downsample_slider = QtGui.QSlider()
+        self.downsample_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.downsample_slider.setRange(1, 128) # max is ser_reader_thread.chunks
+        self.downsample_slider.setValue(16)
+        downsample = self.downsample_slider.value()
+        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.downsample_slider.setTickInterval(4)
+        self.downsample_slider_label = QtGui.QLabel('downsample: {}'.format(downsample))
+        self.downsample_slider_box.addWidget(self.downsample_slider_label)
+        self.downsample_slider_box.addWidget(self.downsample_slider)
+        self.layout.addLayout(self.downsample_slider_box)
+
+        self.plot_points_x_slider_box = QtGui.QHBoxLayout()
+        self.plot_points_x_slider = QtGui.QSlider()
+        self.plot_points_x_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.plot_points_x_slider.setRange(16, 8192) # max is ser_reader_thread.chunks
+        self.plot_points_x_slider.setValue(256)
+        self.plot_points_x = self.plot_points_x_slider.value()
+        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.plot_points_x_slider.setTickInterval(16)
+        self.plot_points_x_slider_label = QtGui.QLabel('plot_points_x: {}'.format(self.plot_points_x))
+        self.plot_points_x_slider_box.addWidget(self.plot_points_x_slider_label)
+        self.plot_points_x_slider_box.addWidget(self.plot_points_x_slider)
+        self.layout.addLayout(self.plot_points_x_slider_box)
+
+        self.plot_points_y_slider_box = QtGui.QHBoxLayout()
+        self.plot_points_y_slider = QtGui.QSlider()
+        self.plot_points_y_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.plot_points_y_slider.setRange(16, 8192) # max is ser_reader_thread.chunks
+        self.plot_points_y_slider.setValue(256)
+        self.plot_points_y = self.plot_points_y_slider.value()
+        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.plot_points_y_slider.setTickInterval(16)
+        self.plot_points_y_slider_label = QtGui.QLabel('plot_points_y: {}'.format(self.plot_points_y))
+        self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider_label)
+        self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider)
+        self.layout.addLayout(self.plot_points_y_slider_box)
 
         self.signal_widget = pg.PlotWidget()
         self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
@@ -239,10 +278,13 @@ class AppGUI(QtGui.QWidget):
         self.progress = QtGui.QProgressBar()
         self.layout.addWidget(self.progress)
 
+
         self.glayout = pg.GraphicsLayoutWidget()
-        self.view = self.glayout.addViewBox()
+        # self.view = self.glayout.addViewBox(lockAspect=False)
+        self.view = self.glayout.addViewBox(lockAspect=True)
         self.img = pg.ImageItem(border='w')
         self.view.addItem(self.img)
+        # self.view.setAspectLocked()
         # bipolar colormap
         pos = np.array([0., 1., 0.5, 0.25, 0.75])
         color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], (0, 0, 255, 255), (255, 0, 0, 255)], dtype=np.ubyte)
@@ -253,6 +295,7 @@ class AppGUI(QtGui.QWidget):
         # self.img.setLevels([-140, -50])
         self.img.setLevels([-50, 20])
         self.layout.addWidget(self.glayout)
+
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -261,6 +304,9 @@ class AppGUI(QtGui.QWidget):
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
         self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
+        self.downsample_slider.valueChanged.connect(self.downsample_slider_changed)
+        self.plot_points_x_slider.valueChanged.connect(self.plot_points_x_slider_changed)
+        self.plot_points_y_slider.valueChanged.connect(self.plot_points_y_slider_changed)
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
 
     def fft_slider_changed(self):
@@ -273,6 +319,21 @@ class AppGUI(QtGui.QWidget):
         self.avg_sum = 0
         self.avg_iters = 0
 
+    def downsample_slider_changed(self):
+        global downsample
+        downsample = self.downsample_slider.value()
+        self.downsample_slider_label.setText('downsample: {}'.format(downsample))
+
+    def plot_points_x_slider_changed(self):
+        self.plot_points_x = self.plot_points_x_slider.value()
+        self.plot_points_x_slider_label.setText('plot_points_x: {}'.format(self.plot_points_x))
+        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+
+    def plot_points_y_slider_changed(self):
+        self.plot_points_y = self.plot_points_y_slider.value()
+        self.plot_points_y_slider_label.setText('plot_points_y: {}'.format(self.plot_points_y))
+        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
@@ -280,7 +341,6 @@ class AppGUI(QtGui.QWidget):
     def updateplot(self):
         t0 = time.time()
         global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample
-
 
         while recording:
             # while 
@@ -322,7 +382,12 @@ class AppGUI(QtGui.QWidget):
 
                 # spectrogram
                 self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1] = a[:self.plot_points_y]
+                if len(a) > self.plot_points_y:
+                    self.img_array[-1] = a[:self.plot_points_y]
+                else:
+                    self.plot_points_y = len(a)
+                    self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+                    self.img_array[-1] = a
                 self.img.setImage(self.img_array, autoLevels=True)
 
                 # n = len(t)
