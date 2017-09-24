@@ -37,7 +37,6 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         self.values_recorded = 0
         self.signal = signal
 
-
     def find_device_and_return_port(self):
         for i in range(61):
             ports = list(serial.tools.list_ports.comports())
@@ -125,7 +124,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 
                 # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                elif self.ptr % ((NFFT * downsample) // (NFFT * downsampleo - overlap)) == 0: # mod fft_window_shift = (1 - overlap / 100)
+                elif self.ptr % (NFFT // (NFFT - overlap)) == 0: # mod fft_window_shift = (1 - overlap / 100)
                     self.signal.emit()
 
     def get(self, num):
@@ -206,7 +205,6 @@ class AppGUI(QtGui.QWidget):
         self.fft_slider_box.addWidget(self.fft_slider_label)
         self.fft_slider_box.addWidget(self.fft_chunks_slider)
         self.layout.addLayout(self.fft_slider_box)
-
 
         self.overlap_slider_box = QtGui.QHBoxLayout()
         self.overlap_slider = QtGui.QSlider()
@@ -356,7 +354,6 @@ class AppGUI(QtGui.QWidget):
         overlap = self.overlap_slider.value()
         self.overlap_slider_label.setText('FFT window overlap: {}%'.format(overlap))
 
-
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
@@ -374,13 +371,14 @@ class AppGUI(QtGui.QWidget):
             self.progress.setValue(0)
             # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
             # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-            t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
+            # t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
+            t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
                 # downsampling
-                y = y.reshape(NFFT, downsample).mean(axis=1)
-                t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
-                rate /= downsample
+                # y = y.reshape(NFFT, downsample).mean(axis=1)
+                # t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
+                # rate /= downsample
 
 
                 # calculate fft
@@ -417,10 +415,10 @@ class AppGUI(QtGui.QWidget):
                 # self.signal_curve.setData(t, y)
                 # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
                 # self.fft_curve.setData(f, a)
-        t1 = time.time()
-        self.avg_sum += t1 - t0
-        self.avg_iters += 1
-        print('dt=', self.avg_sum / self.avg_iters)
+        # t1 = time.time()
+        # self.avg_sum += t1 - t0
+        # self.avg_iters += 1
+        # print('dt=', self.avg_sum / self.avg_iters)
         # print(t1 - t0)
 
     def spinbox_value_changed(self):
