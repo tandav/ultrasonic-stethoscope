@@ -294,9 +294,9 @@ class AppGUI(QtGui.QWidget):
             t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
-                # downsampling (cutting high ultrasonics)
+                # downsampling
                 y = y.reshape(NFFT, downsample).mean(axis=1)
-                t =  np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
+                t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
                 rate /= downsample
 
 
@@ -318,11 +318,11 @@ class AppGUI(QtGui.QWidget):
                     # a = np.log(a) # часто ошибка - сделать try, else
                     a = 20 * np.log10(a) # часто ошибка - сделать try, else
                 except Exception as e:
-                    print('log(0) error',e )
+                    print('log(0) error', e)
 
                 # spectrogram
                 self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1:] = a[:self.plot_points_y]
+                self.img_array[-1] = a[:self.plot_points_y]
                 self.img.setImage(self.img_array, autoLevels=True)
 
                 # n = len(t)
