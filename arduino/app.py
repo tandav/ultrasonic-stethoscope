@@ -295,19 +295,18 @@ class AppGUI(QtGui.QWidget):
 
             if rate > 0:
                 # downsampling (cutting high ultrasonics)
-                n = len(y)
-                y = y.reshape(n // downsample, downsample).mean(axis=1)
-                n = len(y)
-                t =  np.linspace(0, (n-1)*1e-6*downsample, n)
+                y = y.reshape(NFFT, downsample).mean(axis=1)
+                t =  np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
                 rate /= downsample
+
 
                 # # calculate fft
                 # f = np.fft.rfftfreq(n - 1, d=1./rate)
-                a = fft(y*np.hanning(n))[:n//2] # fft + chose only real part
+                # a = fft(y*np.hanning(n))[:n//2] # fft + chose only real part
 
                 # calculate fft
                 # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-                # a = fft(y * self.hann_win)[:NFFT//2] # fft + chose only real part
+                a = fft(y * self.hann_win)[:NFFT//2] # fft + chose only real part
                 
                 # print(np.hanning(NFFT).shape, NFFT, y.shape)
                 # sometimes there is a zero in the end of array
@@ -323,16 +322,9 @@ class AppGUI(QtGui.QWidget):
 
                 # spectrogram
                 self.img_array = np.roll(self.img_array, -1, 0)
-                # self.img_array[-1:] = a
                 self.img_array[-1:] = a[:self.plot_points_y]
-                # self.img.setImage(self.img_array, autoLevels=False)
                 self.img.setImage(self.img_array, autoLevels=True)
-                # imadje = np.arange(10)*np.array([[1], [1], [1]]) + np.random.rand(3, 1)
-                # self.img.setImage(imadje, autoLevels=True)
-                # print(imadje)
 
-
-                # print(self.img_array[0][0], self.img_array[0][-1])
                 # n = len(t)
                 # t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
                 # y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
@@ -345,34 +337,6 @@ class AppGUI(QtGui.QWidget):
         # self.avg_iters += 1
         # print('dt=', self.avg_sum / self.avg_iters)
         # print(t1 - t0)
-
-    def updateplot_virtual_generator(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time
-        t, y, rate = generator.signal(freq=4000, rate=65536, seconds=1)
-
-        if recording:
-            self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-        else:
-            self.progress.setValue(0)
-
-            if rate > 0:
-                # calculate fft
-                f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-                a = fft(y[-NFFT:])[:NFFT//2] # fft + chose only real part
-
-
-                a = np.abs(a / NFFT) # normalisation
-                a = np.log(a)
-
-                self.signal_curve.setData(t, y)
-                self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                self.fft_curve.setData(f, a)
-
-                # spectrogram
-                self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1:] = a[:self.plot_points]
-                # self.img.setImage(self.img_array, autoLevels=False)
-                self.img.setImage(self.img_array, autoLevels=True)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
@@ -492,11 +456,9 @@ def main():
     gui = AppGUI(plot_points_x=plot_points_x, signal_source='usb') # create class instance
     gui.read_collected.connect(gui.updateplot)
 
-
-    ser_reader_thread           = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
-    ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
+    ser_reader_thread = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
+    ser_reader_thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     ser_reader_thread.start()
-
 
     sys.exit(app.exec_())
 
