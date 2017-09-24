@@ -124,7 +124,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 
                 # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                elif self.ptr % (NFFT // (NFFT - overlap)) == 0: # mod fft_window_shift = (1 - overlap / 100)
+                elif self.ptr % (NFFT * downsample - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
                     self.signal.emit()
 
     def get(self, num):
@@ -215,7 +215,7 @@ class AppGUI(QtGui.QWidget):
         overlap = self.overlap_slider.value()
         self.overlap_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.overlap_slider.setTickInterval(1)
-        self.overlap_slider_label = QtGui.QLabel('FFT window overlap: {}%'.format(overlap))
+        self.overlap_slider_label = QtGui.QLabel('FFT window overlap: {}'.format(overlap))
         self.overlap_slider_box.addWidget(self.overlap_slider_label)
         self.overlap_slider_box.addWidget(self.overlap_slider)
         self.layout.addLayout(self.overlap_slider_box)
@@ -352,7 +352,7 @@ class AppGUI(QtGui.QWidget):
     def overlap_slider_slider_changed(self):
         global overlap
         overlap = self.overlap_slider.value()
-        self.overlap_slider_label.setText('FFT window overlap: {}%'.format(overlap))
+        self.overlap_slider_label.setText('FFT window overlap: {}'.format(overlap))
 
     def record_name_changed(self):
         global record_name
@@ -371,15 +371,14 @@ class AppGUI(QtGui.QWidget):
             self.progress.setValue(0)
             # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
             # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-            # t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
-            t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
+            t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
+            # t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
                 # downsampling
-                # y = y.reshape(NFFT, downsample).mean(axis=1)
-                # t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
-                # rate /= downsample
-
+                y = y.reshape(NFFT, downsample).mean(axis=1)
+                t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
+                rate /= downsample
 
                 # calculate fft
                 # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
