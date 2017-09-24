@@ -68,7 +68,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
 
-        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui
+        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui, downsample
 
         while True:
             # see whether an exit was requested
@@ -122,7 +122,9 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         values_to_record = 0
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
-                elif self.ptr % NFFT// 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
+                
+                # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
+                elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                     self.signal.emit()
 
     def get(self, num):
@@ -156,20 +158,21 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 class AppGUI(QtGui.QWidget):
     read_collected = QtCore.pyqtSignal()
-    def __init__(self, plotpoints, chunkSize=1024, signal_source='usb'):
+    def __init__(self, plot_points_x, plot_points_y=256, signal_source='usb'):
         super(AppGUI, self).__init__()
-        self.chunkSize = chunkSize
         self.rate = 1
-        self.plot_points = plotpoints
-
-        self.img_array = np.zeros((512//2, self.plot_points)) # rename to (plot_width, plot_height)
+        # self.plot_points = plotpoints
+        self.plot_points_y = plot_points_y
+        self.plot_points_x = plot_points_x
+        self.img_array = np.zeros((self.plot_points_y, self.plot_points_x)) # rename to (plot_width, plot_height)
 
         self.init_ui()
         self.qt_connections()
 
         self.hann_win = np.hanning(NFFT)
 
-
+        self.avg_sum = 0
+        self.avg_iters = 0
         # self.timer = pg.QtCore.QTimer()
         # if signal_source == 'usb':
         #     self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
@@ -182,7 +185,7 @@ class AppGUI(QtGui.QWidget):
         # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        global record_name, NFFT
+        global record_name, NFFT, chunkSize
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -195,10 +198,10 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
         self.fft_chunks_slider.setValue(8)
         # self.fft_chunks_slider.setValue(128)
-        NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        NFFT = self.fft_chunks_slider.value() * chunkSize
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
-        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
+        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * chunkSize))
         self.fft_slider_box.addWidget(self.fft_slider_label)
         self.fft_slider_box.addWidget(self.fft_chunks_slider)
         self.layout.addLayout(self.fft_slider_box)
@@ -219,11 +222,11 @@ class AppGUI(QtGui.QWidget):
         # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
-        self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
+        self.spin = pg.SpinBox( value=chunkSize*1300, # if change, change also in suffix 
                                 int=True,
-                                bounds=[self.chunkSize*100, None],
-                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 1300 / 666000),
-                                step=self.chunkSize*100, decimals=12, siPrefix=True)
+                                bounds=[chunkSize*100, None],
+                                suffix=' Values to record ({:.2f} seconds)'.format(chunkSize * 1300 / 666000),
+                                step=chunkSize*100, decimals=12, siPrefix=True)
         self.record_box.addWidget(self.spin)
         self.record_name_textbox = QtGui.QLineEdit(self)
         self.record_name_textbox.setText('lungs')
@@ -261,19 +264,22 @@ class AppGUI(QtGui.QWidget):
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
 
     def fft_slider_changed(self):
-        global NFFT
+        global NFFT, chunkSize
         # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
-        NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        NFFT = self.fft_chunks_slider.value() * chunkSize
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
         self.hann_win = np.hanning(NFFT)
+        self.avg_sum = 0
+        self.avg_iters = 0
 
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
 
     def updateplot(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT
+        t0 = time.time()
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample
 
 
         while recording:
@@ -285,15 +291,23 @@ class AppGUI(QtGui.QWidget):
             self.progress.setValue(0)
             # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
             # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-            t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
+            t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
 
             if rate > 0:
+                # downsampling (cutting high ultrasonics)
+                n = len(y)
+                y = y.reshape(n // downsample, downsample).mean(axis=1)
+                n = len(y)
+                t =  np.linspace(0, (n-1)*1e-6*downsample, n)
+                rate /= downsample
 
-                
+                # # calculate fft
+                # f = np.fft.rfftfreq(n - 1, d=1./rate)
+                a = fft(y*np.hanning(n))[:n//2] # fft + chose only real part
+
                 # calculate fft
-                f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-                # a = fft(y[-NFFT:])[:NFFT//2] # fft + chose only real part
-                a = fft(y*self.hann_win)[:NFFT//2] # fft + chose only real part
+                # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
+                # a = fft(y * self.hann_win)[:NFFT//2] # fft + chose only real part
                 
                 # print(np.hanning(NFFT).shape, NFFT, y.shape)
                 # sometimes there is a zero in the end of array
@@ -309,9 +323,14 @@ class AppGUI(QtGui.QWidget):
 
                 # spectrogram
                 self.img_array = np.roll(self.img_array, -1, 0)
-                self.img_array[-1:] = a[:self.plot_points]
+                # self.img_array[-1:] = a
+                self.img_array[-1:] = a[:self.plot_points_y]
                 # self.img.setImage(self.img_array, autoLevels=False)
                 self.img.setImage(self.img_array, autoLevels=True)
+                # imadje = np.arange(10)*np.array([[1], [1], [1]]) + np.random.rand(3, 1)
+                # self.img.setImage(imadje, autoLevels=True)
+                # print(imadje)
+
 
                 # print(self.img_array[0][0], self.img_array[0][-1])
                 # n = len(t)
@@ -320,7 +339,12 @@ class AppGUI(QtGui.QWidget):
 
                 self.signal_curve.setData(t, y)
                 self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                self.fft_curve.setData(f, a)
+                # self.fft_curve.setData(f, a)
+        t1 = time.time()
+        self.avg_sum += t1 - t0
+        self.avg_iters += 1
+        print(self.avg_sum / self.avg_iters)
+        # print(t1 - t0)
 
     def updateplot_virtual_generator(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
@@ -459,10 +483,12 @@ def main():
     args = parser.parse_args()
 
     # global params
-    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize
+    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample
     recording        = False
     values_to_record = 0
     file_index       = 0
+
+    downsample = 16
 
     # init gui
     app = QtGui.QApplication(sys.argv)
@@ -480,7 +506,7 @@ def main():
                 plotpoints = int(args.plotpoints)
             else:
                 print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
-        gui = AppGUI(plotpoints=plotpoints, chunkSize=chunkSize, signal_source='usb') # create class instance
+        gui = AppGUI(plot_points_x=plotpoints, signal_source='usb') # create class instance
 
     gui.read_collected.connect(gui.updateplot)
     ser_reader_thread           = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
