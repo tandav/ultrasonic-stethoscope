@@ -1,5 +1,7 @@
 from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5.QtGui import QApplication
 from scipy.fftpack import fft
+from scipy.signal import decimate
 from pathlib import Path
 import pyqtgraph as pg
 import numpy as np
@@ -15,6 +17,7 @@ import shutil
 import argparse
 import generator
 import pickle
+from viridis import viridis_data
 
 class SerialReader(threading.Thread):  # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -125,6 +128,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 elif self.ptr % (NFFT * downsample - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
+                    print(np.random.rand())                    
                     self.signal.emit()
 
     def get(self, num):
@@ -169,7 +173,9 @@ class AppGUI(QtGui.QWidget):
         self.init_ui()
         self.qt_connections()
 
-        self.hann_win = np.hanning(NFFT)
+        # self.hann_win = np.hanning(NFFT)
+        self.hann_win = np.blackman(NFFT)
+
 
         self.avg_sum = 0
         self.avg_iters = 0
@@ -213,7 +219,7 @@ class AppGUI(QtGui.QWidget):
         self.overlap_slider.setValue(NFFT // 2)
         # self.fft_chunks_slider.setValue(128)
         overlap = self.overlap_slider.value()
-        self.overlap_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        # self.overlap_slider.setTickPosition(QtGui.QSlider.TicksBelow) # too many ticks
         self.overlap_slider.setTickInterval(1)
         self.overlap_slider_label = QtGui.QLabel('FFT window overlap: {}'.format(overlap))
         self.overlap_slider_box.addWidget(self.overlap_slider_label)
@@ -271,7 +277,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        # self.layout.addWidget(self.signal_widget)
+        self.layout.addWidget(self.signal_widget)
         # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
@@ -301,7 +307,7 @@ class AppGUI(QtGui.QWidget):
         # self.view.setAspectLocked()
         # bipolar colormap
         pos = np.array([0., 1., 0.5, 0.25, 0.75])
-        color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], (0, 0, 255, 255), (255, 0, 0, 255)], dtype=np.ubyte)
+        color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], [0, 0, 255, 255], [255, 0, 0, 255]], dtype=np.ubyte)
         cmap = pg.ColorMap(pos, color)
         lut = cmap.getLookupTable(0.0, 1.0, 256)
         # set colormap
@@ -330,7 +336,8 @@ class AppGUI(QtGui.QWidget):
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
         NFFT = self.fft_chunks_slider.value() * chunkSize
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
-        self.hann_win = np.hanning(NFFT)
+        # self.hann_win = np.hanning(NFFT)
+        self.hann_win = np.blackman(NFFT)
         self.avg_sum = 0
         self.avg_iters = 0
 
@@ -362,63 +369,83 @@ class AppGUI(QtGui.QWidget):
         t0 = time.time()
         global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample
 
-        while recording:
+        # while recording:
             # while 
             # old
-            self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-            time.sleep(0.3)
-        else:
-            self.progress.setValue(0)
-            # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
-            # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-            t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
-            # t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
+            # self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+            # time.sleep(0.3)
+        # else:
+        # self.progress.setValue(0)
+        # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
+        # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
+        t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
+        # t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
-            if rate > 0:
-                # downsampling
-                y = y.reshape(NFFT, downsample).mean(axis=1)
-                t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
-                rate /= downsample
+        if rate > 0:
+            # downsampling
+            y = decimate(y, downsample) # low-pass filter (antialiasing) + downsampling
 
-                # calculate fft
-                # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-                a = (fft(y * self.hann_win) / NFFT)[:NFFT//2] # fft + chose only real part
+            # y = y.reshape(NFFT, downsample).mean(axis=1)
+            t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
+            rate /= downsample
 
-                # normalisation????
-                # print(np.hanning(NFFT).shape, NFFT, y.shape)
-                # sometimes there is a zero in the end of array
-                # a = a[:-1] 
-                # f = f[:-1]
-                
-                try:
-                    a = np.abs(a) # magnitude
-                    # a = np.log(a) # часто ошибка - сделать try, else
-                    a = 20 * np.log10(a) # часто ошибка - сделать try, else
-                except Exception as e:
-                    print('log(0) error', e)
+            # calculate fft
+            # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
+            a = (fft(y * self.hann_win) / NFFT)[:NFFT//2] # fft + chose only real part
 
-                # spectrogram
-                self.img_array = np.roll(self.img_array, -1, 0)
-                if len(a) > self.plot_points_y:
-                    self.img_array[-1] = a[:self.plot_points_y]
-                else:
-                    self.plot_points_y = len(a)
-                    self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-                    self.img_array[-1] = a
-                self.img.setImage(self.img_array, autoLevels=True)
+            # normalisation????
+            # print(np.hanning(NFFT).shape, NFFT, y.shape)
+            # sometimes there is a zero in the end of array
+            # a = a[:-1] 
+            # f = f[:-1]
+            
+            try:
+                a = np.abs(a) # magnitude
+                # a = np.log(a) # часто ошибка - сделать try, else
+                a = 20 * np.log10(a) # часто ошибка - сделать try, else
+            except Exception as e:
+                print('log(0) error', e)
 
-                # n = len(t)
-                # t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
-                # y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+            # spectrogram
+            self.img_array = np.roll(self.img_array, -1, 0)
+            if len(a) > self.plot_points_y:
+                self.img_array[-1] = a[:self.plot_points_y]
+            else:
+                self.plot_points_y = len(a)
+                self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+                self.img_array[-1] = a
+            self.img.setImage(self.img_array, autoLevels=True)
 
-                # self.signal_curve.setData(t, y)
-                # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                # self.fft_curve.setData(f, a)
-        # t1 = time.time()
+            # n = len(t)
+            # t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+            # y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
+
+            self.signal_curve.setData(t, y)
+            self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+            # self.fft_curve.setData(f, a)
+        t1 = time.time()
         # self.avg_sum += t1 - t0
         # self.avg_iters += 1
         # print('dt=', self.avg_sum / self.avg_iters)
         # print(t1 - t0)
+        # print('>>>>>')
+
+    def update_record_progress_bar(self):
+        global ser_reader_thread, recording, values_to_record, record_start_time
+
+        rate = ser_reader_thread.sps
+        while recording:
+            # print('fff')
+            try:
+                # print(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time), recording)
+                self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+                print(self.progress.value())
+                QApplication.processEvents() 
+
+            except Exception as e:
+                print(e)
+            # time.sleep(0.05)
+        self.progress.setValue(0)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
@@ -437,6 +464,7 @@ class AppGUI(QtGui.QWidget):
         record_buffer = np.empty(values_to_record)
         recording = True
         record_start_time = time.time()
+        # self.update_record_progress_bar()
 
     def closeEvent(self, event):
         global ser_reader_thread
@@ -532,7 +560,6 @@ def main():
     k                = 1
     chunkSize        = 1024 // k
     chunks           = 2000 * k
-
     # init gui
     app = QtGui.QApplication(sys.argv)
     gui = AppGUI(plot_points_x=plot_points_x, signal_source='usb') # create class instance
