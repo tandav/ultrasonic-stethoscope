@@ -173,8 +173,8 @@ class AppGUI(QtGui.QWidget):
         self.init_ui()
         self.qt_connections()
 
-        # self.hann_win = np.hanning(NFFT)
-        self.hann_win = np.blackman(NFFT)
+        self.hann_win = np.hanning(NFFT)
+        # self.hann_win = np.blackman(NFFT)
 
 
         self.avg_sum = 0
