@@ -70,6 +70,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         sps = None
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
+        ptr2 = 0
 
         global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui, downsample, overlap
 
@@ -105,6 +106,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
             with dataMutex:
                 buffer[self.ptr:self.ptr+self.chunkSize] = data
                 self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
+                ptr2 += self.chunkSize
 
                 if sps is not None:
                     self.sps = sps
@@ -126,10 +128,11 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
                 
-                elif self.ptr % (NFFT // 8) == 0:
+                # elif self.ptr % (NFFT // 16) == 0:
                 # elif self.ptr % NFFT // 2 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                # elif self.ptr % (NFFT - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
+                elif ptr2 >= NFFT - overlap: # mod fft_window_shift = (1 - overlap / 100)
+                    ptr2 = 0
                     self.signal.emit()
 
     def get(self, num):
@@ -174,8 +177,8 @@ class AppGUI(QtGui.QWidget):
         self.init_ui()
         self.qt_connections()
 
-        self.hann_win = np.hanning(NFFT)
-        # self.hann_win = np.blackman(NFFT)
+        self.win = np.hanning(NFFT)
+        # self.win = np.blackman(NFFT)
 
 
         self.avg_sum = 0
@@ -203,7 +206,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(10, 20) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(13)
+        self.fft_chunks_slider.setValue(15)
         # self.fft_chunks_slider.setValue(128)
         NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
@@ -217,9 +220,10 @@ class AppGUI(QtGui.QWidget):
         self.overlap_slider = QtGui.QSlider()
         self.overlap_slider.setOrientation(QtCore.Qt.Horizontal)
         self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
-        self.overlap_slider.setValue(NFFT // 2)
+        overlap = NFFT // 2
+        self.overlap_slider.setValue(overlap)
         # self.fft_chunks_slider.setValue(128)
-        overlap = self.overlap_slider.value()
+        # overlap = self.overlap_slider.value()
         # self.overlap_slider.setTickPosition(QtGui.QSlider.TicksBelow) # too many ticks
         self.overlap_slider.setTickInterval(1)
         self.overlap_slider_label = QtGui.QLabel('FFT window overlap: {}'.format(overlap))
@@ -337,10 +341,13 @@ class AppGUI(QtGui.QWidget):
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
         NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
-        # self.hann_win = np.hanning(NFFT)
-        self.hann_win = np.blackman(NFFT)
+        self.win = np.hanning(NFFT)
+        # self.win = np.blackman(NFFT)
         self.avg_sum = 0
         self.avg_iters = 0
+        self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
+        overlap = NFFT // 2
+        self.overlap_slider.setValue(overlap)
 
     def downsample_slider_changed(self):
         global downsample
@@ -392,7 +399,8 @@ class AppGUI(QtGui.QWidget):
 
             # calculate fft
             # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-            a = (fft(y * self.hann_win) / NFFT)[:NFFT//2] # fft + chose only real part
+            a = (fft(y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
+            # a = (fft(y) / NFFT)[:NFFT//2] # fft + chose only real part
 
             # normalisation????
             # print(np.hanning(NFFT).shape, NFFT, y.shape)
@@ -417,8 +425,8 @@ class AppGUI(QtGui.QWidget):
                 self.img_array[-1] = a
             self.img.setImage(self.img_array, autoLevels=True)
 
-            self.signal_curve.setData(t, y)
-            self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+            # self.signal_curve.setData(t, y)
+            # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
             # self.fft_curve.setData(f, a)
         t1 = time.time()
         self.avg_sum += t1 - t0
@@ -426,7 +434,10 @@ class AppGUI(QtGui.QWidget):
         # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
         if self.avg_iters % 100 == 0:
             print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
-            print('big_dt=', (time.time() - big_dt) * 1000)
+        print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
+        if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
+            print('WARNING: too big overlap')
+
         big_dt = time.time()
 
         # print(t1 - t0)
