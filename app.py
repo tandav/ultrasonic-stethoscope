@@ -125,9 +125,10 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
                 
-                # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
+                # elif self.ptr % NFFT // 8 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
+                elif self.ptr % NFFT // 2 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                elif self.ptr % (NFFT - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
+                # elif self.ptr % (NFFT - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
                     self.signal.emit()
 
     def get(self, num):
@@ -161,7 +162,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 class AppGUI(QtGui.QWidget):
     read_collected = QtCore.pyqtSignal()
-    def __init__(self, plot_points_x, plot_points_y=256, signal_source='usb'):
+    def __init__(self, plot_points_x, plot_points_y=256):
         super(AppGUI, self).__init__()
         self.rate = 1
         # self.plot_points = plotpoints
@@ -200,10 +201,10 @@ class AppGUI(QtGui.QWidget):
         self.fft_slider_box = QtGui.QHBoxLayout()
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(8)
+        self.fft_chunks_slider.setRange(10, 20) # max is ser_reader_thread.chunks
+        self.fft_chunks_slider.setValue(13)
         # self.fft_chunks_slider.setValue(128)
-        NFFT = self.fft_chunks_slider.value() * chunkSize
+        NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
         self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(NFFT))
@@ -333,7 +334,7 @@ class AppGUI(QtGui.QWidget):
         global NFFT, chunkSize
         # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
-        NFFT = self.fft_chunks_slider.value() * chunkSize
+        NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
         # self.hann_win = np.hanning(NFFT)
         self.hann_win = np.blackman(NFFT)
@@ -366,7 +367,7 @@ class AppGUI(QtGui.QWidget):
 
     def updateplot(self):
         t0 = time.time()
-        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample, big_dt
 
         # while recording:
             # while 
@@ -424,6 +425,9 @@ class AppGUI(QtGui.QWidget):
         # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
         if self.avg_iters % 100 == 0:
             print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
+        print('big_dt=', (time.time() - big_dt) * 1000)
+        big_dt = time.time()
+
         # print(t1 - t0)
         # print('>>>>>')
 
@@ -548,7 +552,7 @@ def send_to_cuda():
 
 def main():
     # global params
-    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample
+    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample, big_dt
     recording        = False
     values_to_record = 0
     file_index       = 0
@@ -557,9 +561,11 @@ def main():
     k                = 1
     chunkSize        = 1024 // k
     chunks           = 2000 * k
+    big_dt = 0
+
     # init gui
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(plot_points_x=plot_points_x, signal_source='usb') # create class instance
+    gui = AppGUI(plot_points_x=plot_points_x) # create class instance
     gui.read_collected.connect(gui.updateplot)
 
     ser_reader_thread = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
