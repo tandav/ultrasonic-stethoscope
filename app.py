@@ -125,8 +125,8 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
                 
-                # elif self.ptr % NFFT // 8 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
-                elif self.ptr % NFFT // 2 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
+                elif self.ptr % (NFFT // 8) == 0:
+                # elif self.ptr % NFFT // 2 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
                     self.signal.emit()
@@ -425,7 +425,7 @@ class AppGUI(QtGui.QWidget):
         # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
         if self.avg_iters % 100 == 0:
             print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
-        print('big_dt=', (time.time() - big_dt) * 1000)
+            print('big_dt=', (time.time() - big_dt) * 1000)
         big_dt = time.time()
 
         # print(t1 - t0)
