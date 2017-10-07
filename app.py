@@ -127,8 +127,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 
                 # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                elif self.ptr % (NFFT * downsample - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
-                    # print(np.random.rand())                    
+                elif self.ptr % (NFFT - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
                     self.signal.emit()
 
     def get(self, num):
@@ -378,16 +377,16 @@ class AppGUI(QtGui.QWidget):
         # self.progress.setValue(0)
         # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
         # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-        t, y, rate = ser_reader_thread.get(num=NFFT * downsample) # MAX num=chunks*chunkSize (in SerialReader class)
+        t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
         # t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
         if rate > 0:
             # downsampling
-            y = decimate(y, downsample) # low-pass filter (antialiasing) + downsampling
+            # y = decimate(y, downsample) # low-pass filter (antialiasing) + downsampling
 
             # y = y.reshape(NFFT, downsample).mean(axis=1)
-            t = np.linspace(0, (NFFT - 1) * 1e-6 * downsample, NFFT)
-            rate /= downsample
+            t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+            # rate /= downsample
 
             # calculate fft
             # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
@@ -415,10 +414,6 @@ class AppGUI(QtGui.QWidget):
                 self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
                 self.img_array[-1] = a
             self.img.setImage(self.img_array, autoLevels=True)
-
-            # n = len(t)
-            # t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
-            # y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
 
             self.signal_curve.setData(t, y)
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
@@ -555,6 +550,7 @@ def main():
     recording        = False
     values_to_record = 0
     file_index       = 0
+    downsample       = 16
     plot_points_x    = 1024//2//2
     k                = 1
     chunkSize        = 1024 // k
