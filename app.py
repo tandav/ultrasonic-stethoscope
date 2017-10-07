@@ -15,9 +15,9 @@ import os
 import gzip
 import shutil
 import argparse
-import generator
+#import generator
 import pickle
-from viridis import viridis_data
+# from viridis import viridis_data
 
 class SerialReader(threading.Thread):  # inheritated from Thread
     """ Defines a thread for reading and buffering serial data.
@@ -128,7 +128,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 # elif self.ptr % NFFT // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 elif self.ptr % (NFFT * downsample - overlap) == 0: # mod fft_window_shift = (1 - overlap / 100)
-                    print(np.random.rand())                    
+                    # print(np.random.rand())                    
                     self.signal.emit()
 
     def get(self, num):
@@ -277,7 +277,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        self.layout.addWidget(self.signal_widget)
+        # self.layout.addWidget(self.signal_widget)
         # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
 
         self.record_box = QtGui.QHBoxLayout()
@@ -424,9 +424,9 @@ class AppGUI(QtGui.QWidget):
             self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
             # self.fft_curve.setData(f, a)
         t1 = time.time()
-        # self.avg_sum += t1 - t0
-        # self.avg_iters += 1
-        # print('dt=', self.avg_sum / self.avg_iters)
+        self.avg_sum += t1 - t0
+        self.avg_iters += 1
+        print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
         # print(t1 - t0)
         # print('>>>>>')
 
@@ -555,7 +555,6 @@ def main():
     recording        = False
     values_to_record = 0
     file_index       = 0
-    downsample       = 16
     plot_points_x    = 1024//2//2
     k                = 1
     chunkSize        = 1024 // k
