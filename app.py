@@ -421,7 +421,9 @@ class AppGUI(QtGui.QWidget):
         t1 = time.time()
         self.avg_sum += t1 - t0
         self.avg_iters += 1
-        print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
+        # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
+        if self.avg_iters % 100 == 0:
+            print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
         # print(t1 - t0)
         # print('>>>>>')
 
