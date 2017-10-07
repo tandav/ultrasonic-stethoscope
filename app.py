@@ -11,6 +11,7 @@ import sys
 import serial
 import serial.tools.list_ports
 import socket
+import signal
 import os
 import gzip
 import shutil
@@ -571,7 +572,7 @@ def main():
     ser_reader_thread = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
     ser_reader_thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     ser_reader_thread.start()
-
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(app.exec_())
 
 
