@@ -389,43 +389,21 @@ class AppGUI(QtGui.QWidget):
         t0 = time.time()
         global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample, big_dt
 
-        # while recording:
-            # while 
-            # old
-            # self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-            # time.sleep(0.3)
-        # else:
-        # self.progress.setValue(0)
-        # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
-        # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
         self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
-        # t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
         if self.rate > 0:
-            # downsampling
-            # y = decimate(y, downsample) # low-pass filter (antialiasing) + downsampling
-
-            # y = y.reshape(NFFT, downsample).mean(axis=1)
-            # t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
-            # rate /= downsample
-
-            # calculate fft
-            # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
             self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
-            # a = (fft(y) / NFFT)[:NFFT//2] # fft + chose only real part
 
-            # normalisation????
-            # print(np.hanning(NFFT).shape, NFFT, y.shape)
-            # sometimes there is a zero in the end of array
-            # a = a[:-1] 
-            # f = f[:-1]
-            
-            try:
-                self.a = np.abs(self.a) # magnitude
-                # a = np.log(a) # часто ошибка - сделать try, else
-                self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
-            except Exception as e:
-                print('log(0) error', e)
+            # try:
+            #     # в 2 строчки быстрее чем в одну! я замерял!
+            #     self.a = np.abs(self.a) # magnitude
+            #     self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
+            # except Exception as e:
+            #     print('log(0) error', e)
+
+            # в 2 строчки быстрее чем в одну! я замерял!
+            self.a = np.abs(self.a) # magnitude
+            self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
 
             # spectrogram
             self.img_array = np.roll(self.img_array, -1, 0)
