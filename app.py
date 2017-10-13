@@ -184,6 +184,7 @@ class AppGUI(QtGui.QWidget):
         self.qt_connections()
 
         self.a = np.zeros(NFFT // 2)
+        self.y = np.zeros(NFFT // 2)
         self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
         self.win = np.hanning(NFFT)
         # self.win = np.blackman(NFFT)
@@ -350,6 +351,7 @@ class AppGUI(QtGui.QWidget):
         NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
         self.a = np.zeros(NFFT // 2)
+        self.y = np.zeros(NFFT // 2)
         self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
         self.win = np.hanning(NFFT)
         # self.win = np.blackman(NFFT)
@@ -396,10 +398,10 @@ class AppGUI(QtGui.QWidget):
         # self.progress.setValue(0)
         # n = ser_reader_thread.chunks * ser_reader_thread.chunkSize # get whole buffer from SerialReader
         # t, y, rate = ser_reader_thread.get(num=n) # MAX num=chunks*chunkSize (in SerialReader class)
-        t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
+        self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
         # t, y, rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
-        if rate > 0:
+        if self.rate > 0:
             # downsampling
             # y = decimate(y, downsample) # low-pass filter (antialiasing) + downsampling
 
@@ -409,7 +411,7 @@ class AppGUI(QtGui.QWidget):
 
             # calculate fft
             # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-            self.a = (fft(y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
+            self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
             # a = (fft(y) / NFFT)[:NFFT//2] # fft + chose only real part
 
             # normalisation????
@@ -435,15 +437,15 @@ class AppGUI(QtGui.QWidget):
                 self.img_array[-1] = self.a
             self.img.setImage(self.img_array, autoLevels=True)
 
-            # self.signal_curve.setData(self.t, y)
+            # self.signal_curve.setData(self.t, self.y)
             # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-            # self.fft_curve.setData(f, a)
+            # self.fft_curve.setData(f, self.a)
         t1 = time.time()
         self.avg_sum += t1 - t0
         self.avg_iters += 1
         # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
-        if self.avg_iters % 100 == 0:
-            print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
+        if self.avg_iters % 10 == 0:
+            print('avg_dt=', self.avg_sum * 1000 / self.avg_iters, 'iters=', self.avg_iters)
         print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
         if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
             print('WARNING: too big overlap')
