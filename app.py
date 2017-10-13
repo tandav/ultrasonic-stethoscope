@@ -71,8 +71,9 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
         ptr2 = 0
+        downsample = 8
 
-        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui, downsample, overlap
+        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui, overlap
 
         while True:
             # see whether an exit was requested
@@ -85,6 +86,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
             data = port.read(self.chunkSize*2) # *2 probably because of datatypes/bytes/things like that
             # convert data to 16bit int numpy array TODO: convert here to -1..+1 values, instead voltage 0..3.3
             data = np.fromstring(data, dtype=np.uint16)
+            data = decimate(data, downsample) # low-pass filter (antialiasing) + downsampling
 
             # keep track of the acquisition rate in samples-per-second
             count += self.chunkSize
@@ -104,9 +106,9 @@ class SerialReader(threading.Thread):  # inheritated from Thread
             # write the new chunk into the circular buffer
             # and update the buffer pointer
             with dataMutex:
-                buffer[self.ptr:self.ptr+self.chunkSize] = data
-                self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
-                ptr2 += self.chunkSize
+                buffer[self.ptr:self.ptr+self.chunkSize//downsample] = data
+                self.ptr = (self.ptr + self.chunkSize//downsample) % buffer.shape[0]
+                ptr2 += self.chunkSize//downsample
 
                 if sps is not None:
                     self.sps = sps
