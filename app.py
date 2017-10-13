@@ -170,7 +170,11 @@ class AppGUI(QtGui.QWidget):
     read_collected = QtCore.pyqtSignal()
     def __init__(self, plot_points_x, plot_points_y=256):
         super(AppGUI, self).__init__()
+        # global NFFT
+        
         self.rate = 1
+
+
         # self.plot_points = plotpoints
         self.plot_points_y = plot_points_y
         self.plot_points_x = plot_points_x
@@ -179,6 +183,8 @@ class AppGUI(QtGui.QWidget):
         self.init_ui()
         self.qt_connections()
 
+        self.a = np.zeros(NFFT // 2)
+        self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
         self.win = np.hanning(NFFT)
         # self.win = np.blackman(NFFT)
 
@@ -343,6 +349,8 @@ class AppGUI(QtGui.QWidget):
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
         NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
+        self.a = np.zeros(NFFT // 2)
+        self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
         self.win = np.hanning(NFFT)
         # self.win = np.blackman(NFFT)
         self.avg_sum = 0
@@ -396,12 +404,12 @@ class AppGUI(QtGui.QWidget):
             # y = decimate(y, downsample) # low-pass filter (antialiasing) + downsampling
 
             # y = y.reshape(NFFT, downsample).mean(axis=1)
-            t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+            # t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
             # rate /= downsample
 
             # calculate fft
             # f = np.fft.rfftfreq(NFFT - 1, d=1./rate)
-            a = (fft(y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
+            self.a = (fft(y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
             # a = (fft(y) / NFFT)[:NFFT//2] # fft + chose only real part
 
             # normalisation????
@@ -411,23 +419,23 @@ class AppGUI(QtGui.QWidget):
             # f = f[:-1]
             
             try:
-                a = np.abs(a) # magnitude
+                self.a = np.abs(self.a) # magnitude
                 # a = np.log(a) # часто ошибка - сделать try, else
-                a = 20 * np.log10(a) # часто ошибка - сделать try, else
+                self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
             except Exception as e:
                 print('log(0) error', e)
 
             # spectrogram
             self.img_array = np.roll(self.img_array, -1, 0)
-            if len(a) > self.plot_points_y:
-                self.img_array[-1] = a[:self.plot_points_y]
+            if len(self.a) > self.plot_points_y:
+                self.img_array[-1] = self.a[:self.plot_points_y]
             else:
                 self.plot_points_y = len(a)
                 self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-                self.img_array[-1] = a
+                self.img_array[-1] = self.a
             self.img.setImage(self.img_array, autoLevels=True)
 
-            # self.signal_curve.setData(t, y)
+            # self.signal_curve.setData(self.t, y)
             # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
             # self.fft_curve.setData(f, a)
         t1 = time.time()
@@ -586,7 +594,7 @@ def main():
     ser_reader_thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     ser_reader_thread.start()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == '__main__':
