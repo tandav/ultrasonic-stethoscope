@@ -415,15 +415,8 @@ class AppGUI(QtGui.QWidget):
 
         rate = ser_reader_thread.sps
         while recording:
-            # print('fff')
-            try:
-                # print(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time), recording)
-                self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-                # print(self.progress.value())
-                QApplication.processEvents() 
-
-            except Exception as e:
-                print(e)
+            self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+            QApplication.processEvents() 
             time.sleep(0.01)
         self.progress.setValue(0)
 
