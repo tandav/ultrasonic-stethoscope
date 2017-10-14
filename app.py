@@ -405,6 +405,7 @@ class AppGUI(QtGui.QWidget):
         # print(t1 - t0)
         # print('>>>>>')
 
+    @QtCore.pyqtSlot()
     def update_record_progress_bar(self):
         global ser_reader_thread, recording, values_to_record, record_start_time
 
