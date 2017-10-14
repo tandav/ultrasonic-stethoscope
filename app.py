@@ -391,33 +391,30 @@ class AppGUI(QtGui.QWidget):
 
         self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
-        if self.rate > 0:
-            self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
+        # if self.rate > 0:
 
-            # try:
-            #     # в 2 строчки быстрее чем в одну! я замерял!
-            #     self.a = np.abs(self.a) # magnitude
-            #     self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
-            # except Exception as e:
-            #     print('log(0) error', e)
 
-            # в 2 строчки быстрее чем в одну! я замерял!
-            self.a = np.abs(self.a) # magnitude
-            self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
+        self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
 
-            # spectrogram
-            self.img_array = np.roll(self.img_array, -1, 0)
-            if len(self.a) > self.plot_points_y:
-                self.img_array[-1] = self.a[:self.plot_points_y]
-            else:
-                self.plot_points_y = len(a)
-                self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-                self.img_array[-1] = self.a
-            self.img.setImage(self.img_array, autoLevels=True)
+        # в 2 строчки быстрее чем в одну! я замерял!
+        self.a = np.abs(self.a) # magnitude
+        self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
 
-            # self.signal_curve.setData(self.t, self.y)
-            # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-            # self.fft_curve.setData(f, self.a)
+        # spectrogram
+        self.img_array = np.roll(self.img_array, -1, 0)
+        if len(self.a) > self.plot_points_y:
+            self.img_array[-1] = self.a[:self.plot_points_y]
+        else:
+            self.plot_points_y = len(a)
+            self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+            self.img_array[-1] = self.a
+        self.img.setImage(self.img_array, autoLevels=True)
+
+        # self.signal_curve.setData(self.t, self.y)
+        # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
+        # self.fft_curve.setData(f, self.a)
+
+        
         t1 = time.time()
         self.avg_sum += t1 - t0
         self.avg_iters += 1
