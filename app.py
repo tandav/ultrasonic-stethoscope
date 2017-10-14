@@ -343,6 +343,8 @@ class AppGUI(QtGui.QWidget):
         self.plot_points_y_slider.valueChanged.connect(self.plot_points_y_slider_changed)
         self.overlap_slider.valueChanged.connect(self.overlap_slider_slider_changed)
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
+        self.read_collected.connect(self.updateplot)
+
 
     def fft_slider_changed(self):
         global NFFT, chunkSize
@@ -414,7 +416,7 @@ class AppGUI(QtGui.QWidget):
         # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
         # self.fft_curve.setData(f, self.a)
 
-        
+
         t1 = time.time()
         self.avg_sum += t1 - t0
         self.avg_iters += 1
@@ -564,7 +566,6 @@ def main():
     # init gui
     app = QtGui.QApplication(sys.argv)
     gui = AppGUI(plot_points_x=plot_points_x) # create class instance
-    gui.read_collected.connect(gui.updateplot)
 
     ser_reader_thread = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
     ser_reader_thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
