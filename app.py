@@ -72,7 +72,6 @@ class SerialReader(threading.Thread):
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
         ptr2 = 0
-        downsample = 8
 
         global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui, overlap
 
@@ -87,7 +86,6 @@ class SerialReader(threading.Thread):
             data = port.read(self.chunkSize*2) # *2 probably because of datatypes/bytes/things like that
             # convert data to 16bit int numpy array TODO: convert here to -1..+1 values, instead voltage 0..3.3
             data = np.fromstring(data, dtype=np.uint16)
-            data = decimate(data, downsample) # low-pass filter (antialiasing) + downsampling
 
             # keep track of the acquisition rate in samples-per-second
             count += self.chunkSize
@@ -107,9 +105,9 @@ class SerialReader(threading.Thread):
             # write the new chunk into the circular buffer
             # and update the buffer pointer
             with dataMutex:
-                buffer[self.ptr:self.ptr+self.chunkSize//downsample] = data
-                self.ptr = (self.ptr + self.chunkSize//downsample) % buffer.shape[0]
-                ptr2 += self.chunkSize//downsample
+                buffer[self.ptr:self.ptr+self.chunkSize] = data
+                self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
+                ptr2 += self.chunkSize
 
                 if sps is not None:
                     self.sps = sps
@@ -207,7 +205,7 @@ class AppGUI(QtGui.QWidget):
         # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
-        global record_name, NFFT, chunkSize, downsample, overlap
+        global record_name, NFFT, chunkSize, overlap
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
@@ -242,19 +240,6 @@ class AppGUI(QtGui.QWidget):
         self.overlap_slider_box.addWidget(self.overlap_slider_label)
         self.overlap_slider_box.addWidget(self.overlap_slider)
         self.layout.addLayout(self.overlap_slider_box)
-
-        self.downsample_slider_box = QtGui.QHBoxLayout()
-        self.downsample_slider = QtGui.QSlider()
-        self.downsample_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.downsample_slider.setRange(1, 128) # max is ser_reader_thread.chunks
-        self.downsample_slider.setValue(16)
-        downsample = self.downsample_slider.value()
-        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
-        self.downsample_slider.setTickInterval(4)
-        self.downsample_slider_label = QtGui.QLabel('downsample: {}'.format(downsample))
-        self.downsample_slider_box.addWidget(self.downsample_slider_label)
-        self.downsample_slider_box.addWidget(self.downsample_slider)
-        self.layout.addLayout(self.downsample_slider_box)
 
         self.plot_points_x_slider_box = QtGui.QHBoxLayout()
         self.plot_points_x_slider = QtGui.QSlider()
@@ -341,7 +326,6 @@ class AppGUI(QtGui.QWidget):
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
         self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
-        self.downsample_slider.valueChanged.connect(self.downsample_slider_changed)
         self.plot_points_x_slider.valueChanged.connect(self.plot_points_x_slider_changed)
         self.plot_points_y_slider.valueChanged.connect(self.plot_points_y_slider_changed)
         self.overlap_slider.valueChanged.connect(self.overlap_slider_slider_changed)
@@ -366,11 +350,6 @@ class AppGUI(QtGui.QWidget):
         overlap = NFFT // 2
         self.overlap_slider.setValue(overlap)
 
-    def downsample_slider_changed(self):
-        global downsample
-        downsample = self.downsample_slider.value()
-        self.downsample_slider_label.setText('downsample: {}'.format(downsample))
-
     def plot_points_x_slider_changed(self):
         self.plot_points_x = self.plot_points_x_slider.value()
         self.plot_points_x_slider_label.setText('plot_points_x: {}'.format(self.plot_points_x))
@@ -393,13 +372,12 @@ class AppGUI(QtGui.QWidget):
     @QtCore.pyqtSlot()
     def updateplot(self):
         t0 = time.time()
-        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample, big_dt
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, big_dt
 
         self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
         # if self.rate > 0:
 
-        print(downsample)
         self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
 
         # в 2 строчки быстрее чем в одну! я замерял!
@@ -557,11 +535,10 @@ def send_to_cuda():
 
 def main():
     # globals
-    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample, big_dt
+    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, big_dt
     recording        = False
     values_to_record = 0
     file_index       = 0
-    downsample       = 16
     plot_points_x    = 256
     chunkSize        = 1024
     chunks           = 2000
