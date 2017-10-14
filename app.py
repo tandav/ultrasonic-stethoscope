@@ -1,5 +1,7 @@
 from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5.QtGui import QApplication
 from scipy.fftpack import fft
+from scipy.signal import decimate
 from pathlib import Path
 import pyqtgraph as pg
 import numpy as np
@@ -9,19 +11,18 @@ import sys
 import serial
 import serial.tools.list_ports
 import socket
+import signal
 import os
 import gzip
 import shutil
 import argparse
-import generator
-import pyfftw
 import pickle
 
-class SerialReader(threading.Thread):  # inheritated from Thread
+class SerialReader(threading.Thread):
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, chunkSize=1024, chunks=5000):
+    def __init__(self, data_collected_signal, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -36,6 +37,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
         self.values_recorded = 0
+        self.data_collected_signal = data_collected_signal
 
     def find_device_and_return_port(self):
         for i in range(61):
@@ -66,8 +68,9 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         sps = None
         lastUpdate = time.time()
         # lastUpdate = pg.ptime.time()
+        ptr2 = 0
 
-        global record_buffer, recording, values_to_record, t2, record_end_time
+        global record_buffer, recording, values_to_record, t2, record_end_time, NFFT, gui, overlap
 
         while True:
             # see whether an exit was requested
@@ -77,8 +80,8 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                     break
 
             # read one full chunk from the serial port
-            data = port.read(self.chunkSize*2) # *2 probably becaus of datatypes/bytes/things like that
-            # convert data to 16bit int numpy array
+            data = port.read(self.chunkSize*2) # *2 probably because of datatypes/bytes/things like that
+            # convert data to 16bit int numpy array TODO: convert here to -1..+1 values, instead voltage 0..3.3
             data = np.fromstring(data, dtype=np.uint16)
 
             # keep track of the acquisition rate in samples-per-second
@@ -101,12 +104,12 @@ class SerialReader(threading.Thread):  # inheritated from Thread
             with dataMutex:
                 buffer[self.ptr:self.ptr+self.chunkSize] = data
                 self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
+                ptr2 += self.chunkSize
 
                 if sps is not None:
                     self.sps = sps
 
                 if recording:
-                    # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
                     record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
                     self.values_recorded += self.chunkSize
 
@@ -117,6 +120,10 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                         values_to_record = 0
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
+                
+                elif ptr2 >= NFFT - overlap:
+                    ptr2 = 0
+                    self.data_collected_signal.emit()
 
     def get(self, num):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -138,7 +145,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         # Convert array to float and rescale to voltage.
         # Assume 3.3V / 12bits
         # (we need calibration data to do a better job on this)
-        data = data.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1 # TODO normalise here to [-1, 1]
+        data = data.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1
         return np.linspace(0, (num-1)*1e-6, num), data, rate
 
     def exit(self):
@@ -148,51 +155,93 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
-    def __init__(self, plotpoints, chunkSize=1024, signal_source='usb'):
-        super(AppGUI, self).__init__()
+    data_collected = QtCore.pyqtSignal()
+    chunk_recorded = QtCore.pyqtSignal()
 
-        self.chunkSize = chunkSize
+    def __init__(self, plot_points_x, plot_points_y=256):
+        super(AppGUI, self).__init__()
+        # global NFFT
+        
         self.rate = 1
-        self.plot_points = plotpoints
-        self.fft_window = self.chunkSize
+
+        self.plot_points_y = plot_points_y
+        self.plot_points_x = plot_points_x
+        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
 
         self.init_ui()
-        self.init_pyfftw()
         self.qt_connections()
+        
+        self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+        self.y = np.zeros(NFFT)
+        self.f = np.zeros(NFFT // 2)
+        self.a = np.zeros(NFFT // 2)
+        self.win = np.hanning(NFFT)
 
-        self.timer = pg.QtCore.QTimer()
-        if signal_source == 'usb':
-            self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
-            self.updateplot()
-        elif signal_source == 'virtual_generator':
-            self.timer.timeout.connect(self.updateplot_virtual_generator) # updateplot on each timertick
-            self.updateplot_virtual_generator()
-        else:
-            print('no signal source')
-        self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
+        self.avg_sum = 0
+        self.avg_iters = 0
 
     def init_ui(self):
-        global record_name
+        global record_name, NFFT, chunkSize, overlap
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('foreground', 'k')
 
         self.setWindowTitle('Signal from stethoscope')
         self.layout = QtGui.QVBoxLayout()
 
-        
-
         self.fft_slider_box = QtGui.QHBoxLayout()
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.fft_chunks_slider.setRange(1, 128) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(64)
-        self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
+        self.fft_chunks_slider.setRange(10, 20) # max is ser_reader_thread.chunks
+        self.fft_chunks_slider.setValue(15)
+        # self.fft_chunks_slider.setValue(128)
+        NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
-        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(self.fft_chunks_slider.value() * self.chunkSize))
+        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(NFFT))
         self.fft_slider_box.addWidget(self.fft_slider_label)
         self.fft_slider_box.addWidget(self.fft_chunks_slider)
         self.layout.addLayout(self.fft_slider_box)
+
+        self.overlap_slider_box = QtGui.QHBoxLayout()
+        self.overlap_slider = QtGui.QSlider()
+        self.overlap_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
+        overlap = NFFT // 2
+        self.overlap_slider.setValue(overlap)
+        # self.fft_chunks_slider.setValue(128)
+        # overlap = self.overlap_slider.value()
+        # self.overlap_slider.setTickPosition(QtGui.QSlider.TicksBelow) # too many ticks
+        self.overlap_slider.setTickInterval(1)
+        self.overlap_slider_label = QtGui.QLabel('FFT window overlap: {}'.format(overlap))
+        self.overlap_slider_box.addWidget(self.overlap_slider_label)
+        self.overlap_slider_box.addWidget(self.overlap_slider)
+        self.layout.addLayout(self.overlap_slider_box)
+
+        self.plot_points_x_slider_box = QtGui.QHBoxLayout()
+        self.plot_points_x_slider = QtGui.QSlider()
+        self.plot_points_x_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.plot_points_x_slider.setRange(16, 8192) # max is ser_reader_thread.chunks
+        self.plot_points_x_slider.setValue(256)
+        self.plot_points_x = self.plot_points_x_slider.value()
+        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.plot_points_x_slider.setTickInterval(16)
+        self.plot_points_x_slider_label = QtGui.QLabel('plot_points_x: {}'.format(self.plot_points_x))
+        self.plot_points_x_slider_box.addWidget(self.plot_points_x_slider_label)
+        self.plot_points_x_slider_box.addWidget(self.plot_points_x_slider)
+        self.layout.addLayout(self.plot_points_x_slider_box)
+
+        self.plot_points_y_slider_box = QtGui.QHBoxLayout()
+        self.plot_points_y_slider = QtGui.QSlider()
+        self.plot_points_y_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.plot_points_y_slider.setRange(16, 8192) # max is ser_reader_thread.chunks
+        self.plot_points_y_slider.setValue(256)
+        self.plot_points_y = self.plot_points_y_slider.value()
+        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.plot_points_y_slider.setTickInterval(16)
+        self.plot_points_y_slider_label = QtGui.QLabel('plot_points_y: {}'.format(self.plot_points_y))
+        self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider_label)
+        self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider)
+        self.layout.addLayout(self.plot_points_y_slider_box)
 
         self.signal_widget = pg.PlotWidget()
         self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
@@ -202,19 +251,20 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget = pg.PlotWidget(title='FFT')
         self.fft_widget.showGrid(x=True, y=True, alpha=0.1)
         self.fft_widget.setLogMode(x=True, y=False)
+        # self.fft_widget.setLogMode(x=False, y=False)
         # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
         self.layout.addWidget(self.signal_widget)
-        self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        self.layout.addWidget(self.fft_widget)
 
         self.record_box = QtGui.QHBoxLayout()
-        self.spin = pg.SpinBox( value=self.chunkSize*1300, # if change, change also in suffix 
+        self.spin = pg.SpinBox( value=chunkSize*1300, # if change, change also in suffix 
                                 int=True,
-                                bounds=[self.chunkSize*100, None],
-                                suffix=' Values to record ({:.2f} seconds)'.format(self.chunkSize * 1300 / 666000),
-                                step=self.chunkSize*100, decimals=12, siPrefix=True)
+                                bounds=[chunkSize*100, None],
+                                suffix=' Values to record ({:.2f} seconds)'.format(chunkSize * 1300 / 666000),
+                                step=chunkSize*100, decimals=12, siPrefix=True)
         self.record_box.addWidget(self.spin)
         self.record_name_textbox = QtGui.QLineEdit(self)
         self.record_name_textbox.setText('lungs')
@@ -227,6 +277,24 @@ class AppGUI(QtGui.QWidget):
         self.progress = QtGui.QProgressBar()
         self.layout.addWidget(self.progress)
 
+
+        self.glayout = pg.GraphicsLayoutWidget()
+        # self.view = self.glayout.addViewBox(lockAspect=False)
+        self.view = self.glayout.addViewBox(lockAspect=True)
+        self.img = pg.ImageItem(border='w')
+        self.view.addItem(self.img)
+        # self.view.setAspectLocked()
+        # bipolar colormap
+        pos = np.array([0., 1., 0.5, 0.25, 0.75])
+        color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], [0, 0, 255, 255], [255, 0, 0, 255]], dtype=np.ubyte)
+        cmap = pg.ColorMap(pos, color)
+        lut = cmap.getLookupTable(0.0, 1.0, 256)
+        # set colormap
+        self.img.setLookupTable(lut)
+        # self.img.setLevels([-140, -50])
+        self.img.setLevels([-50, 20])
+        self.layout.addWidget(self.glayout)
+
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 1000, 600)
         self.show()
@@ -235,109 +303,112 @@ class AppGUI(QtGui.QWidget):
         self.record_values_button.clicked.connect(self.record_values_button_clicked)
         self.spin.valueChanged.connect(self.spinbox_value_changed)
         self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
+        self.plot_points_x_slider.valueChanged.connect(self.plot_points_x_slider_changed)
+        self.plot_points_y_slider.valueChanged.connect(self.plot_points_y_slider_changed)
+        self.overlap_slider.valueChanged.connect(self.overlap_slider_slider_changed)
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
-    
-    def init_pyfftw(self):
-        my_file = Path("wisdom")
-        if my_file.is_file():
-            with open('wisdom', 'rb') as file:
-                wisdom = pickle.load(file)
-            pyfftw.import_wisdom(wisdom)
-        
-        self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
-        self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
+        self.data_collected.connect(self.updateplot)
+        self.chunk_recorded.connect(self.update_record_progress_bar)
 
     def fft_slider_changed(self):
-        # self.slider_1_label = QtGui.QLabel(str(self.slider.value()))
-        self.fft_window = self.fft_chunks_slider.value() * self.chunkSize
-        self.fft_slider_label.setText('FFT window: {}'.format(self.fft_window))
-        
-        # update pyFFTW
-        self.A = pyfftw.empty_aligned(self.fft_window, dtype='float32')
-        self.py_fft_w = pyfftw.builders.rfft(self.A, threads=3) # вот 3 треда тащят, планнеры тоже разные чекни на продакшене еще раз
+        global NFFT, chunkSize
+        # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
+        # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
+        NFFT = 2 ** self.fft_chunks_slider.value()
+        self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
+        self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+        self.y = np.zeros(NFFT)
+        self.f = np.zeros(NFFT // 2)
+        self.a = np.zeros(NFFT // 2)
+        self.win = np.hanning(NFFT)
+        # self.win = np.blackman(NFFT)
+        self.avg_sum = 0
+        self.avg_iters = 0
+        self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
+        overlap = NFFT // 2
+        self.overlap_slider.setValue(overlap)
+
+    def plot_points_x_slider_changed(self):
+        self.plot_points_x = self.plot_points_x_slider.value()
+        self.plot_points_x_slider_label.setText('plot_points_x: {}'.format(self.plot_points_x))
+        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+
+    def plot_points_y_slider_changed(self):
+        self.plot_points_y = self.plot_points_y_slider.value()
+        self.plot_points_y_slider_label.setText('plot_points_y: {}'.format(self.plot_points_y))
+        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+
+    def overlap_slider_slider_changed(self):
+        global overlap
+        overlap = self.overlap_slider.value()
+        self.overlap_slider_label.setText('FFT window overlap: {}'.format(overlap))
 
     def record_name_changed(self):
         global record_name
         record_name = self.record_name_textbox.text()
 
+    @QtCore.pyqtSlot()
     def updateplot(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time
-        
-        if recording:
-            self.progress.setValue(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
+        t0 = time.time()
+        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, big_dt
+
+        self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
+
+        self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
+
+        # в 2 строчки быстрее чем в одну! я замерял!
+        self.a = np.abs(self.a) # magnitude
+        self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
+
+        # spectrogram
+        self.img_array = np.roll(self.img_array, -1, 0)
+        if len(self.a) > self.plot_points_y:
+            self.img_array[-1] = self.a[:self.plot_points_y]
         else:
-            self.progress.setValue(0)
-            t, y, rate = ser_reader_thread.get(num=ser_reader_thread.chunks*ser_reader_thread.chunkSize) # MAX num=chunks*chunkSize (in SerialReader class)
-
-            if rate > 0:
-                # calculate fft
-                # # numpy.fft
-                # f = np.fft.rfftfreq(n, d=1./rate)
-                # a = np.fft.rfft(v)
-
-                # scipy.fftpack
-                # f = np.fft.rfftfreq(n - 1, d=1./rate)
-                # a = fft(y)[:n//2] # fft + chose only real part
-                # chunkSize = ser_reader_thread.chunkSize
-                # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
-                # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
-                
-                # pyFFTW
-                # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
-                self.A[:] = y[-self.fft_window:]
-                a = self.py_fft_w()
-    
-                a = a[:-1] # sometimes there is a zero in the end of array
-                f = f[:-1]
-                a = np.abs(a / self.fft_window) # normalisation
-                a = np.log(a) # часто ошибка - сделать try, else
-
-                n = len(t)
-                t = t.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
-                y = y.reshape((self.plot_points, n // self.plot_points)).mean(axis=1)
-
-                self.signal_curve.setData(t, y)
-                self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-                self.fft_curve.setData(f, a)
-
-    def updateplot_virtual_generator(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time
+            self.plot_points_y = len(a)
+            self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+            self.img_array[-1] = self.a
+        self.img.setImage(self.img_array, autoLevels=True)
         
-        t, y, rate = generator.signal(freq=40, rate=44100, seconds=1)
+        pp = 4096*2 # number of points to plot
+        t_for_plot = self.t.reshape(pp, NFFT // pp).mean(axis=1)
+        y_for_plot = self.y.reshape(pp, NFFT // pp).mean(axis=1)
+
+        self.signal_curve.setData(t_for_plot, y_for_plot)
+        self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%self.rate)
+        if self.rate > 0:
+            self.f = np.fft.rfftfreq(NFFT - 1, d = 1. / self.rate)
+            f_for_plot = self.f.reshape(pp, NFFT // pp // 2).mean(axis=1)
+            a_for_plot = self.a.reshape(pp, NFFT // pp // 2).mean(axis=1)
+            self.fft_curve.setData(f_for_plot, a_for_plot)
 
 
-        if recording:
+
+        t1 = time.time()
+        self.avg_sum += t1 - t0
+        self.avg_iters += 1
+        # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
+        if self.avg_iters % 10 == 0:
+            print('avg_dt=', self.avg_sum * 1000 / self.avg_iters, 'iters=', self.avg_iters)
+        print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
+        if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
+            print('WARNING: too big overlap')
+
+        big_dt = time.time()
+
+        # print(t1 - t0)
+        # print('>>>>>')
+
+    @QtCore.pyqtSlot()
+    def update_record_progress_bar(self):
+        global ser_reader_thread, recording, values_to_record, record_start_time
+
+        rate = ser_reader_thread.sps
+        while recording:
             self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-        else:
-            self.progress.setValue(0)
-
-            if rate > 0:
-                # calculate fft
-                # # numpy.fft
-                # f = np.fft.rfftfreq(n, d=1./rate)
-                # a = np.fft.rfft(v)
-
-                # scipy.fftpack
-                # f = np.fft.rfftfreq(n - 1, d=1./rate)
-                # a = fft(y)[:n//2] # fft + chose only real part
-                # chunkSize = ser_reader_thread.chunkSize
-                # f = np.fft.rfftfreq(self.fft_window - 1, d=1./rate)
-                # a = fft(y[-self.fft_window:])[:self.fft_window//2] # fft + chose only real part
-
-                # pyFFTW
-                # # f = np.log(np.fft.rfftfreq(n, d=1. / rate))
-                f = np.fft.rfftfreq(self.fft_window, d=1. / rate)
-                self.A[:] = y[-self.fft_window:]
-                a = self.py_fft_w()
-
-                a = np.abs(a / self.fft_window) # normalisation
-                a = np.log(a)
-
-                self.signal_curve.setData(t, y)
-                self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-
-                self.fft_curve.setData(f, a)    
+            QApplication.processEvents() 
+            time.sleep(0.01)
+        self.progress.setValue(0)
 
     def spinbox_value_changed(self):
         self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
@@ -355,7 +426,11 @@ class AppGUI(QtGui.QWidget):
         values_to_record = self.spin.value()
         record_buffer = np.empty(values_to_record)
         recording = True
+
         record_start_time = time.time()
+        self.chunk_recorded.emit()
+
+        # self.update_record_progress_bar()
 
     def closeEvent(self, event):
         global ser_reader_thread
@@ -441,45 +516,29 @@ def send_to_cuda():
 
 
 def main():
-    # argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--plotpoints', help='number of points to draw')
-    parser.add_argument('-g', '--generator', action='store_true' ,help='gets signal for plots from virtual generator')
-    args = parser.parse_args()
-
-    # global params
-    global recording, values_to_record, file_index
+    # globals
+    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, big_dt
     recording        = False
     values_to_record = 0
     file_index       = 0
+    plot_points_x    = 256
+    chunkSize        = 1024
+    chunks           = 2000
+    big_dt = 0
 
     # init gui
     app = QtGui.QApplication(sys.argv)
-    if args.generator:
-        gui = AppGUI(downsample=downsample, chunkSize=1024, signal_source='virtual_generator') # create class instance
-    else:
-        # serialreader params
-        global ser_reader_thread, chunkSize # thread to read and buffer serial data.
-        k = 1
-        chunkSize = 1024 // k
-        chunks    = 2000 * k
+    gui = AppGUI(plot_points_x=plot_points_x) # create class instance
 
-        plotpoints = 2048
-        if args.plotpoints:
-            if (chunkSize * chunks) % int(args.plotpoints) == 0:
-                plotpoints = int(args.plotpoints)
-            else:
-                print('chunkSize * chunks \% plotpoints != 0. chunkSize={0}, chunks={1}. plotpoints was set to {2} (default)'.format(chunkSize, chunks, plotpoints))
+    # init and run serial arduino reader
+    ser_reader_thread = SerialReader(data_collected_signal=gui.data_collected, 
+                                     chunkSize=chunkSize,
+                                     chunks=chunks)
+    ser_reader_thread.start()
 
-
-        # chunkSize = 1024
-        # chunks    = 3000
-        ser_reader_thread           = SerialReader(chunkSize=chunkSize, chunks=chunks)
-        ser_reader_thread.daemon    = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
-        ser_reader_thread.start()
-        gui = AppGUI(plotpoints=plotpoints, chunkSize=ser_reader_thread.chunkSize, signal_source='usb') # create class instance
-
-    sys.exit(app.exec_())
+    # app exit
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    sys.exit(app.exec())
 
 
 if __name__ == '__main__':
