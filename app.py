@@ -20,11 +20,11 @@ import argparse
 import pickle
 # from viridis import viridis_data
 
-class SerialReader(threading.Thread):  # inheritated from Thread
+class SerialReader(threading.Thread):
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, signal, chunkSize=1024, chunks=5000):
+    def __init__(self, data_collected_signal, chunk_recorded_signal, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -39,7 +39,8 @@ class SerialReader(threading.Thread):  # inheritated from Thread
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
         self.values_recorded = 0
-        self.signal = signal
+        self.data_collected_signal = data_collected_signal
+        self.chunk_recorded_signal = chunk_recorded_signal
 
     def find_device_and_return_port(self):
         for i in range(61):
@@ -117,7 +118,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 #     self.signal.emit()
 
                 if recording:
-                    self.signal.emit()
+                    # self.chunk_recorded_signal.emit()
                     # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
                     record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
                     self.values_recorded += self.chunkSize
@@ -135,7 +136,7 @@ class SerialReader(threading.Thread):  # inheritated from Thread
                 # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 elif ptr2 >= NFFT - overlap: # mod fft_window_shift = (1 - overlap / 100)
                     ptr2 = 0
-                    self.signal.emit()
+                    self.data_collected_signal.emit()
 
     def get(self, num):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -167,7 +168,9 @@ class SerialReader(threading.Thread):  # inheritated from Thread
 
 
 class AppGUI(QtGui.QWidget):
-    read_collected = QtCore.pyqtSignal()
+    data_collected = QtCore.pyqtSignal()
+    chunk_recorded = QtCore.pyqtSignal()
+
     def __init__(self, plot_points_x, plot_points_y=256):
         super(AppGUI, self).__init__()
         # global NFFT
@@ -343,7 +346,8 @@ class AppGUI(QtGui.QWidget):
         self.plot_points_y_slider.valueChanged.connect(self.plot_points_y_slider_changed)
         self.overlap_slider.valueChanged.connect(self.overlap_slider_slider_changed)
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
-        self.read_collected.connect(self.updateplot)
+        self.data_collected.connect(self.updateplot)
+        self.chunk_recorded.connect(self.update_record_progress_bar)
 
     def fft_slider_changed(self):
         global NFFT, chunkSize
@@ -386,6 +390,7 @@ class AppGUI(QtGui.QWidget):
         global record_name
         record_name = self.record_name_textbox.text()
 
+    @QtCore.pyqtSlot()
     def updateplot(self):
         t0 = time.time()
         global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, downsample, big_dt
@@ -394,7 +399,7 @@ class AppGUI(QtGui.QWidget):
 
         # if self.rate > 0:
 
-
+        print(downsample)
         self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
 
         # в 2 строчки быстрее чем в одну! я замерял!
@@ -567,7 +572,10 @@ def main():
     gui = AppGUI(plot_points_x=plot_points_x) # create class instance
 
     # init and run serial arduino reader
-    ser_reader_thread = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
+    ser_reader_thread = SerialReader(data_collected_signal=gui.data_collected, 
+                                     chunk_recorded_signal=gui.chunk_recorded, 
+                                     chunkSize=chunkSize,
+                                     chunks=chunks)
     ser_reader_thread.start()
 
     # app exit
