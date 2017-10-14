@@ -559,10 +559,9 @@ def main():
     values_to_record = 0
     file_index       = 0
     downsample       = 16
-    plot_points_x    = 1024//2//2
-    k                = 1
-    chunkSize        = 1024 // k
-    chunks           = 2000 * k
+    plot_points_x    = 256
+    chunkSize        = 1024
+    chunks           = 2000
     big_dt = 0
 
     # init gui
