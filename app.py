@@ -16,9 +16,7 @@ import os
 import gzip
 import shutil
 import argparse
-#import generator
 import pickle
-# from viridis import viridis_data
 
 class SerialReader(threading.Thread):
     """ Defines a thread for reading and buffering serial data.
@@ -166,34 +164,21 @@ class AppGUI(QtGui.QWidget):
         
         self.rate = 1
 
-
-        # self.plot_points = plotpoints
         self.plot_points_y = plot_points_y
         self.plot_points_x = plot_points_x
         self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
 
         self.init_ui()
         self.qt_connections()
-
-        self.a = np.zeros(NFFT // 2)
-        self.y = np.zeros(NFFT // 2)
+        
         self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+        self.y = np.zeros(NFFT)
+        self.f = np.zeros(NFFT // 2)
+        self.a = np.zeros(NFFT // 2)
         self.win = np.hanning(NFFT)
-        # self.win = np.blackman(NFFT)
-
 
         self.avg_sum = 0
         self.avg_iters = 0
-        # self.timer = pg.QtCore.QTimer()
-        # if signal_source == 'usb':
-        #     self.timer.timeout.connect(self.updateplot) # updateplot on each timertick
-        #     self.updateplot()
-        # elif signal_source == 'virtual_generator':
-        #     self.timer.timeout.connect(self.updateplot_virtual_generator) # updateplot on each timertick
-        #     self.updateplot_virtual_generator()
-        # else:
-        #     print('no signal source')
-        # self.timer.start(0) # Timer tick. Set 0 to update as fast as possible
 
     def init_ui(self):
         global record_name, NFFT, chunkSize, overlap
@@ -266,12 +251,13 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget = pg.PlotWidget(title='FFT')
         self.fft_widget.showGrid(x=True, y=True, alpha=0.1)
         self.fft_widget.setLogMode(x=True, y=False)
+        # self.fft_widget.setLogMode(x=False, y=False)
         # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
         self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
-        # self.layout.addWidget(self.signal_widget)
-        # self.layout.addWidget(self.fft_widget)  # plot goes on right side, spanning 3 rows
+        self.layout.addWidget(self.signal_widget)
+        self.layout.addWidget(self.fft_widget)
 
         self.record_box = QtGui.QHBoxLayout()
         self.spin = pg.SpinBox( value=chunkSize*1300, # if change, change also in suffix 
@@ -330,9 +316,10 @@ class AppGUI(QtGui.QWidget):
         # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
         NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
-        self.a = np.zeros(NFFT // 2)
-        self.y = np.zeros(NFFT // 2)
         self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+        self.y = np.zeros(NFFT)
+        self.f = np.zeros(NFFT // 2)
+        self.a = np.zeros(NFFT // 2)
         self.win = np.hanning(NFFT)
         # self.win = np.blackman(NFFT)
         self.avg_sum = 0
@@ -367,8 +354,6 @@ class AppGUI(QtGui.QWidget):
 
         self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
-        # if self.rate > 0:
-
         self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
 
         # в 2 строчки быстрее чем в одну! я замерял!
@@ -384,10 +369,19 @@ class AppGUI(QtGui.QWidget):
             self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
             self.img_array[-1] = self.a
         self.img.setImage(self.img_array, autoLevels=True)
+        
+        pp = 4096*2 # number of points to plot
+        t_for_plot = self.t.reshape(pp, NFFT // pp).mean(axis=1)
+        y_for_plot = self.y.reshape(pp, NFFT // pp).mean(axis=1)
 
-        # self.signal_curve.setData(self.t, self.y)
-        # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%rate)
-        # self.fft_curve.setData(f, self.a)
+        self.signal_curve.setData(t_for_plot, y_for_plot)
+        self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%self.rate)
+        if self.rate > 0:
+            self.f = np.fft.rfftfreq(NFFT - 1, d = 1. / self.rate)
+            f_for_plot = self.f.reshape(pp, NFFT // pp // 2).mean(axis=1)
+            a_for_plot = self.a.reshape(pp, NFFT // pp // 2).mean(axis=1)
+            self.fft_curve.setData(f_for_plot, a_for_plot)
+
 
 
         t1 = time.time()
