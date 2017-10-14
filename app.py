@@ -24,7 +24,7 @@ class SerialReader(threading.Thread):
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, data_collected_signal, chunk_recorded_signal, chunkSize=1024, chunks=5000):
+    def __init__(self, data_collected_signal, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -40,7 +40,6 @@ class SerialReader(threading.Thread):
         self.dataMutex = threading.Lock()
         self.values_recorded = 0
         self.data_collected_signal = data_collected_signal
-        self.chunk_recorded_signal = chunk_recorded_signal
 
     def find_device_and_return_port(self):
         for i in range(61):
@@ -129,9 +128,6 @@ class SerialReader(threading.Thread):
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
                 
-                # elif self.ptr % (NFFT // 16) == 0:
-                # elif self.ptr % NFFT // 2 == 0: # // OVERLAP = 50% for simplicity for now 2 because fft windows are overlapping at the half of NFFT
-                # elif self.ptr % (NFFT * downsample) // 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
                 elif ptr2 >= NFFT - overlap: # mod fft_window_shift = (1 - overlap / 100)
                     ptr2 = 0
                     self.data_collected_signal.emit()
@@ -423,12 +419,12 @@ class AppGUI(QtGui.QWidget):
             try:
                 # print(100 / (values_to_record / ser_reader_thread.sps) * (time.time() - record_start_time), recording)
                 self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-                print(self.progress.value())
+                # print(self.progress.value())
                 QApplication.processEvents() 
 
             except Exception as e:
                 print(e)
-            # time.sleep(0.05)
+            time.sleep(0.01)
         self.progress.setValue(0)
 
     def spinbox_value_changed(self):
@@ -447,7 +443,10 @@ class AppGUI(QtGui.QWidget):
         values_to_record = self.spin.value()
         record_buffer = np.empty(values_to_record)
         recording = True
+
         record_start_time = time.time()
+        self.chunk_recorded.emit()
+
         # self.update_record_progress_bar()
 
     def closeEvent(self, event):
@@ -550,7 +549,6 @@ def main():
 
     # init and run serial arduino reader
     ser_reader_thread = SerialReader(data_collected_signal=gui.data_collected, 
-                                     chunk_recorded_signal=gui.chunk_recorded, 
                                      chunkSize=chunkSize,
                                      chunks=chunks)
     ser_reader_thread.start()
