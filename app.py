@@ -345,7 +345,6 @@ class AppGUI(QtGui.QWidget):
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
         self.read_collected.connect(self.updateplot)
 
-
     def fft_slider_changed(self):
         global NFFT, chunkSize
         # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
@@ -552,7 +551,7 @@ def send_to_cuda():
 
 
 def main():
-    # global params
+    # globals
     global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, downsample, big_dt
     recording        = False
     values_to_record = 0
@@ -567,9 +566,11 @@ def main():
     app = QtGui.QApplication(sys.argv)
     gui = AppGUI(plot_points_x=plot_points_x) # create class instance
 
+    # init and run serial arduino reader
     ser_reader_thread = SerialReader(signal=gui.read_collected, chunkSize=chunkSize, chunks=chunks)
-    ser_reader_thread.daemon = True # without this line UI freezes when close app window, maybe this is wrong and you can fix freeze at some other place
     ser_reader_thread.start()
+
+    # app exit
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(app.exec())
 
