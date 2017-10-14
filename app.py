@@ -111,12 +111,7 @@ class SerialReader(threading.Thread):
                 if sps is not None:
                     self.sps = sps
 
-                # if self.ptr % NFFT// 2 == 0: # //2 because fft windows are overlapping at the half of NFFT
-                #     self.signal.emit()
-
                 if recording:
-                    # self.chunk_recorded_signal.emit()
-                    # print(self.values_recorded -self.values_recorded + self.chunkSize, record_buffer.shape, data.shape)
                     record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
                     self.values_recorded += self.chunkSize
 
@@ -128,7 +123,7 @@ class SerialReader(threading.Thread):
                         t2 = threading.Thread(target=send_to_cuda)
                         t2.start()
                 
-                elif ptr2 >= NFFT - overlap: # mod fft_window_shift = (1 - overlap / 100)
+                elif ptr2 >= NFFT - overlap:
                     ptr2 = 0
                     self.data_collected_signal.emit()
 
