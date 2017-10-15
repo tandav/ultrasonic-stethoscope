@@ -389,11 +389,15 @@ class AppGUI(QtGui.QWidget):
         self.avg_iters += 1
         # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
         if self.avg_iters % 10 == 0:
-            print('avg_dt=', self.avg_sum * 1000 / self.avg_iters, 'iters=', self.avg_iters)
-        print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
-        if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
-            print('WARNING: too big overlap')
+            # print('avg_dt=', self.avg_sum * 1000 / self.avg_iters, 'iters=', self.avg_iters)
+            # print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
 
+            print('big_dt: {:.3f}ms | updateplot_dt: {:.3f}ms | avg_dt: {:.3f} | iters: {}'.format((time.time() - big_dt) * 1000,
+                                                                      (t1 - t0) * 1000,
+                                                                       self.avg_sum * 1000 / self.avg_iters,
+                                                                       self.avg_iters))
+            if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
+                print('WARNING: too big overlap: {:.3f}ms'.format(abs((time.time() - big_dt) - (t1 - t0)) * 1000))
         big_dt = time.time()
 
         # print(t1 - t0)
