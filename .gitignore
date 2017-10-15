@@ -1,6 +1,7 @@
 ## large files with data
 *.dat
 *.gz
+*.wav
 data/
 
 # virtualenvs
