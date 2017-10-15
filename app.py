@@ -2,6 +2,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 from PyQt5.QtGui import QApplication
 from scipy.fftpack import fft
 from scipy.signal import decimate
+from scipy.io.wavfile import write as write_wav
 from pathlib import Path
 import pyqtgraph as pg
 import numpy as np
@@ -462,6 +463,12 @@ def write_to_file(arr, ext, gzip=False):
                 arr.tofile(f)
         elif ext == 'txt':
             np.savetxt(filename, arr)
+        elif ext == 'wav':
+            rate = int(arr[1])
+            arr = arr[2:] # del record_time and rate
+            # scaled = np.int16(arr / np.max(np.abs(arr)) * 32767)
+            # write_wav(filename, rate, scaled)
+            write_wav(filename, rate, arr)
         else:
             print('wrong file extension')
 
@@ -498,7 +505,7 @@ def send_to_cuda():
         # calc_fft_localy(record_buffer, n, record_time, rate)
         record_buffer = np.insert(record_buffer, 0, [record_time, rate]) # first two entries in file are record_time and rate
         # write_to_file(record_buffer, compression=False)
-        write_to_file(record_buffer, 'dat', gzip=False)
+        write_to_file(record_buffer, 'wav', gzip=False)
 
         # print('start sending data to CUDA server...')
         # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
