@@ -448,7 +448,7 @@ def write_to_file(arr, ext, gzip=False):
         sys.stdout.flush()
 
 
-        data_dir = 'child-hospital-n1-2/'
+        data_dir = 'data-temp/'
         # fileprefix = 'fio-disease-'
         fileprefix = record_name + '-'
 
