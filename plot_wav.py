@@ -5,7 +5,7 @@ from math import sin
 import numpy as np
 from scipy.fftpack import fft
 from scipy.io import wavfile
-from scipy.signal import welch
+from scipy.signal import welch, cwt, morlet
 import os
 
 data_dir = 'data-temp/'
@@ -24,82 +24,44 @@ a = fft(y)[:n//2] # fft + chose only real part
 a = np.abs(a / n) # normalisation
 a = 20 * np.log10(a)
 
-fig, ax = plt.subplots(3, 1)
-ax[0].plot(t, y, 'b')
-# ax[0].plot(t[::100], y[::100], 'b')
-ax[0].set_xlabel('Time: {0}seconds'.format(record_time))
-ax[0].set_ylabel('Amplitude')
-ax[0].grid()
-
-
-ax[1].semilogx(f, a,'r') # plotting the spectrum
-ax[1].set_xlabel('Freq (Hz)')
-ax[1].set_ylabel('Magnitude')
-# ax[1].set_xlim([1,4e4])
-ax[1].grid()
-
-
 f_psd, Pxx_den = welch(y, fs, nperseg=n)
-Pxx_den = 20*np.log10(np.abs(Pxx_den)**2)
+Pxx_den = 20 * np.log10(np.abs(Pxx_den)**2)
 
-ax[1].semilogx(f_psd, Pxx_den,'k') # plotting the spectrum
 
+fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 9))
+
+# signal
+ax1.plot(t, y, 'b')
+# ax[0].plot(t[::100], y[::100], 'b')
+ax1.set_xlabel('Time: {0}seconds'.format(record_time))
+ax1.set_ylabel('Amplitude')
+ax1.grid()
+
+# spectrum and PSD
+ax2.semilogx(f, a,'r')
+ax2.semilogx(f_psd, Pxx_den,'k')
+ax2.set_xlabel('Freq (Hz)')
+ax2.set_ylabel('Magnitude')
+# ax[1].set_xlim([1,4e4])
+ax2.grid()
 
 # spectrogram
-ax[2].specgram(y, Fs=fs, NFFT=1024*40)
-ax[2].set_ylim([1,1e3])
+ax3.specgram(y, Fs=fs, NFFT=1024*40)
+ax3.set_ylim([1,1e3])
 # ax[2].set_yscale('log')
-
-plt.show()
-
-
-# ================================================
-
-# y = np.fromfile(data_dir + fileprefix + fileindex + '.dat', dtype=np.float32)
-
-# record_time = y[0]
-# rate = y[1]
-# print('record_time: ', record_time, 'rate: ', rate)
-
-# y = y[2:]
-# n = len(y) # length of the signal
+ax4.set_title('Spectrogram')
 
 
-# t = np.linspace(0, record_time, n) # time vector
+# wavelet
+w_low = 1
+w_high = 10
+widths = np.arange(w_low, w_high)
+cwtmatr = cwt(y, morlet, widths)
+ax4.imshow(cwtmatr, extent=[-1, 1, w_high, w_low], aspect='auto', vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
+ax4.set_title('Wavelet Transform: Morlet [{0}, {1}]'.format(w_low, w_high))
 
-# f = np.fft.rfftfreq(n - 1, d=1./rate)
-# a = fft(y)[:n//2] # fft + chose only real part
-# a = np.abs(a / n) # normalisation
+plt.tight_layout()
+# plt.show()
+plt.savefig(data_dir + fileprefix + fileindex + '.png')
+# os.system(data_dir + fileprefix + fileindex + '.png')
 
-# print('len(t):\t\t'   , len(t)  )
-# print('len(signal):\t', len(y)  )
-# print('len(frq):\t'   , len(f))
-# print('len(fft):\t'   , len(a)  )
-
-# fig, ax = plt.subplots(1, 1)
-# ax[0].plot(t, y, 'b')
-# # ax[0].plot(t[::100], y[::100], 'b')
-# ax[0].set_xlabel('Time')
-# # ax[1].set_xlim([0,t])
-# ax[0].set_ylabel('Amplitude')
-# ax[0].grid()
-
-# # ax[1].plot(frq, abs(Y),'r') # plotting the spectrum
-
-# # right = len(frq) // 16
-# # step = 1
-
-
-# # ax[1].loglog(f[:right:step], a[:right:step],'r') # plotting the spectrum
-# ax[1].loglog(f, a,'r') # plotting the spectrum
-# ax[1].set_xlabel('Freq (Hz)')
-# ax[1].set_ylabel('|Y(freq)|')
-# ax[1].set_xlim([1,4e4])
-# ax[1].grid()
-
-# # ax[1].set_ylim([1e-6,1e-3])
-
-# if not os.path.exists(data_dir + '/images'):
-#     os.makedirs(data_dir + '/images')
-
-# plt.savefig(data_dir + 'images/' + fileprefix + fileindex + '.png', dpi=100)
