@@ -254,7 +254,7 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setLogMode(x=True, y=False)
         # self.fft_widget.setLogMode(x=False, y=False)
         # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
-        self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
+        # self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
         self.layout.addWidget(self.signal_widget)
