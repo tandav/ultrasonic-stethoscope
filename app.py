@@ -526,7 +526,7 @@ def send_to_cuda():
         print('session end\n')
 
 
-def main():
+if __name__ == '__main__':
     # globals
     global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, big_dt
     recording        = False
@@ -550,7 +550,3 @@ def main():
     # app exit
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(app.exec())
-
-
-if __name__ == '__main__':
-    main()
