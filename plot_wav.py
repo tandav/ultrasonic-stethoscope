@@ -5,7 +5,7 @@ from math import sin
 import numpy as np
 from scipy.fftpack import fft
 from scipy.io import wavfile
-from scipy.signal import welch, cwt, morlet
+from scipy.signal import welch, cwt, morlet, periodogram
 import os
 
 data_dir = 'data-temp/'
@@ -24,7 +24,8 @@ a = fft(y)[:n//2] # fft + chose only real part
 a = np.abs(a / n) # normalisation
 a = 20 * np.log10(a)
 
-f_psd, Pxx_den = welch(y, fs, nperseg=n)
+# f_psd, Pxx_den = welch(y, fs, nperseg=1024)
+f_psd, Pxx_den = periodogram(y, fs)
 Pxx_den = 20 * np.log10(np.abs(Pxx_den)**2)
 
 
@@ -38,27 +39,29 @@ ax1.set_ylabel('Amplitude')
 ax1.grid()
 
 # spectrum and PSD
-ax2.semilogx(f, a,'r')
+# ax2.semilogx(f, a,'r')
 ax2.semilogx(f_psd, Pxx_den,'k')
-ax2.set_xlabel('Freq (Hz)')
+ax2.set_xlabel('Frequency, Hz')
 ax2.set_ylabel('Magnitude')
 # ax[1].set_xlim([1,4e4])
 ax2.grid()
 
 # spectrogram
 ax3.specgram(y, Fs=fs, NFFT=1024*40)
-ax3.set_ylim([1,1e3])
+ax3.set_ylim([1,5e4])
 # ax[2].set_yscale('log')
-ax4.set_title('Spectrogram')
+ax3.set_xlabel('time seconds')
+ax3.set_ylabel('Frequency, Hz')
+ax3.set_title('Spectrogram')
 
 
 # wavelet
 w_low = 1
-w_high = 10
+w_high = 20
 widths = np.arange(w_low, w_high)
-cwtmatr = cwt(y, morlet, widths)
-ax4.imshow(cwtmatr, extent=[-1, 1, w_high, w_low], aspect='auto', vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
-ax4.set_title('Wavelet Transform: Morlet [{0}, {1}]'.format(w_low, w_high))
+# cwtmatr = cwt(y, morlet, widths)
+# ax4.imshow(cwtmatr, extent=[-1, 1, w_high, w_low], aspect='auto', vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
+# ax4.set_title('Wavelet Transform: Morlet [{0}, {1}]'.format(w_low, w_high))
 
 plt.tight_layout()
 # plt.show()
