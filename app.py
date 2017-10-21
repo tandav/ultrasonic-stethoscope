@@ -12,7 +12,7 @@ import numpy as np
 import time
 import threading
 import sys
-import serial
+import serial # TODO: try del
 import serial.tools.list_ports
 import socket
 import signal
@@ -47,7 +47,8 @@ class SerialReader(threading.Thread):
         for i in range(61):
             ports = list(serial.tools.list_ports.comports())
             for port in ports:
-                if 'Arduino' in port.description: 
+                if 'Arduino' in port.description or 'Устройство с последовательным интерфейсом USB' in port.description: 
+                # if ('Устройство с последовательным интерфейсом USB') in port.description: 
                     # try / except
                     ser = serial.Serial(port.device)
                     print('device connected')
@@ -62,7 +63,6 @@ class SerialReader(threading.Thread):
                 continue  # executed if the loop ended normally (no break)
             break  # executed if 'continue' was skipped (break)
         return ser
-
     def run(self):
         exitMutex = self.exitMutex
         dataMutex = self.dataMutex
@@ -156,6 +156,7 @@ class SerialReader(threading.Thread):
         """ Instruct the serial thread to exit."""
         with self.exitMutex:
             self.exitFlag = True
+
 
 
 class AppGUI(QtGui.QWidget):
@@ -373,7 +374,6 @@ class AppGUI(QtGui.QWidget):
 
         self.data_collected.connect(self.updateplot)
 
-
     def fft_slider_changed(self):
         global NFFT, chunkSize
         # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
@@ -589,7 +589,6 @@ def send_to_cuda():
         print('session end\n')
 
 def main():
-    # exec()
     # globals
     global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, big_dt
     recording        = False
