@@ -3,6 +3,13 @@ Ultrasonic stethoscope is a device build on top of Arduino Due, PyQtgraph and NV
 
 This repo contains software for ultrasonic stethoscope and academic [paper](Paper) describing this project.
 
+## Installation
+1. Download and install [Anaconda](https://www.anaconda.com/download)
+2. Install pyFFT and last version of pyserial (install it from conda forge channel)
+
+## Running
+Activate Anaconda environment and run app: `python app.py`(on windows just double-click `Stethoscope.bat`)
+
 ## Overview:
 1. Input Signal
 2. Ultrasonic mic
@@ -11,12 +18,3 @@ This repo contains software for ultrasonic stethoscope and academic [paper](Pape
 5. App: gets data from ADC,  plots hi-fps soundwawe in realtime, record data to file
 6. App: send data to NVidia CUDA Server
 7. CUDA Server: calculates fft very fast and sends fft.png (plot of signal's spectrum) back to client's app 
-
-## How this device looks:
-<img src="Paper/images/hardware.jpg" width=765px/>
-
-## Local FFT plot example
-<img src="https://user-images.githubusercontent.com/5549677/26873219-b79b1884-4b81-11e7-9449-4979e5596dbe.png" width=800px/>
-
-## CUDA Server FFT plot example
-<img src="Server/fft-0.png" width=805px/>
