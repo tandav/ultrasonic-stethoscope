@@ -1,9 +1,12 @@
 from pyqtgraph.Qt import QtCore, QtGui
 from PyQt5.QtGui import QApplication
 from scipy.fftpack import fft
-from scipy.signal import decimate
 from scipy.io.wavfile import write as write_wav
+from scipy.io import wavfile
 from pathlib import Path
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.style.use('classic')
 import pyqtgraph as pg
 import numpy as np
 import time
@@ -244,6 +247,34 @@ class AppGUI(QtGui.QWidget):
         self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider)
         self.layout.addLayout(self.plot_points_y_slider_box)
 
+        self.make_plots_box = QtGui.QHBoxLayout()
+        self.signal_checkbox      = QtGui.QCheckBox('Signal')
+        self.fft_checkbox         = QtGui.QCheckBox('FFT')
+        self.spectrogram_checkbox = QtGui.QCheckBox('Spectrogram')
+        self.wavelet_checkbox     = QtGui.QCheckBox('Wavelet')
+        self.signal_checkbox     .toggle()
+        self.fft_checkbox        .toggle()
+        self.spectrogram_checkbox.toggle()
+        self.wavelet_checkbox    .toggle()
+
+
+        self.make_plots_box.addWidget(self.signal_checkbox)
+        self.make_plots_box.addWidget(self.fft_checkbox)
+        self.make_plots_box.addWidget(self.spectrogram_checkbox)
+        self.make_plots_box.addWidget(self.wavelet_checkbox)
+
+
+        self.make_plots_button = QtGui.QPushButton('Make Plots')
+        self.make_plots_box.addWidget(self.make_plots_button)
+
+        self.layout.addLayout(self.make_plots_box)
+
+
+        # self.plot_points_y_slider_label = QtGui.QLabel('plot_points_y: {}'.format(self.plot_points_y))
+        # self.make_plots_box.addWidget(self.plot_points_y_slider_label)
+        # self.make_plots_box.addWidget(self.plot_points_y_slider)
+        # self.layout.addLayout(self.make_plots_box)
+
         self.signal_widget = pg.PlotWidget()
         self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
         self.signal_widget.setYRange(-1, 1)
@@ -310,6 +341,38 @@ class AppGUI(QtGui.QWidget):
         self.record_name_textbox.textChanged.connect(self.record_name_changed)
         self.data_collected.connect(self.updateplot)
         self.chunk_recorded.connect(self.update_record_progress_bar)
+        self.make_plots_button.clicked.connect(self.make_plots)
+
+    def make_plots(self):
+        self.data_collected.disconnect()
+        # record_file_name = QtGui.QFileDialog.getOpenFileName(self, 'OpenFile')[0]
+        # record_file_name = QtGui.QFileDialog.getOpenFileName()[0]
+        # fileName, _ = QtGui.QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", "", "Wave Files (*.wav)")
+        exec(open("./abc.py").read())
+
+        fileName = '/Users/tandav/Documents/Ultrasonic-Stethoscope/data-temp/lungs-0.wav'
+        print(fileName)
+        if fileName:
+            fs, y = wavfile.read(fileName)
+            n = len(y) # length of the signal
+            record_time = n / fs
+            # fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 9))
+
+            # if self.signal_checkbox.isChecked():
+            #     t = np.linspace(0, record_time, n) # time vector
+            #     ax1.plot(t, y, 'b')
+            #     # ax[0].plot(t[::100], y[::100], 'b')
+            #     ax3.set_title('Signal')
+            #     ax1.set_xlabel('Time: {0}seconds'.format(record_time))
+            #     ax1.set_ylabel('Amplitude')
+            #     ax1.grid()
+
+            # plt.tight_layout()
+            # plt.savefig(fileName[-3:] + 'png')
+
+
+        self.data_collected.connect(self.updateplot)
+
 
     def fft_slider_changed(self):
         global NFFT, chunkSize
@@ -526,6 +589,7 @@ def send_to_cuda():
         print('session end\n')
 
 def main():
+    # exec()
     # globals
     global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, big_dt
     recording        = False
