@@ -47,7 +47,9 @@ class SerialReader(threading.Thread):
         for i in range(61):
             ports = list(serial.tools.list_ports.comports())
             for port in ports:
-                if 'Arduino' in port.description or 'Устройство с последовательным интерфейсом USB' in port.description: 
+                if 'Arduino' in port.description or \
+                   'Устройство с последовательным интерфейсом USB' in port.description or \
+                   'USB Serial Device' in port.description: 
                 # if ('Устройство с последовательным интерфейсом USB') in port.description: 
                     # try / except
                     ser = serial.Serial(port.device)
