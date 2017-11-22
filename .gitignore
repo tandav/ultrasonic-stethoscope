@@ -3,6 +3,7 @@
 *.gz
 *.wav
 data/
+data-temp/
 
 # virtualenvs
 ultrasonic-steth/
