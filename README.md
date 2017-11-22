@@ -18,3 +18,10 @@ Activate Anaconda environment and run app: `python app.py`(on windows just doubl
 5. App: gets data from ADC,  plots hi-fps soundwawe in realtime, record data to file
 6. App: send data to NVidia CUDA Server
 7. CUDA Server: calculates fft very fast and sends fft.png (plot of signal's spectrum) back to client's app 
+
+## Installation
+1. download and install miniconda
+2. Anaconda Prompt == conda root env
+3. `install.bat` - он после gui установки miniconda активирует root enviroment, потом создает новую в текущей папке и 
+4. активирует, все устанавливает
+5. `stethoscope.bat` - активрирует и запускает 
