@@ -25,3 +25,14 @@ Activate Anaconda environment and run app: `python app.py`(on windows just doubl
 3. `install.bat` - он после gui установки miniconda активирует root enviroment, потом создает новую в текущей папке и 
 4. активирует, все устанавливает
 5. `stethoscope.bat` - активрирует и запускает 
+
+
+## new installation
+```sh
+git clone https://github.com/tandav/ultrasonic-stethoscope.git
+cd ultrasonic-stethoscope
+python3 -m venv .steth
+source .steth/bin/activate
+pip install -r requirements.txt
+python3 app.py # run
+```

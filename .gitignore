@@ -6,8 +6,7 @@ data/
 data-temp/
 
 # virtualenvs
-ultrasonic-steth/
-env/
+.steth
 
 # python binaries
 *.pyc

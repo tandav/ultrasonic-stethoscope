@@ -19,8 +19,7 @@ import signal
 import os
 import gzip
 import shutil
-import argparse
-import pickle
+
 
 class SerialReader(threading.Thread):
     """ Defines a thread for reading and buffering serial data.
@@ -199,8 +198,8 @@ class AppGUI(QtGui.QWidget):
         self.fft_chunks_slider = QtGui.QSlider()
         self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
         self.fft_chunks_slider.setRange(10, 20) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(15)
-        # self.fft_chunks_slider.setValue(128)
+        self.fft_chunks_slider.setValue(18)
+        # self.fft_chunks_slider.setValue(15)
         NFFT = 2 ** self.fft_chunks_slider.value()
         self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
         self.fft_chunks_slider.setTickInterval(1)
@@ -213,7 +212,8 @@ class AppGUI(QtGui.QWidget):
         self.overlap_slider = QtGui.QSlider()
         self.overlap_slider.setOrientation(QtCore.Qt.Horizontal)
         self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
-        overlap = NFFT // 2
+        # overlap = NFFT // 2
+        overlap = NFFT * 0.85
         self.overlap_slider.setValue(overlap)
         # self.fft_chunks_slider.setValue(128)
         # overlap = self.overlap_slider.value()
@@ -331,7 +331,7 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.glayout)
 
         self.setLayout(self.layout)
-        self.setGeometry(10, 10, 1000, 600)
+        self.setGeometry(10, 10, 600, 1000)
         self.show()
 
     def qt_connections(self):
@@ -346,12 +346,12 @@ class AppGUI(QtGui.QWidget):
         self.chunk_recorded.connect(self.update_record_progress_bar)
         self.make_plots_button.clicked.connect(self.make_plots)
 
-    def make_plots(self):
+    def mkp2():
         self.data_collected.disconnect()
         # record_file_name = QtGui.QFileDialog.getOpenFileName(self, 'OpenFile')[0]
         # record_file_name = QtGui.QFileDialog.getOpenFileName()[0]
         # fileName, _ = QtGui.QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", "", "Wave Files (*.wav)")
-        exec(open("./abc.py").read())
+        # exec(open("./abc.py").read())
 
         fileName = '/Users/tandav/Documents/Ultrasonic-Stethoscope/data-temp/lungs-0.wav'
         print(fileName)
@@ -359,22 +359,27 @@ class AppGUI(QtGui.QWidget):
             fs, y = wavfile.read(fileName)
             n = len(y) # length of the signal
             record_time = n / fs
-            # fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 9))
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 9))
 
-            # if self.signal_checkbox.isChecked():
-            #     t = np.linspace(0, record_time, n) # time vector
-            #     ax1.plot(t, y, 'b')
-            #     # ax[0].plot(t[::100], y[::100], 'b')
-            #     ax3.set_title('Signal')
-            #     ax1.set_xlabel('Time: {0}seconds'.format(record_time))
-            #     ax1.set_ylabel('Amplitude')
-            #     ax1.grid()
+            if self.signal_checkbox.isChecked():
+                t = np.linspace(0, record_time, n) # time vector
+                ax1.plot(t, y, 'b')
+                # ax[0].plot(t[::100], y[::100], 'b')
+                ax3.set_title('Signal')
+                ax1.set_xlabel('Time: {0}seconds'.format(record_time))
+                ax1.set_ylabel('Amplitude')
+                ax1.grid()
 
-            # plt.tight_layout()
-            # plt.savefig(fileName[-3:] + 'png')
+            plt.tight_layout()
+            plt.savefig(fileName[-3:] + 'png')
 
 
         self.data_collected.connect(self.updateplot)
+
+    def make_plots(self):
+        t3 = threading.Thread(target=self.mkp2)
+        t3.start()
+
 
     def fft_slider_changed(self):
         global NFFT, chunkSize
@@ -507,6 +512,7 @@ class AppGUI(QtGui.QWidget):
         ser_reader_thread.exit()
 
 
+
 def write_to_file(arr, ext, gzip=False):
         global file_index, record_name
         sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
@@ -599,7 +605,7 @@ def main():
     plot_points_x    = 256
     chunkSize        = 1024
     chunks           = 2000
-    big_dt = 0
+    big_dt           = 0
 
     # init gui
     app = QtGui.QApplication(sys.argv)
