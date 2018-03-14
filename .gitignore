@@ -4,6 +4,8 @@
 *.wav
 data/
 data-temp/
+windows/subl/
+windows/Miniconda3-latest-Windows-x86_64.exe
 
 # virtualenvs
 .steth
