@@ -63,14 +63,14 @@ ax3.set_title('Spectrogram')
 
 
 # wavelet
-print('processing wavelet')
+# print('processing wavelet')
 
-w_low = 5
-w_high = 40
-widths = np.arange(w_low, w_high)
-cwtmatr = cwt(y, morlet, widths)
-ax4.imshow(cwtmatr, extent=[-1, 1, w_high, w_low], aspect='auto', vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
-ax4.set_title('Wavelet Transform: Morlet [{0}, {1}]'.format(w_low, w_high))
+# w_low = 5
+# w_high = 40
+# widths = np.arange(w_low, w_high)
+# cwtmatr = cwt(y, morlet, widths)
+# ax4.imshow(cwtmatr, extent=[-1, 1, w_high, w_low], aspect='auto', vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
+# ax4.set_title('Wavelet Transform: Morlet [{0}, {1}]'.format(w_low, w_high))
 
 plt.tight_layout()
 # plt.show()
