@@ -26,6 +26,8 @@ Activate Anaconda environment and run app: `python app.py`(on windows just doubl
 4. активирует, все устанавливает
 5. `stethoscope.bat` - активрирует и запускает 
 
+## How this device looks:
+<img src="docs/whitepaper/images/hardware.jpg" width=765px/>
 
 ## new installation
 ```sh
