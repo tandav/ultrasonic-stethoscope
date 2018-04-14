@@ -6,7 +6,9 @@ data/
 data-temp/
 windows/subl/
 windows/Miniconda3-latest-Windows-x86_64.exe
-
+lungs-model/visible-human-project-male-2048x1216-png/
+lungs-model/shoulders-ct-png/
+lungs-model/shoulder-ct-dcm/
 # virtualenvs
 .steth
 
