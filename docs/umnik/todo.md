@@ -1,0 +1,13 @@
+# PRESENTATION / TODO (TEXT + SLIDES)
+- Intro  `DONE`
+- Научно-техническая новизна `DONE`
+    - больший диапазон
+    - помощь врачу в принятии решения
+    - обработка на сервере
+- Commercialisation
+    - Рыночная ниша `DONE but need unroll lists`
+    - Показатели `DONE but need unroll lists`
+    - Поквартально `DONE but need unroll lists`
+    - маркетинг `DONE`
+    - что выигрывает покупатель и предприятие `чуть пофиксить в самом конце`
+- заключение - `DONE`

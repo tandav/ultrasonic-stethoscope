@@ -3,6 +3,13 @@ Ultrasonic stethoscope is a device build on top of Arduino Due, PyQtgraph and NV
 
 This repo contains software for ultrasonic stethoscope and academic [paper](Paper) describing this project.
 
+## Installation
+1. Download and install [Anaconda](https://www.anaconda.com/download)
+2. Install pyFFT and last version of pyserial (install it from conda forge channel)
+
+## Running
+Activate Anaconda environment and run app: `python app.py`(on windows just double-click `Stethoscope.bat`)
+
 ## Overview:
 1. Input Signal
 2. Ultrasonic mic
@@ -12,11 +19,22 @@ This repo contains software for ultrasonic stethoscope and academic [paper](Pape
 6. App: send data to NVidia CUDA Server
 7. CUDA Server: calculates fft very fast and sends fft.png (plot of signal's spectrum) back to client's app 
 
+## Installation
+1. download and install miniconda
+2. Anaconda Prompt == conda root env
+3. `install.bat` - он после gui установки miniconda активирует root enviroment, потом создает новую в текущей папке и 
+4. активирует, все устанавливает
+5. `stethoscope.bat` - активрирует и запускает 
+
 ## How this device looks:
 <img src="docs/whitepaper/images/hardware.jpg" width=765px/>
 
-## Local FFT plot example
-<img src="https://user-images.githubusercontent.com/5549677/26873219-b79b1884-4b81-11e7-9449-4979e5596dbe.png" width=800px/>
-
-## CUDA Server FFT plot example
-<img src="Server/fft-0.png" width=805px/>
+## new installation
+```sh
+git clone https://github.com/tandav/ultrasonic-stethoscope.git
+cd ultrasonic-stethoscope
+python3 -m venv .steth
+source .steth/bin/activate
+pip install -r requirements.txt
+python3 app.py # run
+```
