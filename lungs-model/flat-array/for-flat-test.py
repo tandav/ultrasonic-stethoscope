@@ -132,7 +132,10 @@ def old_slow2(P_pp, P_p):
 
     # P[2:-2, 2:-2, 2:-2] = (2 - 7.5 * K2[2:-2, 2:-2, 2:-2]) * P_p[2:-2, 2:-2, 2:-2] - P_pp[2:-2, 2:-2, 2:-2]
     # P = np.zeros_like(P_p)
-    P = (2 - 7.5 * K2) * P_p - P_pp
+    # P = (2 - 7.5 * K2) * P_p - P_pp
+    # P = 2 * P_p - P_pp - 22.5 * P_p * K2 / 3
+    P = 2 * P_p - P_pp
+    Z = 22.5 * P_p
     
     # P_p_flat = P_p.flatten()
 
@@ -148,10 +151,10 @@ def old_slow2(P_pp, P_p):
     neighbours2_cell_all_sum = np.sum(neighbours2_cell_all, axis=1)
 
 
+    Z[2:-2, 2:-2, 2:-2] +=   4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + neighbours1_cell_all_sum).reshape(N-4, N-4, N-4)
+    Z[2:-2, 2:-2, 2:-2] -= 1/4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + neighbours2_cell_all_sum).reshape(N-4, N-4, N-4)
 
-    P[2:-2, 2:-2, 2:-2] += 4/3 * K2[2:-2, 2:-2, 2:-2] * (P.flatten()[cell_indeces_flat.reshape(-1)] + neighbours1_cell_all_sum).reshape(N-4, N-4, N-4)
-    P[2:-2, 2:-2, 2:-2] -= K2[2:-2, 2:-2, 2:-2] /  12 * (P.flatten()[cell_indeces_flat.reshape(-1)] + neighbours2_cell_all_sum).reshape(N-4, N-4, N-4)
-
+    P -= Z * K2 / 3
 
     # cell_indeces_flat = np.arange(N**3).reshape(N, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
     # neighbours1 = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2])      # i±1 j±1 k±1 
@@ -211,9 +214,9 @@ print(f'np.allclose(P1, P2):\t{np.allclose(P1, P2)}')
 # print(P1.dtype)
 # print(P2.dtype)
 
-print(P1[0,0,0])
-print(P2[0,0,0])
+print(P1[3,3,3])
+print(P2[3,3,3])
 
-print(f'delta = {abs(P1[0,0,0] - P2[0,0,0])}')
+# print(f'delta = {abs(P1[0,0,0] - P2[0,0,0])}')
 
 print(np.sum(P1) - np.sum(P2))
