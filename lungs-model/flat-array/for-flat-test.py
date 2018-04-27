@@ -151,8 +151,8 @@ def P(P_pp, P_p):
 
 
                                  # wtf is going on here???   
-    Z[2:-2, 2:-2, 2:-2] +=   4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s1).reshape(N-4, N-4, N-4)
-    Z[2:-2, 2:-2, 2:-2] -= 1/4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s2).reshape(N-4, N-4, N-4)
+    Z[2:-2, 2:-2, 2:-2] -=   4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s1).reshape(N-4, N-4, N-4)
+    Z[2:-2, 2:-2, 2:-2] += 1/4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s2).reshape(N-4, N-4, N-4)
 
 
     s3_V_indexes = cell_indeces_flat + np.array([N**2, -N**2, 2*N**2, -2*N**2])
@@ -179,7 +179,7 @@ def P(P_pp, P_p):
     s5_N_sum = np.sum(s5_N_values, axis=1)
     s5 = (s5_V_sum / s5_N_sum).reshape(N-4, N-4, N-4)
 
-    Z[2:-2, 2:-2, 2:-2] -= (s3 + s4 + s5) / ro[2:-2, 2:-2, 2:-2]
+    Z[2:-2, 2:-2, 2:-2] += (s3 + s4 + s5) / ro[2:-2, 2:-2, 2:-2]
     P -= Z * K2 / 3
 
     # cell_indeces_flat = np.arange(N**3).reshape(N, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
