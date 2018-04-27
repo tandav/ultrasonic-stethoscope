@@ -83,14 +83,17 @@ def old_slow1(P_pp, P_p):
     return P[2:-2, 2:-2, 2:-2]
 
 def P(P_pp, P_p):
-    '''mb work with flat and then reshape in return'''
+    '''
+    mb work with flat and then reshape in return
+    norm by now, mb add some more optimisations in future, also cuda
+    '''
+
     S = P_p.shape[0]
     N = P_p.shape[1]
 
     P = 2 * P_p - P_pp
     Z = 22.5 * P_p
     
-    # P_p_flat = P_p.flatten()
 
     cell_indeces_flat = np.arange(N**3).reshape(N, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
 
