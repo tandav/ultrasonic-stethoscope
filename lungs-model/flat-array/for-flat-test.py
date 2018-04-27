@@ -7,6 +7,7 @@
                 # P[i, j, k] = 0
 
 import numpy as np
+from time import time
 
 N = 16
 # S = 10 # number of slices / CT-images / scans
@@ -125,14 +126,10 @@ def old_slow1(P_pp, P_p):
     return P[2:-2, 2:-2, 2:-2]
 
 def P(P_pp, P_p):
-    
+    '''mb work with flat and then reshape in return'''
     S = P_p.shape[0]
     N = P_p.shape[1]
 
-    # P[2:-2, 2:-2, 2:-2] = (2 - 7.5 * K2[2:-2, 2:-2, 2:-2]) * P_p[2:-2, 2:-2, 2:-2] - P_pp[2:-2, 2:-2, 2:-2]
-    # P = np.zeros_like(P_p)
-    # P = (2 - 7.5 * K2) * P_p - P_pp
-    # P = 2 * P_p - P_pp - 22.5 * P_p * K2 / 3
     P = 2 * P_p - P_pp
     Z = 22.5 * P_p
     
@@ -146,13 +143,15 @@ def P(P_pp, P_p):
     neighbours1_cell_all = P_p.flatten()[neighbours1_indeces_flat] # each row contains 6 neighbors of cell 
     neighbours2_cell_all = P_p.flatten()[neighbours1_indeces_flat] # each row contains 6 neighbors of cell 
 
-    s1 = np.sum(neighbours1_cell_all, axis=1)
+    s1 = np.sum(neighbours1_cell_all, axis=1) # sum by axis=1 is faster for default order
     s2 = np.sum(neighbours2_cell_all, axis=1)
 
 
+    Z[2:-2, 2:-2, 2:-2] -=   4 * s1.reshape(N-4, N-4, N-4)
+    Z[2:-2, 2:-2, 2:-2] += 1/4 * s2.reshape(N-4, N-4, N-4)
                                  # wtf is going on here???   
-    Z[2:-2, 2:-2, 2:-2] -=   4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s1).reshape(N-4, N-4, N-4)
-    Z[2:-2, 2:-2, 2:-2] += 1/4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s2).reshape(N-4, N-4, N-4)
+    # Z[2:-2, 2:-2, 2:-2] -=   4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s1).reshape(N-4, N-4, N-4)
+    # Z[2:-2, 2:-2, 2:-2] += 1/4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s2).reshape(N-4, N-4, N-4)
 
 
     s3_V_indexes = cell_indeces_flat + np.array([N**2, -N**2, 2*N**2, -2*N**2])
@@ -179,7 +178,7 @@ def P(P_pp, P_p):
     s5_N_sum = np.sum(s5_N_values, axis=1)
     s5 = (s5_V_sum / s5_N_sum).reshape(N-4, N-4, N-4)
 
-    Z[2:-2, 2:-2, 2:-2] += (s3 + s4 + s5) / ro[2:-2, 2:-2, 2:-2]
+    Z[2:-2, 2:-2, 2:-2] += (s3 + s4 + s5) * ro[2:-2, 2:-2, 2:-2]
     P -= Z * K2 / 3
 
     # cell_indeces_flat = np.arange(N**3).reshape(N, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
@@ -230,13 +229,22 @@ def P(P_pp, P_p):
 
 # P = P(P_pp, P_p)
 # print(P.shape)
+
+t0 = time()
 P1 = old_slow1(P_pp, P_p)
+t_P1 = time() - t0 
+print(t_P1)
+
+t0 = time()
 P2 = P(P_pp, P_p)
+t_P2 = time() - t0
+print(t_P2)
+
+print(f't_P1 / t_P2 = {t_P1 / t_P2}')
+
 print(f'np.array_equal(P1, P2)\t{np.array_equal(P1, P2)}')
 print(f'np.allclose(P1, P2):\t{np.allclose(P1, P2)}')
 
-atol = 1e-4
-print(f'np.allclose(P1, P2, atol={atol}):\t{np.allclose(P1, P2, atol=atol)}')
 # print(np.equal(P1, P2))
 # print(np.equal(P1[:2,:2,:2], P2[:2,:2,:2]))
 # print(P1[:2,:2,:2])
