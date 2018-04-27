@@ -41,41 +41,6 @@ P_p  = np.random.random((S, N, N)) # previous          t - 1
 # np.save('P_p.npy', P_p)
 # np.save('r.npy', r)
 
-def old_slow0(P_pp, P_p):
-    '''slow explicit n^3, c-style implementation v0.2'''
-    
-    S = P_p.shape[0]
-    N = P_p.shape[1]
-    P = np.zeros((S, N, N)) 
-
-
-    for i in range(2, S - 2):
-        for j in range(2, N - 2):
-            for k in range(2, N - 2):
-
-
-                # need some optimisation, with K2, K2_3_ro, чтобы считать меньше
-                # K2. K2_3_ro - put outside for loops
-                # Первое слагаемое можно тоже вынести outside for loops - там простое сложение
-                # можно slices + sum вместо много + + + +
-                P[i, j, k] = (2 - 7.5 * K2[i, j, k]) * P_p[i, j, k] - P_pp[i, j, k] \
-                    + 4/3 * K2[i, j, k] * (P_p[i + 1, j    , k    ] + \
-                                  P_p[i - 1, j    , k    ] + \
-                                  P_p[i    , j + 1, k    ] + \
-                                  P_p[i    , j - 1, k    ] + \
-                                  P_p[i    , j    , k + 1] + \
-                                  P_p[i    , j    , k - 1] ) \
-                    - K2[i, j, k] / 12 *  (P_p[i + 2, j    , k    ] + \
-                                  P_p[i - 2, j    , k    ] + \
-                                  P_p[i    , j + 2, k    ] + \
-                                  P_p[i    , j - 2, k    ] + \
-                                  P_p[i    , j    , k + 2] + \
-                                  P_p[i    , j    , k - 2] ) \
-                    - K2_3_ro[i, j, k] * ((P_p[i + 1, j    , k    ] - P_p[i-1 , j  , k  ]) - (P_p[i + 2, j, k] - P_p[i - 2, j, k]) / 8) * (ro[i + 1, j, k] - ro[i - 1, j, k]) \
-                    - K2_3_ro[i, j, k] * ((P_p[i    , j + 1, k    ] - P_p[i   , j-1, k  ]) - (P_p[i, j + 2, k] - P_p[i, j - 2, k]) / 8) * (ro[i, j + 1, k] - ro[i, j - 1, k]) \
-                    - K2_3_ro[i, j, k] * ((P_p[i    , j    , k + 1] - P_p[i-1 , j  , k-1]) - (P_p[i, j, k + 2] - P_p[i, j, k - 2]) / 8) * (ro[i, j, k + 1] - ro[i, j, k - 1])
-    return P[2:-2, 2:-2, 2:-2]
-
 def old_slow1(P_pp, P_p):
     '''slow explicit n^3, c-style implementation v0.2'''
     
@@ -91,14 +56,6 @@ def old_slow1(P_pp, P_p):
     for i in range(2, S - 2):
         for j in range(2, N - 2):
             for k in range(2, N - 2):
-
-
-                # need some optimisation, with K2, K2_3_ro, чтобы считать меньше
-                # K2. K2_3_ro - put outside for loops
-                # Первое слагаемое можно тоже вынести outside for loops - там простое сложение
-                # можно slices + sum вместо много + + + +
-
-
                 s1 = (P_p[i + 1, j    , k    ] + \
                       P_p[i - 1, j    , k    ] + \
                       P_p[i    , j + 1, k    ] + \
@@ -137,22 +94,15 @@ def P(P_pp, P_p):
 
     cell_indeces_flat = np.arange(N**3).reshape(N, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
 
-    neighbours1_indeces_flat = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2])      # i±1 j±1 k±1 
-    neighbours2_indeces_flat = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2]) * 2  # i±2 j±2 k±2 
-
-    neighbours1_cell_all = P_p.flatten()[neighbours1_indeces_flat] # each row contains 6 neighbors of cell 
-    neighbours2_cell_all = P_p.flatten()[neighbours1_indeces_flat] # each row contains 6 neighbors of cell 
-
-    s1 = np.sum(neighbours1_cell_all, axis=1) # sum by axis=1 is faster for default order
-    s2 = np.sum(neighbours2_cell_all, axis=1)
-
+    s1_indexes_flat = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2])      # i±1 j±1 k±1 
+    s2_indexes_flat = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2]) * 2  # i±2 j±2 k±2 
+    s1_values = P_p.flatten()[s1_indexes_flat] # each row contains 6 neighbors of cell 
+    s2_values = P_p.flatten()[s2_indexes_flat] # each row contains 6 neighbors of cell 
+    s1 = np.sum(s1_values, axis=1) # sum by axis=1 is faster for default order
+    s2 = np.sum(s2_values, axis=1)
 
     Z[2:-2, 2:-2, 2:-2] -=   4 * s1.reshape(N-4, N-4, N-4)
     Z[2:-2, 2:-2, 2:-2] += 1/4 * s2.reshape(N-4, N-4, N-4)
-                                 # wtf is going on here???   
-    # Z[2:-2, 2:-2, 2:-2] -=   4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s1).reshape(N-4, N-4, N-4)
-    # Z[2:-2, 2:-2, 2:-2] += 1/4 * (P.flatten()[cell_indeces_flat.reshape(-1)] + s2).reshape(N-4, N-4, N-4)
-
 
     s3_V_indexes = cell_indeces_flat + np.array([N**2, -N**2, 2*N**2, -2*N**2])
     s3_V_values = P_p.flatten()[s3_V_indexes] * [1, -1, -1/8, -1/8]
@@ -181,50 +131,6 @@ def P(P_pp, P_p):
     Z[2:-2, 2:-2, 2:-2] += (s3 + s4 + s5) * ro[2:-2, 2:-2, 2:-2]
     P -= Z * K2 / 3
 
-    # cell_indeces_flat = np.arange(N**3).reshape(N, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
-    # neighbours1 = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2])      # i±1 j±1 k±1 
-    # neighbours2 = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2]) * 2  # i±2 j±2 k±2 
-
-    # print('sum:', np.sum(P[neighbours1], axis=1)[0])
-    # BUG: allclose == true, even if you comment next 2 lines
-    # P[2:-2, 2:-2, 2:-2] += 4 /  3 * K2[2:-2, 2:-2, 2:-2] * np.sum(P.flatten()[neighbours1], axis=1).reshape(N - 4, N - 4, N - 4)
-    # P[2:-2, 2:-2, 2:-2] -= 1 / 12 * K2[2:-2, 2:-2, 2:-2] * np.sum(neighbours2, axis=1).reshape(N - 4, N - 4, N - 4)
-
-    # for i in range(2, S - 2):
-    #     for j in range(2, N - 2):
-    #         for k in range(2, N - 2):
-
-
-                # need some optimisation, with K2, K2_3_ro, чтобы считать меньше
-                # K2. K2_3_ro - put outside for loops
-                # Первое слагаемое можно тоже вынести outside for loops - там простое сложение
-                # можно slices + sum вместо много + + + +
-
-
-                # s1 = (P_p[i + 1, j    , k    ] + \
-                      # P_p[i - 1, j    , k    ] + \
-                      # P_p[i    , j + 1, k    ] + \
-                      # P_p[i    , j - 1, k    ] + \
-                      # P_p[i    , j    , k + 1] + \
-                      # P_p[i    , j    , k - 1]
-                # )
-                # P[i, j, k] += 4/3 * K2[i, j, k] * s1
-
-                # s2 = (P_p[i + 2, j    , k    ] + \
-                #       P_p[i - 2, j    , k    ] + \
-                #       P_p[i    , j + 2, k    ] + \
-                #       P_p[i    , j - 2, k    ] + \
-                #       P_p[i    , j    , k + 2] + \
-                #       P_p[i    , j    , k - 2]
-                # )
-                # P[i, j, k] -= K2[i, j, k] / 12 * s2
-
-                # s3 = ((P_p[i + 1, j    , k    ] - P_p[i-1 , j  , k  ]) - (P_p[i + 2, j, k] - P_p[i - 2, j, k]) / 8) * (ro[i + 1, j, k] - ro[i - 1, j, k])
-                # s4 = ((P_p[i    , j + 1, k    ] - P_p[i   , j-1, k  ]) - (P_p[i, j + 2, k] - P_p[i, j - 2, k]) / 8) * (ro[i, j + 1, k] - ro[i, j - 1, k])
-                # s5 = ((P_p[i    , j    , k + 1] - P_p[i-1 , j  , k-1]) - (P_p[i, j, k + 2] - P_p[i, j, k - 2]) / 8) * (ro[i, j, k + 1] - ro[i, j, k - 1])
-                # P -= K2_3_ro[i, j, k] * s3
-                # P -= K2_3_ro[i, j, k] * s4
-                # P -= K2_3_ro[i, j, k] * s5
     return P[2:-2, 2:-2, 2:-2]
 
 # P = P(P_pp, P_p)
@@ -245,16 +151,7 @@ print(f't_P1 / t_P2 = {t_P1 / t_P2}')
 print(f'np.array_equal(P1, P2)\t{np.array_equal(P1, P2)}')
 print(f'np.allclose(P1, P2):\t{np.allclose(P1, P2)}')
 
-# print(np.equal(P1, P2))
-# print(np.equal(P1[:2,:2,:2], P2[:2,:2,:2]))
-# print(P1[:2,:2,:2])
-# print(P2[:2,:2,:2])
-# print(P1.dtype)
-# print(P2.dtype)
-
 print(P1[3,3,3])
 print(P2[3,3,3])
 
-# print(f'delta = {abs(P1[0,0,0] - P2[0,0,0])}')
-
-# print(np.sum(P1) - np.sum(P2))
+print(np.sum(P1) - np.sum(P2))
