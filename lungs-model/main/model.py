@@ -31,6 +31,11 @@ def P_step(P_pp, P_p):
     N = P_p.shape[1]
 
     P[2:-2, 2:-2, 2:-2] = 2 * P_p[2:-2, 2:-2, 2:-2] - P_pp[2:-2, 2:-2, 2:-2]
+
+    bound_sum = np.sum(P[:2])
+    if(bound_sum != 0):
+        print(f'bug police_-1: {bound_sum}')
+    
     Z = np.zeros_like(P_p)
     Z[2:-2, 2:-2, 2:-2] = 22.5 * P_p[2:-2, 2:-2, 2:-2]
     
@@ -59,14 +64,14 @@ def P_step(P_pp, P_p):
 
     s3_V_indexes = cell_indeces_flat + np.array([N**2, -N**2, 2*N**2, -2*N**2])
     s3_V_values = P_p.flatten()[s3_V_indexes] * m1 # po idee mozhno za skobki kak to vinesti m1 i m2
-    print(P_p.max())
+    # print(P_p.max())
     s3_V_sum = np.sum(s3_V_values, axis=1)
     s3_N_indexes = cell_indeces_flat + np.array([N**2, -N**2])
     s3_N_values = ro.flatten()[s3_N_indexes] * m2
     s3_N_sum = np.sum(s3_N_values, axis=1)
     s3 = (s3_V_sum * s3_N_sum).reshape(S-4, N-4, N-4)
     # print(s3_V_sum.max(), s3_V_sum.min())
-    print(len(s3_N_sum) ,len(s3_N_sum == 0))
+    # print(len(s3_N_sum) ,len(s3_N_sum == 0))
     # print(s3_N_sum.max(), s3_N_sum.min(), len(s3_N_sum == 0))
 #     print(s3_V_sum)
     
@@ -116,10 +121,11 @@ def P_step(P_pp, P_p):
     return P
 
 N = P.shape[1]
-steps = 1
+
+steps = 10
 img = np.zeros((steps, N))
 
-A, B, C = 0, N//2, N//2 # sound source location
+A, B, C = 2, N//2, N//2 # sound source location
 
 f = 440
 T = np.linspace(0, 2, steps)
@@ -128,6 +134,7 @@ propagated = np.zeros_like(soundwave)
 
 
 for i, s in enumerate(soundwave):
+    print(i, end='\t')
     P_old = P
     
     P     = P_step(P_pp, P_p)
