@@ -9,7 +9,7 @@ from time import time, sleep
 class AppGUI(QtGui.QWidget):
     steps_state = QtCore.pyqtSignal([int])
 
-    def __init__(self, P):
+    def __init__(self):
         super(AppGUI, self).__init__()
         
 
@@ -20,12 +20,29 @@ class AppGUI(QtGui.QWidget):
         self.init_ui()
         self.qt_connections()
 
-
     def init_ui(self):
         pg.setConfigOption('background', 'w')
 
         self.setGeometry(50, 50, 700, 700)
         self.setWindowTitle('Lungs Model')
+        self.l_label = QtGui.QLabel('dt')
+        self.h_label = QtGui.QLabel('h')
+        self.f_label = QtGui.QLabel('freq')
+
+        self.l_spin = pg.SpinBox(value=l, step=0.01, siPrefix=True, suffix='s')
+        self.h_spin = pg.SpinBox(value=h, step=0.01, siPrefix=True)
+        self.f_spin = pg.SpinBox(value=f, step=1, siPrefix=True)
+        self.reset_params_button = QtGui.QPushButton('Reset to Defaults')
+        self.reinit_button = QtGui.QPushButton('Reinit Model')
+        self.model_params_layout = QtGui.QHBoxLayout()
+        self.model_params_layout.addWidget(self.l_label)
+        self.model_params_layout.addWidget(self.l_spin)
+        self.model_params_layout.addWidget(self.h_label)
+        self.model_params_layout.addWidget(self.h_spin)
+        self.model_params_layout.addWidget(self.f_label)
+        self.model_params_layout.addWidget(self.f_spin)
+        self.model_params_layout.addWidget(self.reset_params_button)
+        self.model_params_layout.addWidget(self.reinit_button)
 
         self.label = QtGui.QLabel(f'Current Slice: {self.current_slice}/{self.data.shape[0] - 1}')
         self.label.setGeometry(100, 200, 100, 100)
@@ -52,11 +69,8 @@ class AppGUI(QtGui.QWidget):
 
         self.glayout = pg.GraphicsLayoutWidget()
         self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
-
         self.img = pg.ImageItem(border='b')
-
         self.img.setImage(self.data[self.current_slice])
-
         self.view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         self.view.addItem(self.img)
 
@@ -87,6 +101,7 @@ class AppGUI(QtGui.QWidget):
         self.slice_slider.setTickInterval(1)
 
 
+        self.layout.addLayout(self.model_params_layout)
         self.layout.addLayout(self.radio_layout)
         self.layout.addWidget(self.label)
         # self.layout.addWidget(self.progress_bar)
@@ -101,13 +116,46 @@ class AppGUI(QtGui.QWidget):
 
     def qt_connections(self):
         self.step_button.clicked.connect(self.do_steps)
+        self.l_spin.valueChanged.connect(self.l_spin_value_changed)
+        self.h_spin.valueChanged.connect(self.h_spin_value_changed)
+        self.f_spin.valueChanged.connect(self.f_spin_value_changed)
+        self.reset_params_button.clicked.connect(self.reset_params)
+        self.reinit_button.clicked.connect(self.reinit)
         self.slice_slider.valueChanged.connect(self.slice_slider_changed)
         self.steps_state.connect(self.update_steps_progress_bar)
+
+    def l_spin_value_changed(self):
+        global l
+        l = self.l_spin.value()
+
+    def h_spin_value_changed(self):
+        global h
+        h = self.h_spin.value()
+    
+    def f_spin_value_changed(self):
+        global f
+        f = self.f_spin.value()
 
     @QtCore.pyqtSlot(int)
     def update_steps_progress_bar(self, current_step):
         self.steps_progress_bar.setValue(current_step / self.steps_spin.value() * 100)
         QApplication.processEvents() 
+
+    def reset_params(self):
+        init_model()
+        self.l_spin.setValue(l)
+        self.h_spin.setValue(h)
+        self.f_spin.setValue(f)
+        self.data = P
+        self.current_slice = A
+        self.img.setImage(self.data[self.current_slice])
+
+    
+    def reinit(self):
+        init_model(l, h, f)
+        self.data = P
+        self.current_slice = A
+        self.img.setImage(self.data[self.current_slice])
 
 
     def array_to_vis_changed(self):
@@ -123,7 +171,7 @@ class AppGUI(QtGui.QWidget):
             step()
             self.img.setImage(self.data[self.current_slice])
             self.steps_state.emit(i + 1)
-        self.steps_state.emit(0)        
+        self.steps_state.emit(0)       
 
 
     def wheelEvent(self,event):
@@ -151,22 +199,30 @@ class AppGUI(QtGui.QWidget):
 
 # model code start ------------------------------------------------------------
 
-r = np.load('../3d_numpy_array_reduced-58-64-64.npy')
-ro  = 1e-5 + 1.24e-3*r - 2.83e-7*r*r + 2.79e-11*r*r*r
-c = (ro + 0.112) * 1.38e-6
+def init_model(L=0.1, H=1, F=440):
+    global r, ro, c, t, l, h, K, K2, K_2_by_3, P_pp, P_p, P, N, A, B, C, f
+    r = np.load('../3d_numpy_array_reduced-58-64-64.npy')
+    ro  = 1e-5 + 1.24e-3*r - 2.83e-7*r*r + 2.79e-11*r*r*r
+    c = (ro + 0.112) * 1.38e-6
+
+    t = 0
+    l = L # dt, time step
+    h = H # dx = dy = dz = 1mm
+    K = l / h * c
+    K2 = K**2
+    K_2_by_3 = K**2 / 3
 
 
-t = 0
-l = 0.1 # dt, time step
-h = 1 # dx = dy = dz = 1mm
-K = l / h * c
-K2 = K**2
-K_2_by_3 = K**2 / 3
+    # initial conditions
+    P_pp = np.zeros_like(ro) # previous previous t - 2
+    P_p  = np.zeros_like(ro) # previous          t - 1
+    P    = np.zeros_like(ro) # current           t
 
-# initial conditions
-P_pp = np.zeros_like(ro) # previous previous t - 2
-P_p  = np.zeros_like(ro) # previous          t - 1
-P    = np.zeros_like(ro) # current           t
+    N = P.shape[1]
+    A, B, C = 2, N//2, N//2 # sound source location
+    f = F
+    print(f'reinit l={l} h={h} f={f}')
+
 
 def p_step():
     global P
@@ -235,15 +291,12 @@ def step():
     P_p   = P_old
     t += l
 
-N = P.shape[1]
-A, B, C = 2, N//2, N//2 # sound source location
-t = 0
-f = 400
+init_model()
 
 # model code end -------------------------------------------------------------
 
         
 app = QtGui.QApplication(sys.argv)
-gui = AppGUI(P)
+gui = AppGUI()
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 sys.exit(app.exec())
