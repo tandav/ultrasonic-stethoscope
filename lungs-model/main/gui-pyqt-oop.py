@@ -4,7 +4,6 @@ import pyqtgraph as pg
 import numpy as np
 import sys
 import signal
-from time import time, sleep
 
 
 class LungsModel():
@@ -170,9 +169,9 @@ class AppGUI(QtGui.QWidget):
         self.model_params_layout.addWidget(self.reset_params_button)
         self.model_params_layout.addWidget(self.reinit_button)
 
-        self.z_slice_label = QtGui.QLabel(f'Current Z-Axis Slice: {self.z_slice}/{self.data.shape[0] - 1}')
-        self.y_slice_label = QtGui.QLabel(f'Current Y-Axis Slice: {self.y_slice}/{self.data.shape[1] - 1}')
-        self.x_slice_label = QtGui.QLabel(f'Current X-Axis Slice: {self.x_slice}/{self.data.shape[2] - 1}')
+        self.z_slice_label = QtGui.QLabel(f'Current Z-Axis Slice: {self.z_slice + 1}/{self.data.shape[0]}')
+        self.y_slice_label = QtGui.QLabel(f'Current Y-Axis Slice: {self.y_slice + 1}/{self.data.shape[1]}')
+        self.x_slice_label = QtGui.QLabel(f'Current X-Axis Slice: {self.x_slice + 1}/{self.data.shape[2]}')
         self.z_slice_label.setGeometry(100, 200, 100, 100)
         self.y_slice_label.setGeometry(100, 200, 100, 100)
         self.x_slice_label.setGeometry(100, 200, 100, 100)
@@ -188,9 +187,9 @@ class AppGUI(QtGui.QWidget):
 
 
 
-
         self.layout = QtGui.QVBoxLayout()
 
+        # self.autolevels = False
         self.autolevels = True
         self.levels = (0, 100)
         # self.view.addItem(self.z_slice_img)
@@ -318,7 +317,6 @@ class AppGUI(QtGui.QWidget):
     def mouseMoveEvent(self, ev):
         print('pp')
 
-
     def l_spin_value_changed(self):
         self.model.l = self.l_spin.value()
 
@@ -334,19 +332,23 @@ class AppGUI(QtGui.QWidget):
         QApplication.processEvents() 
 
     def reset_params(self):
-        # self.model = LungsModel()
         self.l_spin.setValue(LungsModel.l_default)
         self.h_spin.setValue(LungsModel.h_default)
         self.f_spin.setValue(LungsModel.f_default)
-        # self.data = self.model.P
-        # self.z_slice = self.model.A
-        # self.z_slice_img.setImage(self.data[self.z_slice])
+
+        self.z_slice = self.model.A
+        self.y_slice = self.model.B
+        self.x_slice = self.model.C
+        self.z_slice_slider.setValue(self.z_slice)
+        self.y_slice_slider.setValue(self.y_slice)
+        self.x_slice_slider.setValue(self.x_slice)
+
+        self.arrays_to_vis[0].setChecked(True)
+        self.array_to_vis_changed()
 
     def reinit_model(self):
         self.model = LungsModel(self.l_spin.value(), self.h_spin.value(), self.f_spin.value())
-        self.data = self.model.P
-        self.z_slice = self.model.A
-        self.z_slice_img.setImage(self.data[self.z_slice])
+        self.array_to_vis_changed()
 
     def array_to_vis_changed(self):
         
@@ -365,6 +367,9 @@ class AppGUI(QtGui.QWidget):
                 self.y_slice_img.setImage(self.data[:, self.y_slice, :])
                 self.x_slice_img.setImage(self.data[:, :, self.x_slice])
 
+    def print_mean(self):
+        print(f'slices mean Z, Y, X   {np.mean(self.data[self.z_slice]):8.3e}    {np.mean(self.data[:, self.y_slice, :]):8.3e}    {np.mean(self.data[:, :, self.x_slice]):8.3e}    cube mean: {np.mean(self.data):8.3e}')
+
     def do_steps(self):
         for i in range(self.steps_spin.value()):
             self.model.step()
@@ -373,19 +378,19 @@ class AppGUI(QtGui.QWidget):
             self.x_slice_img.setImage(self.data[:, :, self.x_slice])
             self.source_curve.setData(self.model.source_signal)
             self.observ_curve.setData(self.model.observ_signal)
-            print(f'mean of current z-axis slice: {np.mean(self.data[self.z_slice])}')
             self.steps_state.emit(i + 1)
+            self.print_mean()
         self.steps_state.emit(0)       
 
     def wheelEvent(self, event):
+        pass
         # print(self.z_slice_img.boundingRect(), self.z_slice_img.sceneBoundingRect().width(), self.z_slice_img.width(), event.x())
-        print(self.z_slice_img.sceneBoundingRect(), self.z_slice_img.height(), event.pos(), event.globalPos())
+        # print(self.z_slice_img.sceneBoundingRect(), self.z_slice_img.height(), event.pos(), event.globalPos())
         # if self.z_slice_img.boundingRect().contains(event.pos()):
-        if self.z_slice_img.sceneBoundingRect().contains(event.pos()):
+        # if self.z_slice_img.sceneBoundingRect().contains(event.pos()):
         # if self.z_slice_img.sceneBoundingRect().contains(event.globalPos()):
-            self.z_slice = np.clip(self.z_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[0] - 1)
-            self.z_slice_slider.setValue(self.z_slice)
-
+            # self.z_slice = np.clip(self.z_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[0] - 1) # change bounds 0..N-1 => 1..N
+            # self.z_slice_slider.setValue(self.z_slice)
 
     def keyPressEvent(self, event):
         if type(event) == QtGui.QKeyEvent and event.key() == QtCore.Qt.Key_Up:
@@ -398,23 +403,27 @@ class AppGUI(QtGui.QWidget):
 
     def z_slice_slider_changed(self):
         self.z_slice = self.z_slice_slider.value()
-        self.z_slice_label.setText(f'Current Z-Axis Slice: {self.z_slice}/{self.data.shape[0] - 1}')
+        self.z_slice_label.setText(f'Current Z-Axis Slice: {self.z_slice + 1}/{self.data.shape[0]}')
         self.z_slice_img.setImage(self.data[self.z_slice])
-        print(f'mean of current z-axis slice: {np.mean(self.data[self.z_slice])}')
+        self.print_mean()
 
     def y_slice_slider_changed(self):
         self.y_slice = self.y_slice_slider.value()
-        self.y_slice_label.setText(f'Current Y-Axis Slice: {self.y_slice}/{self.data.shape[1] - 1}')
+        self.y_slice_label.setText(f'Current Y-Axis Slice: {self.y_slice + 1}/{self.data.shape[1]}')
         self.y_slice_img.setImage(self.data[:, self.y_slice, :])
+        self.print_mean()
 
     def x_slice_slider_changed(self):
         self.x_slice = self.x_slice_slider.value()
-        self.x_slice_label.setText(f'Current X-Axis Slice: {self.x_slice}/{self.data.shape[2] - 1}')
+        self.x_slice_label.setText(f'Current X-Axis Slice: {self.x_slice + 1}/{self.data.shape[2]}')
         self.x_slice_img.setImage(self.data[:, :, self.x_slice])
+        self.print_mean()
+
 
 
 
 app = QtGui.QApplication(sys.argv)
+# print(sys.argv[1])
 gui = AppGUI()
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 sys.exit(app.exec())
