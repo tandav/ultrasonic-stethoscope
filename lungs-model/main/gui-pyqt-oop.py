@@ -12,7 +12,8 @@ class LungsModel():
     f_default = 440
 
     def __init__(self, L=l_default, H=h_default, F=f_default):
-        self.r = np.load('../3d_numpy_array_reduced-58-64-64.npy')
+        self.r = np.load('../cube-full-460-512-512.npy')[10:30, ::16, ::16]
+        # self.r = np.load('../cube-full-460-512-512.npy')[::8, ::8, ::8]
         self.ro  = 1e-5 + 1.24e-3 * self.r - 2.83e-7 * self.r * self.r + 2.79e-11 * self.r * self.r * self.r
         self.c = (self.ro + 0.112) * 1.38e-6
 
@@ -109,11 +110,11 @@ class LungsModel():
         self.source_signal = np.roll(self.source_signal, -1)
         self.observ_signal = np.roll(self.observ_signal, -1)
         self.source_signal[-1] = self.P[self.A, self.B, self.C]
-        self.source_signal[-1] = self.P[self.oA, self.oB, self.oC]
+        self.observ_signal[-1] = self.P[self.oA, self.oB, self.oC]
 
 
         self.t += self.l
-
+        
 
 
 
@@ -218,11 +219,11 @@ class AppGUI(QtGui.QWidget):
         plots_font = QtGui.QFont()
         fontsize = 9
         plots_font.setPixelSize(fontsize)
-        plots_height = 150
+        plots_height = 250
 
         self.source_plot = pg.PlotWidget(title=f'Acoustic Pressure at P[{self.model.A}, {self.model.B}, {self.model.C}] (sound source)')
         self.source_plot.showGrid(x=True, y=True, alpha=0.1)
-        # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
+        self.source_plot.setYRange(-1, 1) # w\o np.log(a)
         # self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.source_plot.getAxis('bottom').setStyle(tickTextOffset = fontsize)
         self.source_plot.getAxis('left').setStyle(tickTextOffset = fontsize)
@@ -240,12 +241,19 @@ class AppGUI(QtGui.QWidget):
         self.observ_plot.getAxis('left').tickFont = plots_font
         self.observ_plot.setMaximumHeight(plots_height)
         self.observ_curve = self.observ_plot.plot(pen='r')
+
+        self.plots_layout = QtGui.QHBoxLayout()
+        # self.plots_layout.addStretch()
+        # self.plots_layout.setMinimumWidth(200)
+        self.plots_layout.addWidget(self.source_plot)
+        self.plots_layout.addWidget(self.observ_plot)
+
         #----------------------------------------------------------------
 
         self.step_layout = QtGui.QHBoxLayout()
         self.steps_label = QtGui.QLabel('Number of steps: ')
         self.steps_spin = QtGui.QSpinBox()
-        self.steps_spin.setRange(1, 100)
+        self.steps_spin.setRange(1, 10000)
         self.steps_spin.setValue(1)
         self.steps_spin.setMaximumWidth(100)
         # self.steps_spin.setMaximumSize(100, 50)
@@ -290,8 +298,9 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.x_slice_label)
         self.layout.addWidget(self.x_slice_slider)
         self.layout.addWidget(self.glayout)
-        self.layout.addWidget(self.source_plot)
-        self.layout.addWidget(self.observ_plot)
+        self.layout.addLayout(self.plots_layout)
+        # self.layout.addWidget(self.source_plot)
+        # self.layout.addWidget(self.observ_plot)
         self.layout.addLayout(self.step_layout)
 
         self.setLayout(self.layout)
@@ -368,6 +377,7 @@ class AppGUI(QtGui.QWidget):
                 self.x_slice_img.setImage(self.data[:, :, self.x_slice])
 
     def print_mean(self):
+        # pass
         print(f'slices mean Z, Y, X   {np.mean(self.data[self.z_slice]):8.3e}    {np.mean(self.data[:, self.y_slice, :]):8.3e}    {np.mean(self.data[:, :, self.x_slice]):8.3e}    cube mean: {np.mean(self.data):8.3e}')
 
     def do_steps(self):
