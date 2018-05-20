@@ -12,8 +12,12 @@ class LungsModel():
     f_default = 440
 
     def __init__(self, L=l_default, H=h_default, F=f_default):
-        self.r = np.load('../cube-full-460-512-512.npy')[10:30, ::10, ::10]
+        # self.r = np.load('../cube-full-460-512-512.npy')
+        # self.r = np.load('../cube-full-460-512-512.npy')[::1, ::1, ::1]
+        # self.r = np.load('../cube-full-460-512-512.npy')[::4, ::4, ::4]
         # self.r = np.load('../cube-full-460-512-512.npy')[::8, ::8, ::8]
+        self.r = np.random.random((2,3,4))
+        self.r[0,0,0] = 3
         self.ro  = 1e-5 + 1.24e-3 * self.r - 2.83e-7 * self.r * self.r + 2.79e-11 * self.r * self.r * self.r
         self.c = (self.ro + 0.112) * 1.38e-6
 
@@ -31,9 +35,10 @@ class LungsModel():
         self.P    = np.zeros_like(self.ro) # current           t
 
         N = self.P.shape[1]
-        self.A, self.B, self.C = 7, N//2, N//2 # sound source location
+        self.A, self.B, self.C = 0, N//2, N//2 # sound source location
         # self.A, self.B, self.C = 2, N//2, N//2 # sound source location
-        self.oA, self.oB, self.oC = 6, N//2, N//2 # sound source location
+        # self.oA, self.oB, self.oC = 6, N//2, N//2 # sound source location
+        self.oA, self.oB, self.oC = 0, N//2, N//2 # sound source location
 
         self.f = F
 
@@ -98,7 +103,7 @@ class LungsModel():
 
         Z[2:-2, 2:-2, 2:-2] += (s3 + s4 + s5) * self.ro[2:-2, 2:-2, 2:-2]
         self.P[2:-2, 2:-2, 2:-2] -= Z[2:-2, 2:-2, 2:-2] * self.K_2_by_3[2:-2, 2:-2, 2:-2]
-        self.P[self.ro < 0.1] = 0
+        # self.P[self.ro < 0.1] = 0
       
     def step(self):
         self.P_old = self.P
@@ -151,6 +156,9 @@ class AppGUI(QtGui.QWidget):
         self.l_spin.setMaximumWidth(150)
         self.h_spin.setMaximumWidth(150)
         self.f_spin.setMaximumWidth(150)
+
+
+        
         self.reset_params_button = QtGui.QPushButton('Defaults')
         self.reinit_button = QtGui.QPushButton('Restart Model')
         
@@ -161,26 +169,23 @@ class AppGUI(QtGui.QWidget):
         self.model_params_layout.addWidget(self.h_spin)
         self.model_params_layout.addWidget(self.f_label)
         self.model_params_layout.addWidget(self.f_spin)
+
+
+        # radio buttons ------------------------------------------------------------
+        self.arrays_to_vis = [QtGui.QRadioButton('P'), QtGui.QRadioButton('r'), QtGui.QRadioButton('ro'), QtGui.QRadioButton('c'), QtGui.QRadioButton('K')]
+        self.arrays_to_vis[0].setChecked(True)
+        # self.radio_layout = QtGui.QHBoxLayout()
+
+        for rad in self.arrays_to_vis:
+            self.model_params_layout.addWidget(rad)
+            rad.clicked.connect(self.array_to_vis_changed)
+
         self.model_params_layout.addWidget(self.reset_params_button)
         self.model_params_layout.addWidget(self.reinit_button)
 
         self.z_slice_label = QtGui.QLabel(f'Current Z-Axis Slice: {self.z_slice + 1}/{self.data.shape[0]}')
         self.y_slice_label = QtGui.QLabel(f'Current Y-Axis Slice: {self.y_slice + 1}/{self.data.shape[1]}')
         self.x_slice_label = QtGui.QLabel(f'Current X-Axis Slice: {self.x_slice + 1}/{self.data.shape[2]}')
-        self.z_slice_label.setGeometry(100, 200, 100, 100)
-        self.y_slice_label.setGeometry(100, 200, 100, 100)
-        self.x_slice_label.setGeometry(100, 200, 100, 100)
-
-
-
-        # radio buttons ------------------------------------------------------------
-        self.arrays_to_vis = [QtGui.QRadioButton('P'), QtGui.QRadioButton('r'), QtGui.QRadioButton('ro'), QtGui.QRadioButton('c'), QtGui.QRadioButton('K')]
-        self.arrays_to_vis[0].setChecked(True)
-        self.radio_layout = QtGui.QHBoxLayout()
-
-        for rad in self.arrays_to_vis:
-            self.radio_layout.addWidget(rad)
-            rad.clicked.connect(self.array_to_vis_changed)
 
 
 
@@ -190,22 +195,59 @@ class AppGUI(QtGui.QWidget):
         self.levels = (0, 100)
         # self.view.addItem(self.z_slice_img)
         self.glayout = pg.GraphicsLayoutWidget()
-        self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
-        self.z_slice_img = pg.ImageItem(autoLevels=self.autolevels, levels=self.levels, border='b')
-        self.z_slice_img.setImage(self.data[self.z_slice])
-        self.view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
-        self.view.addItem(self.z_slice_img)
+        # self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
 
-        self.y_slice_img = pg.ImageItem(autoLevels=self.autolevels, levels=self.levels, border='r')
-        self.y_slice_img.setImage(self.data[:, self.y_slice, :])
-        self.y_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
-        self.y_slice_view.addItem(self.y_slice_img)
+        self.z_slice_img = pg.ImageItem(self.data[self.z_slice].T, autoLevels=self.autolevels, levels=self.levels, border='r')
+        # self.view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
+        # self.view.addItem(self.z_slice_img)
 
-        self.x_slice_img = pg.ImageItem(autoLevels=self.autolevels, levels=self.levels, border='g')
-        self.x_slice_img.setImage(self.data[:, :, self.x_slice])
-        self.x_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
-        self.x_slice_view.addItem(self.x_slice_img)
+        self.y_slice_img = pg.ImageItem(self.data[:, self.y_slice, :], autoLevels=self.autolevels, levels=self.levels, border='g')
+        # self.y_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
+        # self.y_slice_view.addItem(self.y_slice_img)
 
+        self.x_slice_img = pg.ImageItem(self.data[:, :, self.x_slice], autoLevels=self.autolevels, levels=self.levels, border='b')
+        # self.x_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
+        # self.x_slice_view.addItem(self.x_slice_img)
+
+
+
+
+
+        self.slices_plot = self.glayout.addPlot(title="Multiple curves")
+        self.slices_plot.setAspectLocked() 
+        self.slices_plot.plot([1,5,2,4,3,2], pen='r')
+        # self.slices_plot.setXRange(0, 12)
+
+
+        # img = pg.ImageItem(np.random.random((64, 64)), autoLevels=self.autolevels, levels=self.levels, border='g')
+        # self.fresh_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
+        # self.fresh_view.addItem(self.fresh_img)
+
+        margin = 4
+        self.slices_plot.addItem(self.z_slice_img)
+        self.z_slice_img.setZValue(-100)  # make sure image is behind other data
+        self.z_slice_img.setRect(pg.QtCore.QRectF(0, 0, self.data.shape[2], self.data.shape[1]))
+        
+        self.slices_plot.addItem(self.y_slice_img)
+        self.y_slice_img.setZValue(-100)  # make sure image is behind other data
+        self.y_slice_img.setRect(pg.QtCore.QRectF(self.data.shape[2] + margin, 0, self.data.shape[2] + 1, self.data.shape[0]))
+        
+        self.slices_plot.addItem(self.x_slice_img)
+        self.x_slice_img.setZValue(-100)  # make sure image is behind other data
+        self.x_slice_img.setRect(pg.QtCore.QRectF(self.data.shape[2] + self.data.shape[2] + margin, 0,  + self.data.shape[1] , self.data.shape[0]))
+
+        # p1 = self.glayout.addPlot(0, 0)
+        # p2 = self.glayout.addPlot(0, 1)
+        # p3 = self.glayout.addPlot(0, 2)
+        # Fix Axes ticks and grid
+        # for key in p1.axes:
+            # ax = p1.getAxis(key)
+
+            # Set the grid opacity
+            # ax.setGrid(1* 255)
+
+            # Fix Z value making the grid on top of the image
+            # ax.setZValue(1)
 
         #--------------------------- signal plots ------------------------
         plots_font = QtGui.QFont()
@@ -275,6 +317,8 @@ class AppGUI(QtGui.QWidget):
         self.step_layout.addWidget(self.steps_progress_bar)
         
 
+
+
         self.z_slice_slider = QtGui.QSlider()
         self.z_slice_slider.setOrientation(QtCore.Qt.Horizontal)
         self.z_slice_slider.setRange(0, self.data.shape[0] - 1)
@@ -297,7 +341,7 @@ class AppGUI(QtGui.QWidget):
         self.x_slice_slider.setTickInterval(1)
 
         self.layout.addLayout(self.model_params_layout)
-        self.layout.addLayout(self.radio_layout)
+        # self.layout.addLayout(self.radio_layout)
         self.layout.addWidget(self.z_slice_label)
         self.layout.addWidget(self.z_slice_slider)
         self.layout.addWidget(self.y_slice_label)
@@ -312,7 +356,8 @@ class AppGUI(QtGui.QWidget):
 
         self.setLayout(self.layout)
 
-        self.setGeometry(0, 0, 1200, 900)
+        self.setGeometry(0, 0, 1440, 900)
+        # self.setGeometry(0, 0, 1200, 900)
         self.show()
 
     def qt_connections(self):
