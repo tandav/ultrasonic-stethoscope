@@ -15,8 +15,8 @@ class LungsModel():
         # self.r = np.load('../cube-full-460-512-512.npy')
         # self.r = np.load('../cube-full-460-512-512.npy')[::1, ::1, ::1]
         # self.r = np.load('../cube-full-460-512-512.npy')[::4, ::4, ::4]
-        # self.r = np.load('../cube-full-460-512-512.npy')[::8, ::8, ::8]
-        self.r = np.random.random((2,3,4))
+        self.r = np.load('../cube-full-460-512-512.npy')[::8, ::8, ::8]
+        # self.r = np.random.random((2,3,4))
         self.r[0,0,0] = 3
         self.ro  = 1e-5 + 1.24e-3 * self.r - 2.83e-7 * self.r * self.r + 2.79e-11 * self.r * self.r * self.r
         self.c = (self.ro + 0.112) * 1.38e-6
@@ -142,6 +142,7 @@ class AppGUI(QtGui.QWidget):
 
     def init_ui(self):
         pg.setConfigOption('background', 'w')
+        pg.setConfigOption('imageAxisOrder', 'row-major')
         self.layout = QtGui.QVBoxLayout()
 
         # self.setGeometry(50, 50, 700, 700)
@@ -197,15 +198,28 @@ class AppGUI(QtGui.QWidget):
         self.glayout = pg.GraphicsLayoutWidget()
         # self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
 
-        self.z_slice_img = pg.ImageItem(self.data[self.z_slice].T, autoLevels=self.autolevels, levels=self.levels, border='r')
+        # x = np.random.random((2, 3, 4))
+        # x = np.arange(24).reshape((2,3,4))
+        x = np.array([[[ 1,  1,  1,  0],
+                       [ 0,  0,  2,  0],
+                       [ 0,  0,  0,  0]],
+
+                      [[0, 0, 0, 0],
+                       [0, 2, 0, 0],
+                       [1, 1, 0, 0]]])
+
+        self.z_slice_img = pg.ImageItem(x[0], border='r')
+        # self.z_slice_img = pg.ImageItem(self.data[self.z_slice], autoLevels=self.autolevels, levels=self.levels, border='r')
         # self.view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         # self.view.addItem(self.z_slice_img)
 
-        self.y_slice_img = pg.ImageItem(self.data[:, self.y_slice, :], autoLevels=self.autolevels, levels=self.levels, border='g')
+        self.y_slice_img = pg.ImageItem(x[:,1,:], border='g')
+        # self.y_slice_img = pg.ImageItem(self.data[:, self.y_slice, :], autoLevels=self.autolevels, levels=self.levels, border='g')
         # self.y_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         # self.y_slice_view.addItem(self.y_slice_img)
 
-        self.x_slice_img = pg.ImageItem(self.data[:, :, self.x_slice], autoLevels=self.autolevels, levels=self.levels, border='b')
+        self.x_slice_img = pg.ImageItem(x[:,:,2], border='b')
+        # self.x_slice_img = pg.ImageItem(self.data[:, :, self.x_slice], autoLevels=self.autolevels, levels=self.levels, border='b')
         # self.x_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         # self.x_slice_view.addItem(self.x_slice_img)
 
@@ -213,28 +227,43 @@ class AppGUI(QtGui.QWidget):
 
 
 
-        self.slices_plot = self.glayout.addPlot(title="Multiple curves")
-        self.slices_plot.setAspectLocked() 
-        self.slices_plot.plot([1,5,2,4,3,2], pen='r')
-        # self.slices_plot.setXRange(0, 12)
+        self.z_slice_plot = self.glayout.addPlot(title='Z Slice (Head - Legs)')
+        self.y_slice_plot = self.glayout.addPlot(title='Y Slice (Back - Forward)')
+        self.x_slice_plot = self.glayout.addPlot(title='X Slice (Left Hand - Right Hand)')
+        
+        self.z_slice_plot.setAspectLocked() 
+        self.y_slice_plot.setAspectLocked() 
+        self.x_slice_plot.setAspectLocked() 
+
+        self.z_slice_plot.plot([1,5,2,4,3,2], pen='r')
+        self.y_slice_plot.plot([1,5,2,4,3,2], pen='g')
+        self.x_slice_plot.plot([1,5,2,4,3,2], pen='b')
+        
+        self.z_slice_plot.invertY(True)
+        self.y_slice_plot.invertY(True)
+        self.x_slice_plot.invertY(True)
+        
+        # self.z_slice_plot.setXRange(0, 12)
 
 
         # img = pg.ImageItem(np.random.random((64, 64)), autoLevels=self.autolevels, levels=self.levels, border='g')
         # self.fresh_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         # self.fresh_view.addItem(self.fresh_img)
 
-        margin = 4
-        self.slices_plot.addItem(self.z_slice_img)
+        self.z_slice_plot.addItem(self.z_slice_img)
         self.z_slice_img.setZValue(-100)  # make sure image is behind other data
-        self.z_slice_img.setRect(pg.QtCore.QRectF(0, 0, self.data.shape[2], self.data.shape[1]))
+        self.z_slice_img.setRect(pg.QtCore.QRectF(0, 0, x.shape[2], x.shape[1]))
+        # self.z_slice_img.setRect(pg.QtCore.QRectF(0, 0, self.data.shape[2], self.data.shape[1]))
         
-        self.slices_plot.addItem(self.y_slice_img)
+        self.y_slice_plot.addItem(self.y_slice_img)
         self.y_slice_img.setZValue(-100)  # make sure image is behind other data
-        self.y_slice_img.setRect(pg.QtCore.QRectF(self.data.shape[2] + margin, 0, self.data.shape[2] + 1, self.data.shape[0]))
+        self.y_slice_img.setRect(pg.QtCore.QRectF(0, 0, x.shape[2], x.shape[0]))
+        # self.y_slice_img.setRect(pg.QtCore.QRectF(self.data.shape[2] + margin, 0, self.data.shape[2] + 1, self.data.shape[0]))
         
-        self.slices_plot.addItem(self.x_slice_img)
+        self.x_slice_plot.addItem(self.x_slice_img)
         self.x_slice_img.setZValue(-100)  # make sure image is behind other data
-        self.x_slice_img.setRect(pg.QtCore.QRectF(self.data.shape[2] + self.data.shape[2] + margin, 0,  + self.data.shape[1] , self.data.shape[0]))
+        self.x_slice_img.setRect(pg.QtCore.QRectF(0, 0, x.shape[1], x.shape[0]))
+        # self.x_slice_img.setRect(pg.QtCore.QRectF(self.data.shape[2] + self.data.shape[2] + margin, 0,  + self.data.shape[1] , self.data.shape[0]))
 
         # p1 = self.glayout.addPlot(0, 0)
         # p2 = self.glayout.addPlot(0, 1)
