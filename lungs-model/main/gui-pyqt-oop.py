@@ -35,6 +35,11 @@ class LungsModel():
         self.oA, self.oB, self.oC = 6, N//2, N//2 # sound source location
 
         self.f = F
+
+        self.signal_window = 64
+        self.source_signal = np.zeros(self.signal_window)
+        self.observ_signal = np.zeros(self.signal_window)
+        
         print(f'init model l={self.l} h={self.h} f={self.f}')
 
     def update_P(self):
@@ -100,7 +105,17 @@ class LungsModel():
         self.P[self.A, self.B, self.C] = np.sin(2 * np.pi * self.f * self.t)
         self.P_pp  = self.P_p
         self.P_p   = self.P_old
+        
+
+        self.source_signal = np.roll(self.source_signal, -1)
+        self.observ_signal = np.roll(self.observ_signal, -1)
+        self.source_signal[-1] = self.P[self.A, self.B, self.C]
+        self.source_signal[-1] = self.P[self.oA, self.oB, self.oC]
+
+
         self.t += self.l
+
+
 
 
 class AppGUI(QtGui.QWidget):
@@ -133,12 +148,15 @@ class AppGUI(QtGui.QWidget):
         self.setWindowTitle('Lungs Model')
         self.l_label = QtGui.QLabel('dt')
         self.h_label = QtGui.QLabel('h')
-        self.f_label = QtGui.QLabel('freq')
+        self.f_label = QtGui.QLabel('f')
 
         self.l_spin = pg.SpinBox(value=self.model.l, step=0.01, siPrefix=False, suffix='s')
         self.h_spin = pg.SpinBox(value=self.model.h, step=0.01, siPrefix=False)
         self.f_spin = pg.SpinBox(value=self.model.f, step=1, siPrefix=False)
-        self.reset_params_button = QtGui.QPushButton('Reset to Defaults')
+        self.l_spin.setMaximumWidth(150)
+        self.h_spin.setMaximumWidth(150)
+        self.f_spin.setMaximumWidth(150)
+        self.reset_params_button = QtGui.QPushButton('Defaults')
         self.reinit_button = QtGui.QPushButton('Restart Model')
         self.model_params_layout = QtGui.QHBoxLayout()
         self.model_params_layout.addWidget(self.l_label)
@@ -160,15 +178,9 @@ class AppGUI(QtGui.QWidget):
 
         for rad in self.arrays_to_vis:
             self.radio_layout.addWidget(rad)
-            rad.toggled.connect(self.array_to_vis_changed)
+            rad.clicked.connect(self.array_to_vis_changed)
 
-        self.mapping = {
-            'P' : self.model.P,
-            'r' : self.model.r,
-            'ro': self.model.ro,
-            'c' : self.model.c,
-            'K' : self.model.K,
-        }
+
 
 
         self.layout = QtGui.QVBoxLayout()
@@ -187,9 +199,8 @@ class AppGUI(QtGui.QWidget):
         plots_font.setPixelSize(fontsize)
         plots_height = 150
 
-        self.source_plot = pg.PlotWidget(title=f'Source Signal at P[{self.model.A}, {self.model.B}, {self.model.C}]')
+        self.source_plot = pg.PlotWidget(title=f'Acoustic Pressure at P[{self.model.A}, {self.model.B}, {self.model.C}] (sound source)')
         self.source_plot.showGrid(x=True, y=True, alpha=0.1)
-        # self.fft_widget.setLogMode(x=True, y=False)
         # self.fft_widget.setYRange(0, 0.1) # w\o np.log(a)
         # self.fft_widget.setYRange(-15, 0) # w/ np.log(a)
         self.source_plot.getAxis('bottom').setStyle(tickTextOffset = fontsize)
@@ -200,7 +211,7 @@ class AppGUI(QtGui.QWidget):
         self.source_curve = self.source_plot.plot(pen='b')
 
 
-        self.observ_plot = pg.PlotWidget(title=f'Observable Signal at P[{self.model.oA}, {self.model.oB}, {self.model.oC}]')
+        self.observ_plot = pg.PlotWidget(title=f'Acoustic Pressure at P[{self.model.oA}, {self.model.oB}, {self.model.oC}]')
         self.observ_plot.showGrid(x=True, y=True, alpha=0.1)
         self.observ_plot.getAxis('bottom').setStyle(tickTextOffset = fontsize)
         self.observ_plot.getAxis('left').setStyle(tickTextOffset = fontsize)
@@ -215,7 +226,8 @@ class AppGUI(QtGui.QWidget):
         self.steps_spin = QtGui.QSpinBox()
         self.steps_spin.setRange(1, 100)
         self.steps_spin.setValue(1)
-        self.steps_spin.setMaximumSize(100, 50)
+        self.steps_spin.setMaximumWidth(100)
+        # self.steps_spin.setMaximumSize(100, 50)
         # self.steps_spin.setGeometry(QtCore.QRect(10, 10, 50, 21))
         self.step_button = QtGui.QPushButton('Step')
         # self.step_button.setMaximumSize(100, 50)
@@ -226,8 +238,6 @@ class AppGUI(QtGui.QWidget):
         self.step_layout.addWidget(self.step_button)
         self.step_layout.addWidget(self.steps_progress_bar)
         
-        self.progress_bar = QtGui.QProgressBar()
-        self.progress_bar.setValue(self.current_slice / (self.data.shape[0] - 1) * 100)
 
         self.slice_slider = QtGui.QSlider()
         self.slice_slider.setOrientation(QtCore.Qt.Horizontal)
@@ -240,7 +250,6 @@ class AppGUI(QtGui.QWidget):
         self.layout.addLayout(self.model_params_layout)
         self.layout.addLayout(self.radio_layout)
         self.layout.addWidget(self.label)
-        # self.layout.addWidget(self.progress_bar)
         self.layout.addWidget(self.slice_slider)
         self.layout.addWidget(self.glayout)
         self.layout.addWidget(self.source_plot)
@@ -292,15 +301,27 @@ class AppGUI(QtGui.QWidget):
         self.img.setImage(self.data[self.current_slice], autoLevels=True)
 
     def array_to_vis_changed(self):
+        
+        mapping = {
+            'P' : self.model.P,
+            'r' : self.model.r,
+            'ro': self.model.ro,
+            'c' : self.model.c,
+            'K' : self.model.K,
+        }
+
         for r in self.arrays_to_vis:
             if r.isChecked():
-                self.data = self.mapping[r.text()]
+                self.data = mapping[r.text()]
+                print(r.text(), np.mean(mapping[r.text()]), np.mean(self.model.P))
                 self.img.setImage(self.data[self.current_slice], autoLevels=True)
 
     def do_steps(self):
         for i in range(self.steps_spin.value()):
             self.model.step()
             self.img.setImage(self.data[self.current_slice], autoLevels=True)
+            self.source_curve.setData(self.model.source_signal)
+            self.observ_curve.setData(self.model.observ_signal)
             self.steps_state.emit(i + 1)
         self.steps_state.emit(0)       
 
@@ -308,9 +329,7 @@ class AppGUI(QtGui.QWidget):
         self.current_slice = np.clip(self.current_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[0] - 1)
         self.label.setText(f'Current Slice: {self.current_slice}/{self.data.shape[0] - 1}')
         self.img.setImage(self.data[self.current_slice], autoLevels=True)
-        # self.progress_bar.setValue(self.current_slice / (self.data.shape[0] - 1) * 100)
         self.slice_slider.setValue(self.current_slice)
-        print(np.mean(self.data[self.current_slice]))
 
     def keyPressEvent(self, event):
         if type(event) == QtGui.QKeyEvent and event.key() == QtCore.Qt.Key_Up:
@@ -325,7 +344,10 @@ class AppGUI(QtGui.QWidget):
         self.current_slice = self.slice_slider.value()
         self.label.setText(f'Current Slice: {self.current_slice}/{self.data.shape[0] - 1}')
         self.img.setImage(self.data[self.current_slice], autoLevels=True)
-        self.progress_bar.setValue(self.current_slice / (self.data.shape[0] - 1) * 100)
+        print(f'mean of current slice: {np.mean(self.data[self.current_slice])}')
+        print(f'[temp] mean of self.model.P[self.current_slice]: {np.mean(self.model.P[self.current_slice])}')
+        print(type(self.data))
+
 
 
 app = QtGui.QApplication(sys.argv)
