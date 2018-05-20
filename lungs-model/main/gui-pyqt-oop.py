@@ -12,7 +12,7 @@ class LungsModel():
     f_default = 440
 
     def __init__(self, L=l_default, H=h_default, F=f_default):
-        self.r = np.load('../cube-full-460-512-512.npy')[10:30, ::16, ::16]
+        self.r = np.load('../cube-full-460-512-512.npy')[10:30, ::10, ::10]
         # self.r = np.load('../cube-full-460-512-512.npy')[::8, ::8, ::8]
         self.ro  = 1e-5 + 1.24e-3 * self.r - 2.83e-7 * self.r * self.r + 2.79e-11 * self.r * self.r * self.r
         self.c = (self.ro + 0.112) * 1.38e-6
@@ -31,7 +31,8 @@ class LungsModel():
         self.P    = np.zeros_like(self.ro) # current           t
 
         N = self.P.shape[1]
-        self.A, self.B, self.C = 2, N//2, N//2 # sound source location
+        self.A, self.B, self.C = 7, N//2, N//2 # sound source location
+        # self.A, self.B, self.C = 2, N//2, N//2 # sound source location
         self.oA, self.oB, self.oC = 6, N//2, N//2 # sound source location
 
         self.f = F
@@ -112,7 +113,6 @@ class LungsModel():
         self.source_signal[-1] = self.P[self.A, self.B, self.C]
         self.observ_signal[-1] = self.P[self.oA, self.oB, self.oC]
 
-
         self.t += self.l
         
 
@@ -122,29 +122,22 @@ class AppGUI(QtGui.QWidget):
     steps_state = QtCore.pyqtSignal([int])
 
     def __init__(self):
-        # super(AppGUI, self).__init__()
         super().__init__()
         
         self.model = LungsModel()
 
         self.data = self.model.P
-        # self.z_slice = self.data.shape[0] // 2
+        self.observ_slice = np.zeros(self.model.signal_window)
         self.z_slice = self.model.A
         self.y_slice = self.model.B
         self.x_slice = self.model.C
-        # self.signal_window = 64
-        # self.source_signal = np.zeros(self.signal_window)
-        # self.observ_signal = np.zeros(self.signal_window)
-        # self.oA = 10
-        # self.oB = 
-        # self.oB
-
 
         self.init_ui()
         self.qt_connections()
 
     def init_ui(self):
         pg.setConfigOption('background', 'w')
+        self.layout = QtGui.QVBoxLayout()
 
         # self.setGeometry(50, 50, 700, 700)
         self.setWindowTitle('Lungs Model')
@@ -160,6 +153,7 @@ class AppGUI(QtGui.QWidget):
         self.f_spin.setMaximumWidth(150)
         self.reset_params_button = QtGui.QPushButton('Defaults')
         self.reinit_button = QtGui.QPushButton('Restart Model')
+        
         self.model_params_layout = QtGui.QHBoxLayout()
         self.model_params_layout.addWidget(self.l_label)
         self.model_params_layout.addWidget(self.l_spin)
@@ -178,6 +172,8 @@ class AppGUI(QtGui.QWidget):
         self.x_slice_label.setGeometry(100, 200, 100, 100)
 
 
+
+        # radio buttons ------------------------------------------------------------
         self.arrays_to_vis = [QtGui.QRadioButton('P'), QtGui.QRadioButton('r'), QtGui.QRadioButton('ro'), QtGui.QRadioButton('c'), QtGui.QRadioButton('K')]
         self.arrays_to_vis[0].setChecked(True)
         self.radio_layout = QtGui.QHBoxLayout()
@@ -188,8 +184,7 @@ class AppGUI(QtGui.QWidget):
 
 
 
-        self.layout = QtGui.QVBoxLayout()
-
+        # slices plots ----------------------------------------------------------------
         # self.autolevels = False
         self.autolevels = True
         self.levels = (0, 100)
@@ -201,8 +196,6 @@ class AppGUI(QtGui.QWidget):
         self.view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         self.view.addItem(self.z_slice_img)
 
-        # self.z_slice_img.setRect(QtCore.QRect(0, 0, 50, 50))
-
         self.y_slice_img = pg.ImageItem(autoLevels=self.autolevels, levels=self.levels, border='r')
         self.y_slice_img.setImage(self.data[:, self.y_slice, :])
         self.y_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
@@ -212,7 +205,6 @@ class AppGUI(QtGui.QWidget):
         self.x_slice_img.setImage(self.data[:, :, self.x_slice])
         self.x_slice_view = self.glayout.addViewBox(lockAspect=True, enableMouse=False)
         self.x_slice_view.addItem(self.x_slice_img)
-        # print(self.data[:, self.model.B, :])
 
 
         #--------------------------- signal plots ------------------------
@@ -242,11 +234,26 @@ class AppGUI(QtGui.QWidget):
         self.observ_plot.setMaximumHeight(plots_height)
         self.observ_curve = self.observ_plot.plot(pen='r')
 
+
+        self.observ_slice_plot = pg.PlotWidget(title=f'Acoustic Pressure at P[{self.z_slice}, {self.y_slice}, {self.x_slice}]')
+        self.observ_slice_plot.showGrid(x=True, y=True, alpha=0.1)
+        self.observ_slice_plot.getAxis('bottom').setStyle(tickTextOffset = fontsize)
+        self.observ_slice_plot.getAxis('left').setStyle(tickTextOffset = fontsize)
+        self.observ_slice_plot.getAxis('bottom').tickFont = plots_font
+        self.observ_slice_plot.getAxis('left').tickFont = plots_font
+        self.observ_slice_plot.setMaximumHeight(plots_height)
+        self.observ_slice_curve = self.observ_slice_plot.plot(pen=0.8)
+
+
+
+
+
         self.plots_layout = QtGui.QHBoxLayout()
         # self.plots_layout.addStretch()
         # self.plots_layout.setMinimumWidth(200)
         self.plots_layout.addWidget(self.source_plot)
         self.plots_layout.addWidget(self.observ_plot)
+        self.plots_layout.addWidget(self.observ_slice_plot)
 
         #----------------------------------------------------------------
 
@@ -383,17 +390,24 @@ class AppGUI(QtGui.QWidget):
     def do_steps(self):
         for i in range(self.steps_spin.value()):
             self.model.step()
+
             self.z_slice_img.setImage(self.data[self.z_slice      ])
             self.y_slice_img.setImage(self.data[:, self.y_slice, :])
             self.x_slice_img.setImage(self.data[:, :, self.x_slice])
+           
             self.source_curve.setData(self.model.source_signal)
             self.observ_curve.setData(self.model.observ_signal)
+
+            self.observ_slice = np.roll(self.observ_slice, -1)
+            self.observ_slice[-1] = self.model.P[self.z_slice, self.y_slice, self.x_slice]
+            self.observ_slice_curve.setData(self.observ_slice)
+
             self.steps_state.emit(i + 1)
             self.print_mean()
         self.steps_state.emit(0)       
 
-    def wheelEvent(self, event):
-        pass
+    # def wheelEvent(self, event):
+        # pass
         # print(self.z_slice_img.boundingRect(), self.z_slice_img.sceneBoundingRect().width(), self.z_slice_img.width(), event.x())
         # print(self.z_slice_img.sceneBoundingRect(), self.z_slice_img.height(), event.pos(), event.globalPos())
         # if self.z_slice_img.boundingRect().contains(event.pos()):
@@ -411,23 +425,35 @@ class AppGUI(QtGui.QWidget):
         else:
             event.ignore()
 
+    def update_observ_slice_plot(self):
+        self.observ_slice_plot.getPlotItem().setTitle(f'Acoustic Pressure at P[{self.z_slice}, {self.y_slice}, {self.x_slice}]')
+        self.observ_slice = np.zeros(self.model.signal_window)
+        self.observ_slice_curve.setData(self.observ_slice)
+
+
+
     def z_slice_slider_changed(self):
         self.z_slice = self.z_slice_slider.value()
         self.z_slice_label.setText(f'Current Z-Axis Slice: {self.z_slice + 1}/{self.data.shape[0]}')
         self.z_slice_img.setImage(self.data[self.z_slice])
         self.print_mean()
+        self.update_observ_slice_plot()
 
     def y_slice_slider_changed(self):
         self.y_slice = self.y_slice_slider.value()
         self.y_slice_label.setText(f'Current Y-Axis Slice: {self.y_slice + 1}/{self.data.shape[1]}')
         self.y_slice_img.setImage(self.data[:, self.y_slice, :])
         self.print_mean()
+        self.update_observ_slice_plot()
 
     def x_slice_slider_changed(self):
         self.x_slice = self.x_slice_slider.value()
         self.x_slice_label.setText(f'Current X-Axis Slice: {self.x_slice + 1}/{self.data.shape[2]}')
         self.x_slice_img.setImage(self.data[:, :, self.x_slice])
         self.print_mean()
+        self.update_observ_slice_plot()
+
+
 
 
 
