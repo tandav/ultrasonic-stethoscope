@@ -7,14 +7,29 @@ import signal
 
 
 class LungsModel():
-    l_default = 0.1
-    h_default = 1
-    f_default = 440
+    l_default = 0.065
+    h_default = 0.55e-6
+    f_default = 110
+    # l_default = 0.1
+    # h_default = 1
+    # f_default = 440
 
     def __init__(self, L=l_default, H=h_default, F=f_default):
         # self.r = np.load('../cube-full-460-512-512.npy')
         # self.r = np.load('../cube-full-460-512-512.npy')[::1, ::1, ::1]
-        self.r = np.load('../cube-full-460-512-512.npy')[::4, ::4, ::4]
+        # self.r = np.load('../cube-full-460-512-512.npy')[::2, ::2, ::2]
+        # self.r = np.load('../cube-full-460-512-512.npy')[::4, ::4, ::4]
+        # k = 11
+        # self.r = np.load('../cube-full-460-512-512.npy')[::k, ::k, ::k]
+        y_start = 155
+        x_start = 135
+        sqr = 245
+        k = 3
+        self.r = np.load('../cube-full-460-512-512.npy')[
+            50:100:k,
+            y_start : y_start + sqr : k,
+            x_start : x_start + sqr : k,
+        ]
         # self.r = np.load('../cube-full-460-512-512.npy')[::64, ::32, ::16]
         # self.r = np.random.random((2,3,4))
         self.r[0,0,0] = 3
@@ -35,10 +50,10 @@ class LungsModel():
         self.P    = np.zeros_like(self.ro) # current           t
 
         N = self.P.shape[1]
-        self.A, self.B, self.C = 4, N//2, N//2 # sound source location
+        self.A, self.B, self.C = 2, N//2, N//2 # sound source location
         # self.A, self.B, self.C = 2, N//2, N//2 # sound source location
         # self.oA, self.oB, self.oC = 6, N//2, N//2 # sound source location
-        self.oA, self.oB, self.oC = 0, N//2, N//2 # sound source location
+        self.oA, self.oB, self.oC = 4, N//2, N//2 # sound source location
 
         self.f = F
 
@@ -144,7 +159,7 @@ class AppGUI(QtGui.QWidget):
         pg.setConfigOption('background', 'w')
         pg.setConfigOption('imageAxisOrder', 'row-major')
 
-        self.z_axis_name = ('Head', 'Legs')
+        self.z_axis_name = ('Head', 'Feet')
         self.y_axis_name = ('Face', 'Back')
         self.x_axis_name = ('Left Hand', 'Right Hand')
 
@@ -298,7 +313,7 @@ class AppGUI(QtGui.QWidget):
         self.steps_label = QtGui.QLabel('Number of steps: ')
         self.steps_spin = QtGui.QSpinBox()
         self.steps_spin.setRange(1, 10000)
-        self.steps_spin.setValue(1)
+        self.steps_spin.setValue(50)
         self.steps_spin.setMaximumWidth(100)
         # self.steps_spin.setMaximumSize(100, 50)
         # self.steps_spin.setGeometry(QtCore.QRect(10, 10, 50, 21))
