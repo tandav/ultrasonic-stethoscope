@@ -77,12 +77,12 @@ class LungsModel():
         Z = np.zeros_like(self.P_p)
         Z[2:-2, 2:-2, 2:-2] = 22.5 * self.P_p[2:-2, 2:-2, 2:-2]
         
-        cell_indeces_flat = np.arange(S * N * N).reshape(S, N, N)[2:-2, 2:-2, 2:-2].flatten().reshape(-1, 1) # vertical vector
+        cell_indeces_flat = np.arange(S * N * N).reshape(S, N, N)[2:-2, 2:-2, 2:-2].ravel().reshape(-1, 1) # vertical vector
 
         s1_indexes_flat = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2])      # i±1 j±1 k±1 
         s2_indexes_flat = cell_indeces_flat + np.array([-1, 1, -N, N, -N**2, N**2]) * 2  # i±2 j±2 k±2 
-        s1_values = self.P_p.flatten()[s1_indexes_flat] # each row contains 6 neighbors of cell 
-        s2_values = self.P_p.flatten()[s2_indexes_flat] # each row contains 6 neighbors of cell 
+        s1_values = self.P_p.ravel()[s1_indexes_flat] # each row contains 6 neighbors of cell 
+        s2_values = self.P_p.ravel()[s2_indexes_flat] # each row contains 6 neighbors of cell 
         s1 = np.sum(s1_values, axis=1) # sum by axis=1 is faster for default order
         s2 = np.sum(s2_values, axis=1)
 
@@ -93,26 +93,26 @@ class LungsModel():
         m2 = np.array([1, -1])
 
         s3_V_indexes = cell_indeces_flat + np.array([N**2, -N**2, 2*N**2, -2*N**2])
-        s3_V_values = self.P_p.flatten()[s3_V_indexes] * m1 # po idee mozhno za skobki kak to vinesti m1 i m2
+        s3_V_values = self.P_p.ravel()[s3_V_indexes] * m1 # po idee mozhno za skobki kak to vinesti m1 i m2
         s3_V_sum = np.sum(s3_V_values, axis=1)
         s3_N_indexes = cell_indeces_flat + np.array([N**2, -N**2])
-        s3_N_values = self.ro.flatten()[s3_N_indexes] * m2
+        s3_N_values = self.ro.ravel()[s3_N_indexes] * m2
         s3_N_sum = np.sum(s3_N_values, axis=1)
         s3 = (s3_V_sum * s3_N_sum).reshape(S-4, N-4, N-4)
         
         s4_V_indexes = cell_indeces_flat + np.array([N, -N, 2*N, -2*N])
-        s4_V_values = self.P_p.flatten()[s4_V_indexes] * m1
+        s4_V_values = self.P_p.ravel()[s4_V_indexes] * m1
         s4_V_sum = np.sum(s4_V_values, axis=1)
         s4_N_indexes = cell_indeces_flat + np.array([N, -N])
-        s4_N_values = self.ro.flatten()[s4_N_indexes] * m2
+        s4_N_values = self.ro.ravel()[s4_N_indexes] * m2
         s4_N_sum = np.sum(s4_N_values, axis=1)
         s4 = (s4_V_sum * s4_N_sum).reshape(S-4, N-4, N-4)
 
         s5_V_indexes = cell_indeces_flat + np.array([1, -1, 2, -2])
-        s5_V_values = self.P_p.flatten()[s5_V_indexes] * m1
+        s5_V_values = self.P_p.ravel()[s5_V_indexes] * m1
         s5_V_sum = np.sum(s5_V_values, axis=1)
         s5_N_indexes = cell_indeces_flat + np.array([1, -1])
-        s5_N_values = self.ro.flatten()[s5_N_indexes] * m2
+        s5_N_values = self.ro.ravel()[s5_N_indexes] * m2
         s5_N_sum = np.sum(s5_N_values, axis=1)
         s5 = (s5_V_sum * s5_N_sum).reshape(S-4, N-4, N-4)
 
