@@ -193,14 +193,12 @@ class AppGUI(QtGui.QWidget):
 
 
         # slices plots ----------------------------------------------------------------
-        # self.autolevels = False
+        
         self.autolevels = True
         self.levels = (0, 100)
-        # self.view.addItem(self.z_slice_img)
         self.glayout = pg.GraphicsLayoutWidget()
         self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
         self.glayout.ci.layout.setSpacing(0)
-
         self.z_slice_img = pg.ImageItem(self.data[self.z_slice, :, :], autoLevels=self.autolevels, levels=self.levels, border=pg.mkPen(color='r', width=3))
         self.y_slice_img = pg.ImageItem(self.data[:, self.y_slice, :], autoLevels=self.autolevels, levels=self.levels, border=pg.mkPen(color='g', width=3))
         self.x_slice_img = pg.ImageItem(self.data[:, :, self.x_slice], autoLevels=self.autolevels, levels=self.levels, border=pg.mkPen(color='b', width=3))
@@ -216,19 +214,19 @@ class AppGUI(QtGui.QWidget):
         self.z_slice_plot.setMouseEnabled(x=False, y=False)
         self.y_slice_plot.setMouseEnabled(x=False, y=False)
         self.x_slice_plot.setMouseEnabled(x=False, y=False)
-
-        self.z_slice_plot_y_helper = self.z_slice_plot.plot([0           , self.data.shape[2] ], [self.y_slice, self.y_slice      ], pen='g')
-        self.z_slice_plot_x_helper = self.z_slice_plot.plot([self.x_slice, self.x_slice       ], [0           , self.data.shape[1]], pen='b')
-        self.y_slice_plot_z_helper = self.y_slice_plot.plot([0           , self.data.shape[2] ], [self.z_slice, self.z_slice      ], pen='r')
-        self.y_slice_plot_x_helper = self.y_slice_plot.plot([self.x_slice, self.x_slice       ], [0           , self.data.shape[0]], pen='b')
-        self.x_slice_plot_z_helper = self.x_slice_plot.plot([0           , self.data.shape[1] ], [self.z_slice, self.z_slice      ], pen='r')
-        self.x_slice_plot_y_helper = self.x_slice_plot.plot([self.y_slice, self.y_slice       ], [0           , self.data.shape[0]], pen='g')
+        self.z_slice_plot_y_helper1 = self.z_slice_plot.plot([0               , self.data.shape[2] ], [self.y_slice    , self.y_slice      ], pen='g')
+        self.z_slice_plot_y_helper2 = self.z_slice_plot.plot([0               , self.data.shape[2] ], [self.y_slice + 1, self.y_slice + 1  ], pen='g')
+        self.z_slice_plot_x_helper1 = self.z_slice_plot.plot([self.x_slice    , self.x_slice       ], [0               , self.data.shape[1]], pen='b')
+        self.z_slice_plot_x_helper2 = self.z_slice_plot.plot([self.x_slice + 1, self.x_slice + 1   ], [0               , self.data.shape[1]], pen='b')
+        self.y_slice_plot_z_helper1 = self.y_slice_plot.plot([0               , self.data.shape[2] ], [self.z_slice    , self.z_slice      ], pen='r')
+        self.y_slice_plot_z_helper2 = self.y_slice_plot.plot([0               , self.data.shape[2] ], [self.z_slice + 1, self.z_slice + 1  ], pen='r')
+        self.y_slice_plot_x_helper1 = self.y_slice_plot.plot([self.x_slice    , self.x_slice       ], [0               , self.data.shape[0]], pen='b')
+        self.y_slice_plot_x_helper2 = self.y_slice_plot.plot([self.x_slice + 1, self.x_slice + 1   ], [0               , self.data.shape[0]], pen='b')
+        self.x_slice_plot_z_helper1 = self.x_slice_plot.plot([0               , self.data.shape[1] ], [self.z_slice    , self.z_slice      ], pen='r')
+        self.x_slice_plot_z_helper2 = self.x_slice_plot.plot([0               , self.data.shape[1] ], [self.z_slice + 1, self.z_slice + 1  ], pen='r')
+        self.x_slice_plot_y_helper1 = self.x_slice_plot.plot([self.y_slice    , self.y_slice       ], [0               , self.data.shape[0]], pen='g')
+        self.x_slice_plot_y_helper2 = self.x_slice_plot.plot([self.y_slice + 1, self.y_slice + 1   ], [0               , self.data.shape[0]], pen='g')
         
-
-        # self.z_slice_plot.plot([0, self.data.shape[2]], [self.y_slice, self.y_slice], pen='g')
-        # self.z_slice_plot.plot([self.x_slice, self.x_slice], [0, self.data.shape[1]], pen='b')
-        # self.y_slice_plot.plot([1,5,2,4,3,2], pen='g')
-        # self.x_slice_plot.plot([1,5,2,4,3,2], pen='b')
         self.z_slice_plot.invertY(True)
         self.y_slice_plot.invertY(True)
         self.x_slice_plot.invertY(True)
@@ -238,7 +236,6 @@ class AppGUI(QtGui.QWidget):
         self.y_slice_plot.setLabel('left'  , f'Z axis [{self.z_axis_name[1]} - {self.z_axis_name[0]}]')
         self.x_slice_plot.setLabel('bottom', f'Y axis [{self.y_axis_name[0]} - {self.y_axis_name[1]}]')
         self.x_slice_plot.setLabel('left'  , f'Z axis [{self.z_axis_name[1]} - {self.z_axis_name[0]}]')
-
         self.z_slice_plot.addItem(self.z_slice_img)
         self.y_slice_plot.addItem(self.y_slice_img)
         self.x_slice_plot.addItem(self.x_slice_img)
@@ -248,7 +245,6 @@ class AppGUI(QtGui.QWidget):
         self.z_slice_img.setZValue(-1)
         self.y_slice_img.setZValue(-1)
         self.x_slice_img.setZValue(-1)
-
 
         #--------------------------- signal plots ------------------------
         plots_font = QtGui.QFont()
@@ -478,12 +474,24 @@ class AppGUI(QtGui.QWidget):
         self.observ_slice_curve.setData(self.observ_slice)
 
     def update_slice_helpers_lines(self):
-        self.z_slice_plot_y_helper.setData([0           , self.data.shape[2] ], [self.y_slice, self.y_slice      ])
-        self.z_slice_plot_x_helper.setData([self.x_slice, self.x_slice       ], [0           , self.data.shape[1]])
-        self.y_slice_plot_z_helper.setData([0           , self.data.shape[2] ], [self.z_slice, self.z_slice      ])
-        self.y_slice_plot_x_helper.setData([self.x_slice, self.x_slice       ], [0           , self.data.shape[0]])
-        self.x_slice_plot_z_helper.setData([0           , self.data.shape[1] ], [self.z_slice, self.z_slice      ])
-        self.x_slice_plot_y_helper.setData([self.y_slice, self.y_slice       ], [0           , self.data.shape[0]])
+        # self.z_slice_plot_y_helper.setData([0           , self.data.shape[2] ], [self.y_slice, self.y_slice      ])
+        # self.z_slice_plot_x_helper.setData([self.x_slice, self.x_slice       ], [0           , self.data.shape[1]])
+        # self.y_slice_plot_z_helper.setData([0           , self.data.shape[2] ], [self.z_slice, self.z_slice      ])
+        # self.y_slice_plot_x_helper.setData([self.x_slice, self.x_slice       ], [0           , self.data.shape[0]])
+        # self.x_slice_plot_z_helper.setData([0           , self.data.shape[1] ], [self.z_slice, self.z_slice      ])
+        # self.x_slice_plot_y_helper.setData([self.y_slice, self.y_slice       ], [0           , self.data.shape[0]])
+        self.z_slice_plot_y_helper1.setData([0               , self.data.shape[2] ], [self.y_slice    , self.y_slice      ])
+        self.z_slice_plot_y_helper2.setData([0               , self.data.shape[2] ], [self.y_slice + 1, self.y_slice + 1  ])
+        self.z_slice_plot_x_helper1.setData([self.x_slice    , self.x_slice       ], [0               , self.data.shape[1]])
+        self.z_slice_plot_x_helper2.setData([self.x_slice + 1, self.x_slice + 1   ], [0               , self.data.shape[1]])
+        self.y_slice_plot_z_helper1.setData([0               , self.data.shape[2] ], [self.z_slice    , self.z_slice      ])
+        self.y_slice_plot_z_helper2.setData([0               , self.data.shape[2] ], [self.z_slice + 1, self.z_slice + 1  ])
+        self.y_slice_plot_x_helper1.setData([self.x_slice    , self.x_slice       ], [0               , self.data.shape[0]])
+        self.y_slice_plot_x_helper2.setData([self.x_slice + 1, self.x_slice + 1   ], [0               , self.data.shape[0]])
+        self.x_slice_plot_z_helper1.setData([0               , self.data.shape[1] ], [self.z_slice    , self.z_slice      ])
+        self.x_slice_plot_z_helper2.setData([0               , self.data.shape[1] ], [self.z_slice + 1, self.z_slice + 1  ])
+        self.x_slice_plot_y_helper1.setData([self.y_slice    , self.y_slice       ], [0               , self.data.shape[0]])
+        self.x_slice_plot_y_helper2.setData([self.y_slice + 1, self.y_slice + 1   ], [0               , self.data.shape[0]])
 
 
     def z_slice_slider_changed(self):
