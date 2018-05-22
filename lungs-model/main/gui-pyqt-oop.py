@@ -241,7 +241,6 @@ class AppGUI(QtGui.QWidget):
         self.x_slice_plot_z_helper2 = self.x_slice_plot.plot([0               , self.data.shape[1] ], [self.z_slice + 1, self.z_slice + 1  ], pen='r')
         self.x_slice_plot_y_helper1 = self.x_slice_plot.plot([self.y_slice    , self.y_slice       ], [0               , self.data.shape[0]], pen='g')
         self.x_slice_plot_y_helper2 = self.x_slice_plot.plot([self.y_slice + 1, self.y_slice + 1   ], [0               , self.data.shape[0]], pen='g')
-        
         self.z_slice_plot.invertY(True)
         self.y_slice_plot.invertY(True)
         self.x_slice_plot.invertY(True)
@@ -511,7 +510,7 @@ class AppGUI(QtGui.QWidget):
 
     def z_slice_slider_changed(self):
         self.z_slice = self.z_slice_slider.value()
-        self.z_slice_label.setText(f'Z axis [{self.z_axis_name[0]} - {self.z_axis_name[1]}]')
+        self.z_slice_label.setText(f'Z axis [{self.z_axis_name[0]} - {self.z_axis_name[1]}] Slice: {self.z_slice + 1}/{self.data.shape[0]}')
         self.z_slice_img.setImage(self.data[self.z_slice])
         self.print_mean()
         self.update_observ_slice_plot()
