@@ -463,15 +463,16 @@ class AppGUI(QtGui.QWidget):
             self.print_mean()
         self.steps_state.emit(0)       
 
-    # def wheelEvent(self, event):
-        # pass
-        # print(self.z_slice_img.boundingRect(), self.z_slice_img.sceneBoundingRect().width(), self.z_slice_img.width(), event.x())
-        # print(self.z_slice_img.sceneBoundingRect(), self.z_slice_img.height(), event.pos(), event.globalPos())
-        # if self.z_slice_img.boundingRect().contains(event.pos()):
-        # if self.z_slice_img.sceneBoundingRect().contains(event.pos()):
-        # if self.z_slice_img.sceneBoundingRect().contains(event.globalPos()):
-            # self.z_slice = np.clip(self.z_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[0] - 1) # change bounds 0..N-1 => 1..N
-            # self.z_slice_slider.setValue(self.z_slice)
+    def wheelEvent(self, event):
+        if self.z_slice_img.sceneBoundingRect().contains(self.glayout.mapFromParent(event.pos())):
+            self.z_slice = np.clip(self.z_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[0] - 1) # change bounds 0..N-1 => 1..N
+            self.z_slice_slider.setValue(self.z_slice)
+        elif self.y_slice_img.sceneBoundingRect().contains(self.glayout.mapFromParent(event.pos())):
+            self.y_slice = np.clip(self.y_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[1] - 1) # change bounds 0..N-1 => 1..N
+            self.y_slice_slider.setValue(self.y_slice)
+        elif self.x_slice_img.sceneBoundingRect().contains(self.glayout.mapFromParent(event.pos())):
+            self.x_slice = np.clip(self.x_slice + np.sign(event.angleDelta().y()), 0, self.data.shape[2] - 1) # change bounds 0..N-1 => 1..N
+            self.x_slice_slider.setValue(self.x_slice)
 
     def keyPressEvent(self, event):
         if type(event) == QtGui.QKeyEvent and event.key() == QtCore.Qt.Key_Up:
