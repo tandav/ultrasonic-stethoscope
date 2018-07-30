@@ -14,6 +14,7 @@ lungs-model/shoulder-ct-dcm/
 
 **/.ipynb_checkpoints/*
 lungs-model/**/*.pdf
+*.npy
 
 # python binaries
 *.pyc
