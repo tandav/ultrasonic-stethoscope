@@ -21,16 +21,16 @@ class LungsModel():
         # self.r = np.load('../cube-full-460-512-512.npy')[::4, ::4, ::4]
         # k = 11
         # self.r = np.load('../cube-full-460-512-512.npy')[::k, ::k, ::k]
-        y_start = 155
-        x_start = 135
-        sqr = 245
+        y_start = 160
+        x_start = 145
+        sqr = 235
         k = 3
         self.r = np.load('../cube-full-460-512-512.npy')[
-            50:100:k,
+            20:80:k,
             y_start : y_start + sqr : k,
             x_start : x_start + sqr : k,
         ]
-        # self.r = np.load('../cube-full-460-512-512.npy')[::64, ::32, ::16]
+        # self.r = np.load('../cube-full-460-512-512.npy')[::2, ::2, ::2]
         # self.r = np.random.random((2,3,4))
         self.r[0,0,0] = 3
         self.ro  = 1e-5 + 1.24e-3 * self.r - 2.83e-7 * self.r * self.r + 2.79e-11 * self.r * self.r * self.r

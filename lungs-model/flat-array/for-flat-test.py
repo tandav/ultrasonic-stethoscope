@@ -107,27 +107,31 @@ def P(P_pp, P_p):
     Z[2:-2, 2:-2, 2:-2] -=   4 * s1.reshape(S-4, N-4, N-4)
     Z[2:-2, 2:-2, 2:-2] += 1/4 * s2.reshape(S-4, N-4, N-4)
 
+
+    m1 = np.array([1, -1, -1/8, -1/8])
+    m2 = np.array([1, -1])
+
     s3_V_indexes = cell_indeces_flat + np.array([N**2, -N**2, 2*N**2, -2*N**2])
-    s3_V_values = P_p.flatten()[s3_V_indexes] * [1, -1, -1/8, -1/8]
+    s3_V_values = P_p.flatten()[s3_V_indexes] * m1
     s3_V_sum = np.sum(s3_V_values, axis=1)
     s3_N_indexes = cell_indeces_flat + np.array([N**2, -N**2])
-    s3_N_values = ro.flatten()[s3_N_indexes] * [1, -1]
+    s3_N_values = ro.flatten()[s3_N_indexes] * m2
     s3_N_sum = np.sum(s3_N_values, axis=1)
     s3 = (s3_V_sum / s3_N_sum).reshape(S-4, N-4, N-4)
 
     s4_V_indexes = cell_indeces_flat + np.array([N, -N, 2*N, -2*N])
-    s4_V_values = P_p.flatten()[s4_V_indexes] * [1, -1, -1/8, -1/8]
+    s4_V_values = P_p.flatten()[s4_V_indexes] * m1
     s4_V_sum = np.sum(s4_V_values, axis=1)
     s4_N_indexes = cell_indeces_flat + np.array([N, -N])
-    s4_N_values = ro.flatten()[s4_N_indexes] * [1, -1]
+    s4_N_values = ro.flatten()[s4_N_indexes] * m2
     s4_N_sum = np.sum(s4_N_values, axis=1)
     s4 = (s4_V_sum / s4_N_sum).reshape(S-4, N-4, N-4)
 
     s5_V_indexes = cell_indeces_flat + np.array([1, -1, 2, -2])
-    s5_V_values = P_p.flatten()[s5_V_indexes] * [1, -1, -1/8, -1/8]
+    s5_V_values = P_p.flatten()[s5_V_indexes] * m1
     s5_V_sum = np.sum(s5_V_values, axis=1)
     s5_N_indexes = cell_indeces_flat + np.array([N, -N])
-    s5_N_values = ro.flatten()[s5_N_indexes] * [1, -1]
+    s5_N_values = ro.flatten()[s5_N_indexes] * m2
     s5_N_sum = np.sum(s5_N_values, axis=1)
     s5 = (s5_V_sum / s5_N_sum).reshape(S-4, N-4, N-4)
 
@@ -141,7 +145,7 @@ def P(P_pp, P_p):
 
 t0 = time()
 P1 = old_slow1(P_pp, P_p)
-t_P1 = time() - t0 
+t_P1 = time() - t0
 print(t_P1)
 
 t0 = time()
