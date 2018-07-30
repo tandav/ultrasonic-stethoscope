@@ -12,6 +12,10 @@ lungs-model/shoulder-ct-dcm/
 # virtualenvs
 .steth
 
+**/.ipynb_checkpoints/*
+lungs-model/**/*.pdf
+*.npy
+
 # python binaries
 *.pyc
 
@@ -334,3 +338,4 @@ $RECYCLE.BIN/
 arduino/plot.png
 
 *.xdv
+VHMCT1mm_Shoulder.tar

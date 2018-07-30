@@ -87,48 +87,68 @@ class SerialReader(threading.Thread):
             # read one full chunk from the serial port
             data = port.read(self.chunkSize*2) # *2 probably because of datatypes/bytes/things like that
             # convert data to 16bit int numpy array TODO: convert here to -1..+1 values, instead voltage 0..3.3
-            data = np.fromstring(data, dtype=np.uint16)
 
-            # keep track of the acquisition rate in samples-per-second
-            count += self.chunkSize
-            # now = pg.ptime.time()
-            now = time.time()
+            # if False:
+                # pass
+            if b'\xd2\x02\x96I' in data:
+                timings = np.frombuffer(data, dtype=np.uint32)
+                # print(np.frombuffer(data, dtype=np.uint32)[:8])
+                series_start_t         = timings[1]
+                series_duration        = timings[2]
+                tone_duration          = timings[3]
+                short_silence_duration = timings[4]
+                long_silence_duration  = timings[5]
 
-            dt = now-lastUpdate
-            if dt > 1.0:
-                # sps is an exponential average of the running sample rate measurement
-                if sps is None:
-                    sps = count / dt
-                else:
-                    sps = sps * 0.9 + (count / dt) * 0.1
-                count = 0
-                lastUpdate = now
+                tone_starts = np.arange(
+                    series_start_t, 
+                    series_start_t + series_duration,
+                    tone_duration + short_silence_duration
+                )
 
-            # write the new chunk into the circular buffer
-            # and update the buffer pointer
-            with dataMutex:
-                buffer[self.ptr:self.ptr+self.chunkSize] = data
-                self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
-                ptr2 += self.chunkSize
 
-                if sps is not None:
-                    self.sps = sps
+            else:
+                data = np.frombuffer(data, dtype=np.uint16)
 
-                if recording:
-                    record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
-                    self.values_recorded += self.chunkSize
+                # keep track of the acquisition rate in samples-per-second
+                count += self.chunkSize
+                # now = pg.ptime.time()
+                now = time.time()
 
-                    if self.values_recorded >= values_to_record: # maybe del second condition
-                        record_end_time = time.time()
-                        recording = False
-                        self.values_recorded = 0
-                        values_to_record = 0
-                        t2 = threading.Thread(target=send_to_cuda)
-                        t2.start()
-                
-                elif ptr2 >= NFFT - overlap:
-                    ptr2 = 0
-                    self.data_collected_signal.emit()
+                dt = now-lastUpdate
+                if dt > 1.0:
+                    # sps is an exponential average of the running sample rate measurement
+                    if sps is None:
+                        sps = count / dt
+                    else:
+                        sps = sps * 0.9 + (count / dt) * 0.1
+                    count = 0
+                    lastUpdate = now
+
+                # write the new chunk into the circular buffer
+                # and update the buffer pointer
+                with dataMutex:
+                    buffer[self.ptr:self.ptr+self.chunkSize] = data
+                    self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
+                    ptr2 += self.chunkSize
+
+                    if sps is not None:
+                        self.sps = sps
+
+                    if recording:
+                        record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
+                        self.values_recorded += self.chunkSize
+
+                        if self.values_recorded >= values_to_record: # maybe del second condition
+                            record_end_time = time.time()
+                            recording = False
+                            self.values_recorded = 0
+                            values_to_record = 0
+                            t2 = threading.Thread(target=send_to_cuda)
+                            t2.start()
+                    
+                    elif ptr2 >= NFFT - overlap:
+                        ptr2 = 0
+                        self.data_collected_signal.emit()
 
     def get(self, num):
         """ Return a tuple (time_values, voltage_values, rate)
@@ -603,7 +623,7 @@ def main():
     values_to_record = 0
     file_index       = 0
     plot_points_x    = 256
-    chunkSize        = 1024
+    chunkSize        = 256
     chunks           = 2000
     big_dt           = 0
 
