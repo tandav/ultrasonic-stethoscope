@@ -12,6 +12,8 @@ lungs-model/shoulder-ct-dcm/
 # virtualenvs
 .steth
 
+**/.ipynb_checkpoints/*
+
 # python binaries
 *.pyc
 
