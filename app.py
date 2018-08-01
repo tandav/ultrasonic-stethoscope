@@ -333,22 +333,22 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.progress)
 
 
-        self.glayout = pg.GraphicsLayoutWidget()
-        # self.view = self.glayout.addViewBox(lockAspect=False)
-        self.view = self.glayout.addViewBox(lockAspect=True)
-        self.img = pg.ImageItem(border='w')
-        self.view.addItem(self.img)
-        # self.view.setAspectLocked()
-        # bipolar colormap
-        pos = np.array([0., 1., 0.5, 0.25, 0.75])
-        color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], [0, 0, 255, 255], [255, 0, 0, 255]], dtype=np.ubyte)
-        cmap = pg.ColorMap(pos, color)
-        lut = cmap.getLookupTable(0.0, 1.0, 256)
-        # set colormap
-        self.img.setLookupTable(lut)
-        # self.img.setLevels([-140, -50])
-        self.img.setLevels([-50, 20])
-        self.layout.addWidget(self.glayout)
+        # self.glayout = pg.GraphicsLayoutWidget()
+        # # self.view = self.glayout.addViewBox(lockAspect=False)
+        # self.view = self.glayout.addViewBox(lockAspect=True)
+        # self.img = pg.ImageItem(border='w')
+        # self.view.addItem(self.img)
+        # # self.view.setAspectLocked()
+        # # bipolar colormap
+        # pos = np.array([0., 1., 0.5, 0.25, 0.75])
+        # color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], [0, 0, 255, 255], [255, 0, 0, 255]], dtype=np.ubyte)
+        # cmap = pg.ColorMap(pos, color)
+        # lut = cmap.getLookupTable(0.0, 1.0, 256)
+        # # set colormap
+        # self.img.setLookupTable(lut)
+        # # self.img.setLevels([-140, -50])
+        # self.img.setLevels([-50, 20])
+        # self.layout.addWidget(self.glayout)
 
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 600, 1000)
@@ -451,15 +451,15 @@ class AppGUI(QtGui.QWidget):
         self.a = np.abs(self.a) # magnitude
         self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
 
-        # spectrogram
-        self.img_array = np.roll(self.img_array, -1, 0)
-        if len(self.a) > self.plot_points_y:
-            self.img_array[-1] = self.a[:self.plot_points_y]
-        else:
-            self.plot_points_y = len(a)
-            self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-            self.img_array[-1] = self.a
-        self.img.setImage(self.img_array, autoLevels=True)
+        # # spectrogram
+        # self.img_array = np.roll(self.img_array, -1, 0)
+        # if len(self.a) > self.plot_points_y:
+        #     self.img_array[-1] = self.a[:self.plot_points_y]
+        # else:
+        #     self.plot_points_y = len(a)
+        #     self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
+        #     self.img_array[-1] = self.a
+        # self.img.setImage(self.img_array, autoLevels=True)
         
         pp = 4096*2 # number of points to plot
         t_for_plot = self.t.reshape(pp, NFFT // pp).mean(axis=1)
