@@ -109,6 +109,8 @@ class SerialReader(threading.Thread):
             else:
                 data = np.frombuffer(data, dtype=np.uint16)
 
+                chunk_end_t = np.frombuffer(port.read(4), dtype=np.uint32)
+                print(chunk_end_t)
                 # keep track of the acquisition rate in samples-per-second
                 count += self.chunkSize
                 # now = pg.ptime.time()

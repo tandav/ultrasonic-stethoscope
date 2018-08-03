@@ -27,6 +27,8 @@ unsigned long short_silence_start_t = 0;
 unsigned long long_silence_start_t  = 0;
 unsigned long tone_start_t          = 0;
 
+unsigned long chunk_stop            = 0;
+byte* chunk_stop_p;
 // states:
 // 0: play  tone
 // 1: short silence
@@ -154,4 +156,8 @@ void loop() {
     while (obufn == bufn); // wait for buffer to be full
     SerialUSB.write((uint8_t *) buf[obufn], 512); // send it - 512 bytes = 256 uint16_t
     obufn = (obufn + 1) & 3;
+    
+    chunk_stop = micros();
+    chunk_stop_p = (byte*) &chunk_stop;
+    SerialUSB.write(chunk_stop_p, 4);
 }
