@@ -42,7 +42,11 @@ class SerialReader(threading.Thread):
         self.values_recorded = 0
         self.data_collected_signal = data_collected_signal
 
-        self.my_counter = 0
+        self.series_n = 10
+        self.matrix = np.zeros((self.series_n, self.chunkSize * 64))
+        self.tone_playing = False
+        self.current_tone_i = 0
+        self.out = np.zeros(self.chunkSize * 64)
 
     def find_device_and_return_port(self):
         for i in range(61):
@@ -66,6 +70,7 @@ class SerialReader(threading.Thread):
                 continue  # executed if the loop ended normally (no break)
             break  # executed if 'continue' was skipped (break)
         return ser
+   
     def run(self):
         exitMutex = self.exitMutex
         dataMutex = self.dataMutex
@@ -87,42 +92,36 @@ class SerialReader(threading.Thread):
                     break
 
             # read one full chunk from the serial port
-            data = port.read(self.chunkSize*2) # *2 probably because of datatypes/bytes/things like that
+            data = port.read(self.chunkSize * 2) # *2 probably because of datatypes/bytes/things like that
             # convert data to 16bit int numpy array TODO: convert here to -1..+1 values, instead voltage 0..3.3
 
-            # if False:
-                # pass
-            if b'\xd2\x02\x96I' in data:
+
+
+
+            # dirty hotfix
+            if data[:4] == b'\xd2\x02\x96I':
                 timings = np.frombuffer(data, dtype=np.uint32)
-                # print(np.frombuffer(data, dtype=np.uint32)[:8])
-                # series_start_t         = timings[1]
-                # series_duration        = timings[2]
-                # tone_duration          = timings[3]
-                # short_silence_duration = timings[4]
-                # long_silence_duration  = timings[5]
-
-                # tone_starts = np.arange(
-                #     series_start_t, 
-                #     series_start_t + series_duration,
-                #     tone_duration + short_silence_duration
-                # )
-
-                print(timings[:6])
-
-
-            else:
+                print(f'tone_playing {timings[1]} current_tone_i {timings[2]} {timings[2] % self.series_n}')
+                self.tone_playing = timings[1] == True
+                if self.current_tone_i != timings[2]:
+                    self.ptr2 = 0
+                self.current_tone_i = timings[2] % self.series_n
+            elif data[4:8] == b'\xd2\x02\x96I':
+                timings = np.frombuffer(data, dtype=np.uint32)
+                print(f'tone_playing {timings[2]} current_tone_i {timings[3]} {timings[3] % self.series_n}')
+                self.tone_playing = timings[2] == True
+                if self.current_tone_i != timings[3]:
+                    self.ptr2 = 0
+                self.current_tone_i = timings[3] % self.series_n
+            elif self.tone_playing:
                 data = np.frombuffer(data, dtype=np.uint16)
 
-                chunk_end_t = np.frombuffer(port.read(4), dtype=np.uint32)
-                # self.my_counter += 1
-                # print(self.my_counter)
-                # print(chunk_end_t)
                 # keep track of the acquisition rate in samples-per-second
                 count += self.chunkSize
                 # now = pg.ptime.time()
                 now = time.time()
 
-                dt = now-lastUpdate
+                dt = now - lastUpdate
                 if dt > 1.0:
                     # sps is an exponential average of the running sample rate measurement
                     if sps is None:
@@ -135,51 +134,54 @@ class SerialReader(threading.Thread):
                 # write the new chunk into the circular buffer
                 # and update the buffer pointer
                 with dataMutex:
-                    buffer[self.ptr:self.ptr+self.chunkSize] = data
-                    self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
-                    ptr2 += self.chunkSize
+                    if self.current_tone_i == 0 and self.ptr2 == 0: # end of series (start of new series), need to update plot
+                        print('fu')
+                        self.out = np.mean(self.matrix, axis=0)
+                        self.data_collected_signal.emit() # try pass array via signal?
+                        self.matrix = np.zeros((self.series_n, self.chunkSize * 64))
+
+
+                    self.matrix[self.current_tone_i, self.ptr2 : self.ptr2 + self.chunkSize] = data
+                    self.ptr2 += self.chunkSize
+
+
+                    # buffer[self.ptr:self.ptr + self.chunkSize] = data
+                    # self.ptr = (self.ptr + self.chunkSize) % buffer.shape[0]
+                    # ptr2 += self.chunkSize
 
                     if sps is not None:
                         self.sps = sps
 
-                    if recording:
-                        record_buffer[self.values_recorded : self.values_recorded + self.chunkSize] = data
-                        self.values_recorded += self.chunkSize
+                    # if ptr2 >= NFFT - overlap:
+                        # ptr2 = 0
+                        # self.data_collected_signal.emit()
 
-                        if self.values_recorded >= values_to_record: # maybe del second condition
-                            record_end_time = time.time()
-                            recording = False
-                            self.values_recorded = 0
-                            values_to_record = 0
-                            t2 = threading.Thread(target=send_to_cuda)
-                            t2.start()
-                    
-                    elif ptr2 >= NFFT - overlap:
-                        ptr2 = 0
-                        self.data_collected_signal.emit()
-
-    def get(self, num):
+    def get(self):
         """ Return a tuple (time_values, voltage_values, rate)
           - voltage_values will contain the *num* most recently-collected samples
             as a 32bit float array.
           - time_values assumes samples are collected at 1MS/s
           - rate is the running average sample rate.
         """
-        with self.dataMutex:  # lock the buffer and copy the requested data out
-            ptr = self.ptr
-            if ptr-num < 0:
-                data = np.empty(num, dtype=np.uint16)
-                data[:num-ptr] = self.buffer[ptr-num:] # last N=ptr values of the buffer
-                data[num-ptr:] = self.buffer[:ptr]
-            else:
-                data = self.buffer[self.ptr-num:self.ptr].copy()
-            rate = self.sps
+        # with self.dataMutex:  # lock the buffer and copy the requested data out
+        #     ptr = self.ptr
+        #     if ptr-num < 0:
+        #         data = np.empty(num, dtype=np.uint16)
+        #         data[:num-ptr] = self.buffer[ptr-num:] # last N=ptr values of the buffer
+        #         data[num-ptr:] = self.buffer[:ptr]
+        #     else:
+        #         data = self.buffer[self.ptr-num:self.ptr].copy()
+        #     rate = self.sps
 
         # Convert array to float and rescale to voltage.
         # Assume 3.3V / 12bits
         # (we need calibration data to do a better job on this)
-        data = data.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1
-        return np.linspace(0, (num-1)*1e-6, num), data, rate
+        # data = data.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1
+
+        with self.dataMutex:
+            # rate = self.sps
+            out = self.out
+        return out
 
     def exit(self):
         """ Instruct the serial thread to exit."""
@@ -190,29 +192,25 @@ class SerialReader(threading.Thread):
 
 class AppGUI(QtGui.QWidget):
     data_collected = QtCore.pyqtSignal()
-    chunk_recorded = QtCore.pyqtSignal()
 
-    def __init__(self, plot_points_x, plot_points_y=256):
+    def __init__(self):
         super(AppGUI, self).__init__()
         # global NFFT
         
         self.rate = 1
 
-        self.plot_points_y = plot_points_y
-        self.plot_points_x = plot_points_x
-        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
 
         self.init_ui()
         self.qt_connections()
         
-        self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
-        self.y = np.zeros(NFFT)
-        self.f = np.zeros(NFFT // 2)
-        self.a = np.zeros(NFFT // 2)
-        self.win = np.hanning(NFFT)
+        # self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
+        # self.y = np.zeros(NFFT)
+        # self.f = np.zeros(NFFT // 2)
+        # self.a = np.zeros(NFFT // 2)
+        # self.win = np.hanning(NFFT)
 
-        self.avg_sum = 0
-        self.avg_iters = 0
+        # self.avg_sum = 0
+        # self.avg_iters = 0
 
     def init_ui(self):
         global record_name, NFFT, chunkSize, overlap
@@ -222,89 +220,6 @@ class AppGUI(QtGui.QWidget):
         self.setWindowTitle('Signal from stethoscope')
         self.layout = QtGui.QVBoxLayout()
 
-        self.fft_slider_box = QtGui.QHBoxLayout()
-        self.fft_chunks_slider = QtGui.QSlider()
-        self.fft_chunks_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.fft_chunks_slider.setRange(10, 20) # max is ser_reader_thread.chunks
-        self.fft_chunks_slider.setValue(18)
-        # self.fft_chunks_slider.setValue(15)
-        NFFT = 2 ** self.fft_chunks_slider.value()
-        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
-        self.fft_chunks_slider.setTickInterval(1)
-        self.fft_slider_label = QtGui.QLabel('FFT window: {}'.format(NFFT))
-        self.fft_slider_box.addWidget(self.fft_slider_label)
-        self.fft_slider_box.addWidget(self.fft_chunks_slider)
-        self.layout.addLayout(self.fft_slider_box)
-
-        self.overlap_slider_box = QtGui.QHBoxLayout()
-        self.overlap_slider = QtGui.QSlider()
-        self.overlap_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
-        # overlap = NFFT // 2
-        overlap = NFFT * 0.85
-        self.overlap_slider.setValue(overlap)
-        # self.fft_chunks_slider.setValue(128)
-        # overlap = self.overlap_slider.value()
-        # self.overlap_slider.setTickPosition(QtGui.QSlider.TicksBelow) # too many ticks
-        self.overlap_slider.setTickInterval(1)
-        self.overlap_slider_label = QtGui.QLabel('FFT window overlap: {}'.format(overlap))
-        self.overlap_slider_box.addWidget(self.overlap_slider_label)
-        self.overlap_slider_box.addWidget(self.overlap_slider)
-        self.layout.addLayout(self.overlap_slider_box)
-
-        self.plot_points_x_slider_box = QtGui.QHBoxLayout()
-        self.plot_points_x_slider = QtGui.QSlider()
-        self.plot_points_x_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.plot_points_x_slider.setRange(16, 8192) # max is ser_reader_thread.chunks
-        self.plot_points_x_slider.setValue(256)
-        self.plot_points_x = self.plot_points_x_slider.value()
-        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
-        self.plot_points_x_slider.setTickInterval(16)
-        self.plot_points_x_slider_label = QtGui.QLabel('plot_points_x: {}'.format(self.plot_points_x))
-        self.plot_points_x_slider_box.addWidget(self.plot_points_x_slider_label)
-        self.plot_points_x_slider_box.addWidget(self.plot_points_x_slider)
-        self.layout.addLayout(self.plot_points_x_slider_box)
-
-        self.plot_points_y_slider_box = QtGui.QHBoxLayout()
-        self.plot_points_y_slider = QtGui.QSlider()
-        self.plot_points_y_slider.setOrientation(QtCore.Qt.Horizontal)
-        self.plot_points_y_slider.setRange(16, 8192) # max is ser_reader_thread.chunks
-        self.plot_points_y_slider.setValue(256)
-        self.plot_points_y = self.plot_points_y_slider.value()
-        self.fft_chunks_slider.setTickPosition(QtGui.QSlider.TicksBelow)
-        self.plot_points_y_slider.setTickInterval(16)
-        self.plot_points_y_slider_label = QtGui.QLabel('plot_points_y: {}'.format(self.plot_points_y))
-        self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider_label)
-        self.plot_points_y_slider_box.addWidget(self.plot_points_y_slider)
-        self.layout.addLayout(self.plot_points_y_slider_box)
-
-        self.make_plots_box = QtGui.QHBoxLayout()
-        self.signal_checkbox      = QtGui.QCheckBox('Signal')
-        self.fft_checkbox         = QtGui.QCheckBox('FFT')
-        self.spectrogram_checkbox = QtGui.QCheckBox('Spectrogram')
-        self.wavelet_checkbox     = QtGui.QCheckBox('Wavelet')
-        self.signal_checkbox     .toggle()
-        self.fft_checkbox        .toggle()
-        self.spectrogram_checkbox.toggle()
-        self.wavelet_checkbox    .toggle()
-
-
-        self.make_plots_box.addWidget(self.signal_checkbox)
-        self.make_plots_box.addWidget(self.fft_checkbox)
-        self.make_plots_box.addWidget(self.spectrogram_checkbox)
-        self.make_plots_box.addWidget(self.wavelet_checkbox)
-
-
-        self.make_plots_button = QtGui.QPushButton('Make Plots')
-        self.make_plots_box.addWidget(self.make_plots_button)
-
-        self.layout.addLayout(self.make_plots_box)
-
-
-        # self.plot_points_y_slider_label = QtGui.QLabel('plot_points_y: {}'.format(self.plot_points_y))
-        # self.make_plots_box.addWidget(self.plot_points_y_slider_label)
-        # self.make_plots_box.addWidget(self.plot_points_y_slider)
-        # self.layout.addLayout(self.make_plots_box)
 
         self.signal_widget = pg.PlotWidget()
         self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
@@ -322,330 +237,84 @@ class AppGUI(QtGui.QWidget):
         self.layout.addWidget(self.signal_widget)
         self.layout.addWidget(self.fft_widget)
 
-        self.record_box = QtGui.QHBoxLayout()
-        self.spin = pg.SpinBox( value=chunkSize*1300, # if change, change also in suffix 
-                                int=True,
-                                bounds=[chunkSize*100, None],
-                                suffix=' Values to record ({:.2f} seconds)'.format(chunkSize * 1300 / 666000),
-                                step=chunkSize*100, decimals=12, siPrefix=True)
-        self.record_box.addWidget(self.spin)
-        self.record_name_textbox = QtGui.QLineEdit(self)
-        self.record_name_textbox.setText('lungs')
-        record_name = self.record_name_textbox.text()
-        self.record_box.addWidget(self.record_name_textbox)
-        self.record_values_button = QtGui.QPushButton('Record Values')
-        self.record_box.addWidget(self.record_values_button)
-        self.layout.addLayout(self.record_box)
-
-        self.progress = QtGui.QProgressBar()
-        self.layout.addWidget(self.progress)
-
-
-        # self.glayout = pg.GraphicsLayoutWidget()
-        # # self.view = self.glayout.addViewBox(lockAspect=False)
-        # self.view = self.glayout.addViewBox(lockAspect=True)
-        # self.img = pg.ImageItem(border='w')
-        # self.view.addItem(self.img)
-        # # self.view.setAspectLocked()
-        # # bipolar colormap
-        # pos = np.array([0., 1., 0.5, 0.25, 0.75])
-        # color = np.array([[0,255,255,255], [255,255,0,255], [0,0,0,255], [0, 0, 255, 255], [255, 0, 0, 255]], dtype=np.ubyte)
-        # cmap = pg.ColorMap(pos, color)
-        # lut = cmap.getLookupTable(0.0, 1.0, 256)
-        # # set colormap
-        # self.img.setLookupTable(lut)
-        # # self.img.setLevels([-140, -50])
-        # self.img.setLevels([-50, 20])
-        # self.layout.addWidget(self.glayout)
 
         self.setLayout(self.layout)
         self.setGeometry(10, 10, 600, 1000)
         self.show()
 
     def qt_connections(self):
-        self.record_values_button.clicked.connect(self.record_values_button_clicked)
-        self.spin.valueChanged.connect(self.spinbox_value_changed)
-        self.fft_chunks_slider.valueChanged.connect(self.fft_slider_changed)
-        self.plot_points_x_slider.valueChanged.connect(self.plot_points_x_slider_changed)
-        self.plot_points_y_slider.valueChanged.connect(self.plot_points_y_slider_changed)
-        self.overlap_slider.valueChanged.connect(self.overlap_slider_slider_changed)
-        self.record_name_textbox.textChanged.connect(self.record_name_changed)
         self.data_collected.connect(self.updateplot)
-        self.chunk_recorded.connect(self.update_record_progress_bar)
-        self.make_plots_button.clicked.connect(self.make_plots)
-
-    def mkp2():
-        self.data_collected.disconnect()
-        # record_file_name = QtGui.QFileDialog.getOpenFileName(self, 'OpenFile')[0]
-        # record_file_name = QtGui.QFileDialog.getOpenFileName()[0]
-        # fileName, _ = QtGui.QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", "", "Wave Files (*.wav)")
-        # exec(open("./abc.py").read())
-
-        fileName = '/Users/tandav/Documents/Ultrasonic-Stethoscope/data-temp/lungs-0.wav'
-        print(fileName)
-        if fileName:
-            fs, y = wavfile.read(fileName)
-            n = len(y) # length of the signal
-            record_time = n / fs
-            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 9))
-
-            if self.signal_checkbox.isChecked():
-                t = np.linspace(0, record_time, n) # time vector
-                ax1.plot(t, y, 'b')
-                # ax[0].plot(t[::100], y[::100], 'b')
-                ax3.set_title('Signal')
-                ax1.set_xlabel('Time: {0}seconds'.format(record_time))
-                ax1.set_ylabel('Amplitude')
-                ax1.grid()
-
-            plt.tight_layout()
-            plt.savefig(fileName[-3:] + 'png')
-
-
-        self.data_collected.connect(self.updateplot)
-
-    def make_plots(self):
-        t3 = threading.Thread(target=self.mkp2)
-        t3.start()
-
-
-    def fft_slider_changed(self):
-        global NFFT, chunkSize
-        # self.NFFT = self.fft_chunks_slider.value() * self.chunkSize
-        # self.fft_slider_label.setText('FFT window: {}'.format(self.NFFT))
-        NFFT = 2 ** self.fft_chunks_slider.value()
-        self.fft_slider_label.setText('FFT window: {}'.format(NFFT))
-        self.t = np.linspace(0, (NFFT - 1) * 1e-6, NFFT)
-        self.y = np.zeros(NFFT)
-        self.f = np.zeros(NFFT // 2)
-        self.a = np.zeros(NFFT // 2)
-        self.win = np.hanning(NFFT)
-        # self.win = np.blackman(NFFT)
-        self.avg_sum = 0
-        self.avg_iters = 0
-        self.overlap_slider.setRange(0, NFFT - 1) # max is ser_reader_thread.chunks
-        overlap = NFFT // 2
-        self.overlap_slider.setValue(overlap)
-
-    def plot_points_x_slider_changed(self):
-        self.plot_points_x = self.plot_points_x_slider.value()
-        self.plot_points_x_slider_label.setText('plot_points_x: {}'.format(self.plot_points_x))
-        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-
-    def plot_points_y_slider_changed(self):
-        self.plot_points_y = self.plot_points_y_slider.value()
-        self.plot_points_y_slider_label.setText('plot_points_y: {}'.format(self.plot_points_y))
-        self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-
-    def overlap_slider_slider_changed(self):
-        global overlap
-        overlap = self.overlap_slider.value()
-        self.overlap_slider_label.setText('FFT window overlap: {}'.format(overlap))
-
-    def record_name_changed(self):
-        global record_name
-        record_name = self.record_name_textbox.text()
 
     @QtCore.pyqtSlot()
     def updateplot(self):
-        t0 = time.time()
-        global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, big_dt
+        print('updateplot')
+        y = ser_reader_thread.get()
+        n = len(y)
+        t = np.arange(n) # temp solution
+        # t0 = time.time()
+        # global ser_reader_thread, recording, values_to_record, record_start_time, NFFT, big_dt
 
-        self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
+        # self.t, self.y, self.rate = ser_reader_thread.get(num=NFFT) # MAX num=chunks*chunkSize (in SerialReader class)
 
-        self.a = (fft(self.y * self.win) / NFFT)[:NFFT//2] # fft + chose only real part
+        a = (fft(y * np.hanning(n)) / n)[:n//2] # fft + chose only real part
 
-        # в 2 строчки быстрее чем в одну! я замерял!
-        self.a = np.abs(self.a) # magnitude
-        self.a = 20 * np.log10(self.a) # часто ошибка - сделать try, else
+        # # в 2 строчки быстрее чем в одну! я замерял!
+        a = np.abs(a) # magnitude
+        a = 20 * np.log10(a) # часто ошибка - сделать try, else
 
-        # # spectrogram
-        # self.img_array = np.roll(self.img_array, -1, 0)
-        # if len(self.a) > self.plot_points_y:
-        #     self.img_array[-1] = self.a[:self.plot_points_y]
-        # else:
-        #     self.plot_points_y = len(a)
-        #     self.img_array = np.zeros((self.plot_points_x, self.plot_points_y)) # rename to (plot_width, plot_height)
-        #     self.img_array[-1] = self.a
-        # self.img.setImage(self.img_array, autoLevels=True)
         
-        pp = 4096*2 # number of points to plot
-        t_for_plot = self.t.reshape(pp, NFFT // pp).mean(axis=1)
-        y_for_plot = self.y.reshape(pp, NFFT // pp).mean(axis=1)
+        f = np.arange(len(a))
 
-        self.signal_curve.setData(t_for_plot, y_for_plot)
-        self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%self.rate)
-        if self.rate > 0:
-            self.f = np.fft.rfftfreq(NFFT - 1, d = 1. / self.rate)
-            f_for_plot = self.f.reshape(pp, NFFT // pp // 2).mean(axis=1)
-            a_for_plot = self.a.reshape(pp, NFFT // pp // 2).mean(axis=1)
-            self.fft_curve.setData(f_for_plot, a_for_plot)
+        # print('fuck you')
+        # pp = 4096*2 # number of points to plot
+        # t_for_plot = self.t.reshape(pp, NFFT // pp).mean(axis=1)
+        # y_for_plot = self.y.reshape(pp, NFFT // pp).mean(axis=1)
+
+        self.signal_curve.setData(t, y)
+        self.fft_curve.setData(f, a)
+
+        # self.signal_widget.getPlotItem().setTitle('Sample Rate: %0.2f'%self.rate)
+        # if self.rate > 0:
+        #     self.f = np.fft.rfftfreq(NFFT - 1, d = 1. / self.rate)
+        #     f_for_plot = self.f.reshape(pp, NFFT // pp // 2).mean(axis=1)
+        #     a_for_plot = self.a.reshape(pp, NFFT // pp // 2).mean(axis=1)
+        #     self.fft_curve.setData(f_for_plot, a_for_plot)
 
 
 
-        t1 = time.time()
-        self.avg_sum += t1 - t0
-        self.avg_iters += 1
-        # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
-        if self.avg_iters % 10 == 0:
-            # print('avg_dt=', self.avg_sum * 1000 / self.avg_iters, 'iters=', self.avg_iters)
-            # print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
+        # t1 = time.time()
+        # self.avg_sum += t1 - t0
+        # self.avg_iters += 1
+        # # print('avg_dt=', self.avg_sum / self.avg_iters, 'iters=', self.avg_iters)
+        # if self.avg_iters % 10 == 0:
+        #     # print('avg_dt=', self.avg_sum * 1000 / self.avg_iters, 'iters=', self.avg_iters)
+        #     # print('big_dt =', (time.time() - big_dt) * 1000, '\tupdateplot_dt =', (t1 - t0) * 1000)
 
-            print('big_dt: {:.3f}ms | updateplot_dt: {:.3f}ms | avg_dt: {:.3f} | iters: {}'.format((time.time() - big_dt) * 1000,
-                                                                      (t1 - t0) * 1000,
-                                                                       self.avg_sum * 1000 / self.avg_iters,
-                                                                       self.avg_iters))
-            if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
-                print('WARNING: too big overlap: {:.3f}ms'.format(abs((time.time() - big_dt) - (t1 - t0)) * 1000))
-        big_dt = time.time()
-
-        # print(t1 - t0)
-        # print('>>>>>')
-
-    @QtCore.pyqtSlot()
-    def update_record_progress_bar(self):
-        global ser_reader_thread, recording, values_to_record, record_start_time
-
-        rate = ser_reader_thread.sps
-        while recording:
-            self.progress.setValue(100 / (values_to_record / rate) * (time.time() - record_start_time)) # map recorded/to_record => 0% - 100%
-            QApplication.processEvents() 
-            time.sleep(0.01)
-        self.progress.setValue(0)
-
-    def spinbox_value_changed(self):
-        self.spin.setSuffix(' Values to record' + ' ({:.2f} seconds)'.format(self.spin.value() / ser_reader_thread.sps))
-
-    def keyPressEvent(self, event):
-        if type(event) == QtGui.QKeyEvent and event.key() == QtCore.Qt.Key_Space:
-            #here accept the event and do something
-            self.record_values_button_clicked()
-            event.accept()
-        else:
-            event.ignore()
-
-    def record_values_button_clicked(self):
-        global recording, values_to_record, record_start_time, record_buffer
-        values_to_record = self.spin.value()
-        record_buffer = np.empty(values_to_record)
-        recording = True
-
-        record_start_time = time.time()
-        self.chunk_recorded.emit()
-
-        # self.update_record_progress_bar()
+        #     print('big_dt: {:.3f}ms | updateplot_dt: {:.3f}ms | avg_dt: {:.3f} | iters: {}'.format((time.time() - big_dt) * 1000,
+        #                                                               (t1 - t0) * 1000,
+        #                                                                self.avg_sum * 1000 / self.avg_iters,
+        #                                                                self.avg_iters))
+        #     if abs((time.time() - big_dt) - (t1 - t0)) < 0.010:
+        #         print('WARNING: too big overlap: {:.3f}ms'.format(abs((time.time() - big_dt) - (t1 - t0)) * 1000))
+        # big_dt = time.time()
 
     # def closeEvent(self, event):
-    def closeEvent(self, event, sig, frame):
+    def closeEvent(self, event):
         global ser_reader_thread
         ser_reader_thread.exit()
 
 
 
-def write_to_file(arr, ext, gzip=False):
-        global file_index, record_name
-        sys.stdout.write('start write to file ' + str(len(arr)) + ' values...')
-        sys.stdout.flush()
-
-
-        data_dir = 'data-temp/'
-        # fileprefix = 'fio-disease-'
-        fileprefix = record_name + '-'
-
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-
-        filename = data_dir + fileprefix + str(file_index) + '.' + ext
-
-
-        if ext == 'dat':
-            with open(filename, 'w') as f:
-                arr.tofile(f)
-        elif ext == 'txt':
-            np.savetxt(filename, arr)
-        elif ext == 'wav':
-            rate = int(arr[1])
-            arr = arr[2:] # del record_time and rate
-            # scaled = np.int16(arr / np.max(np.abs(arr)) * 32767)
-            # write_wav(filename, rate, scaled)
-            write_wav(filename, rate, arr)
-        else:
-            print('wrong file extension')
-
-        file_index += 1
-
-        filesize = os.stat(filename).st_size
-        print(" done (", filesize, ' bytes)', sep='')
-        print(filename)
-        if gzip:
-            sys.stdout.write('gzip data compression: ' + str(filesize / 1000000) + 'MB...')
-            sys.stdout.flush()
-
-            with open(filename, 'rb') as f_in, gzip.open(filename + '.gz', 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
-            gzfilesize = os.stat(filename + '.gz').st_size
-            print(' done. File reduced to ', gzfilesize / 1000000, 'MB (%0.0f' % (gzfilesize/filesize*100), '% of uncompressed)', sep='')
-
-
-def send_to_cuda():
-        global record_buffer, record_time, rate, record_start_time, record_end_time
-        
-        # old 
-        # record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) # Convert array to float and rescale to voltage. Assume 3.3V / 12bits
-        # new: add rescale to [-1, 1]
-        record_buffer = record_buffer.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1# Convert array to float and rescale to voltage. Assume 3.3V / 12bits
-        
-
-        n = len(record_buffer) # length of the signal
-
-        record_time = np.float32(record_end_time - record_start_time)
-        rate = np.float32(n / record_time)
-        sys.stdout.write('record time: ' + str(record_time) + 's\t' + 'rate: ' + str(rate) + 'sps   ' + str(len(record_buffer)) + ' values\n')
-
-        # calc_fft_localy(record_buffer, n, record_time, rate)
-        record_buffer = np.insert(record_buffer, 0, [record_time, rate]) # first two entries in file are record_time and rate
-        # write_to_file(record_buffer, compression=False)
-        write_to_file(record_buffer, 'wav', gzip=False)
-
-        # print('start sending data to CUDA server...')
-        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # s.connect(('192.168.119.170', 5005))  # (TCP_IP, TCP_PORT)
-        # blocksize = 8192 # or some other size packet you want to transmit. Powers of 2 are good.
-        # with open('signal.dat.gz', 'rb') as f:
-        #     packet = f.read(blocksize)
-        #     i = 0
-        #     while packet:
-        #         s.send(packet)
-        #         packet = f.read(blocksize)
-        #         i += 1
-        #         if i % 100 == 0:
-        #             print('data send: %0.0f' % (f.tell() / gzfilesize * 100), '%')
-        # print('data send: 100% - success')
-        # s.close()
-
-        print('session end\n')
-
-# def safe_quit(sig, frame, tr, ap):
-    # print('quitting_safely')
-    # tr.closeEvent()
-    # ap.closeEvent()
-    # ap.exit(0)
-    # sys.exit(0)
-
 def main():
     # globals
-    global recording, values_to_record, file_index, gui, ser_reader_thread, chunkSize, big_dt
-    recording        = False
-    values_to_record = 0
-    file_index       = 0
-    plot_points_x    = 256
-    chunkSize        = 256
-    chunks           = 2000
-    big_dt           = 0
+    global gui, ser_reader_thread, chunkSize, big_dt
+    chunkSize = 256
+    chunks    = 2000
+    big_dt    = 0
 
     # init gui
     app = QtGui.QApplication(sys.argv)
-    gui = AppGUI(plot_points_x=plot_points_x) # create class instance
+    gui = AppGUI() # create class instance
 
     # init and run serial arduino reader
     ser_reader_thread = SerialReader(data_collected_signal=gui.data_collected, 
@@ -654,9 +323,7 @@ def main():
     ser_reader_thread.start()
 
     # app exit
-    # signal.signal(signal.SIGINT, signal.SIG_DFL)
-    # signal.signal(signal.SIGINT, safe_quit(ser_reader_thread, app))
-    signal.signal(signal.SIGINT, gui.closeEvent)
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(app.exec())
 
 if __name__ == '__main__':
