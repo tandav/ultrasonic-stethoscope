@@ -31,23 +31,33 @@ def find_device_and_return_port():
 port = find_device_and_return_port()
 
 while True:
-    # data = port.read(512)
 
-    # print(np.frombuffer(data, dtype=np.uint32)[:6])
 
-    # data = port.read(512)
 
-    # if b'\xd2\x02\x96I' in data:  
+    data = port.read(512)
+
+
+    if data[:4] == b'\xd2\x02\x96I':
+        timings = np.frombuffer(data, dtype=np.uint32)
+        print(f'tone_playing {timings[1]}', end='\t')
+        print(f'current_tone_i {timings[2]}')
+    if data[4:8] == b'\xd2\x02\x96I':
+        timings = np.frombuffer(data, dtype=np.uint32)
+        print(f'tone_playing {timings[2]}', end='\t')
+        print(f'current_tone_i {timings[3]}')
+
+    # if b'\xd2\x02\x96I' in data:
+        # print(data[:10])
         # timings = np.frombuffer(data, dtype=np.uint32)
         # print(timings[:6])
 
     # else:
         # data = np.frombuffer(data, dtype=np.uint16)
 
-    data = port.read_until(b'\xd2\x02\x96I')
+    # data = port.read_until(b'\xd2\x02\x96I')
 
-    t_data = port.read(508)
-    print(np.frombuffer(t_data, dtype=np.uint32)[:6])
+    # t_data = port.read(508)
+    # print(np.frombuffer(t_data, dtype=np.uint32)[:6])
 
     # some mic data processing
 

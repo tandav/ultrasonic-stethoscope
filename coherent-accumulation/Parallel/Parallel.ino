@@ -23,20 +23,10 @@ const uint32_t short_silence_duration =   80000;
 uint32_t short_silence_start_t = 0;
 uint32_t tone_start_t          = 0;
 
-unsigned long chunk_stop            = 0;
-byte* chunk_stop_p;
-// states:
-// 0: play  tone
-// 1: short silence
-// 2: long  silence
-//byte state = 0;
-
-//unsigned long series_going = 0; // not boolean because it sends via serial
 uint32_t tone_playing    =  1; // not shure is it right 
 uint32_t current_tone_i  =  0;
 
 boolean timing_data_ready = false;
-
 
 const float pi = 3.14159265;
 const float A = 490;                   // amplitude of sine signal
@@ -45,8 +35,6 @@ float c1;                              // c1 = first filter coefficient, c1b use
 volatile float a[3];                   // filter register for generating tone, updated from interrupt so must be volatile
 float omega = 2.0 * pi * freq;         // angular frequency in radians/second
 float wTsq = _T * _T * omega * omega ; // omega * sampling frequency squared
-
-
 
 
 void ADC_Handler() {    // move DMA pointers to next buffer
@@ -140,8 +128,4 @@ void loop() {
     while (obufn == bufn); // wait for buffer to be full
     SerialUSB.write((uint8_t *) buf[obufn], 512); // send it - 512 bytes = 256 uint16_t
     obufn = (obufn + 1) & 3;
-    
-//    chunk_stop = micros();
-//    chunk_stop_p = (byte*) &chunk_stop;
-//    SerialUSB.write(chunk_stop_p, 4);
 }
