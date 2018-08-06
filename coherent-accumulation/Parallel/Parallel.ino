@@ -17,12 +17,12 @@ float freq = 1498; // Hz
 // 1  s == 1,000,000 microseconds
 
 
-const unsigned long tone_duration          =   20000;//
-const unsigned long series_duration        = 1000000;//
-const unsigned long short_silence_duration =   80000;//
-const unsigned long long_silence_duration  = 2000000;//
+const unsigned long tone_duration          =   20000;
+const unsigned long series_duration        = 1000000;
+const unsigned long short_silence_duration =   80000;
+const unsigned long long_silence_duration  =       0;
 
-unsigned long series_start_t        = 0;//
+unsigned long series_start_t        = 0;
 unsigned long short_silence_start_t = 0;
 unsigned long long_silence_start_t  = 0;
 unsigned long tone_start_t          = 0;
@@ -35,8 +35,8 @@ byte* chunk_stop_p;
 // 2: long  silence
 byte state = 0;
 
-boolean series_going = true;
-boolean tone_plying  = true;
+unsigned long series_going = 0; // not boolean because it sends via serial
+unsigned long tone_playing = 0; // not shure is it right 
 
 boolean timing_data_ready = false;
 
@@ -65,28 +65,32 @@ void firstHandler() {
     if (series_going) {
         if (micros() - series_start_t > series_duration) {
             // stop series, start long silence
-            series_going = false;
+            series_going = 0;
             long_silence_start_t = micros();
-            timings[1] = series_start_t;
-            timings[2] = series_duration;
-            timings[3] = tone_duration;
-            timings[4] = short_silence_duration;
-            timings[5] = long_silence_duration;
+            timings[1] = series_going;
+            timings[2] = tone_playing;
+//            timings[1] = series_start_t;
+//            timings[2] = series_duration;
+//            timings[3] = tone_duration;
+//            timings[4] = short_silence_duration;
+//            timings[5] = long_silence_duration;
             timing_data_ready = true;
         }
         else { // handling series of tones
-            if (tone_plying) {
+            if (tone_playing) {
                 if (micros() - tone_start_t < tone_duration) {
                     // play tone samples
                     digitalWrite(LED_BUILTIN, HIGH);
-                    a[2] = c1 * a[1] - a[0];     // compute the sample
-                    a[0] =      a[1];            // shift the registers in preparation for the next cycle
-                    a[1] =      a[2];
+                    a[2] = c1 * a[1] - a[0];       // compute the sample
+                    a[0] =      a[1]       ;       // shift the registers in preparation for the next cycle
+                    a[1] =      a[2]       ;
                     analogWrite(DAC0, a[2] + 500); // write to DAC
                 }
                 else {
-                    tone_plying = false;
+                    tone_playing = 0;
+                    timings[2] = tone_playing;
                     short_silence_start_t = micros();
+                    timing_data_ready = true;
                 }
             }
             else {
@@ -95,8 +99,10 @@ void firstHandler() {
                     analogWrite(DAC0, 0);
                 }
                 else {
-                    tone_plying = true;
+                    tone_playing = 1;
+                    timings[2] = tone_playing;
                     tone_start_t = micros();
+                    timing_data_ready = true;
                 }
             }        
         }
@@ -107,15 +113,21 @@ void firstHandler() {
             analogWrite(DAC0, 0);
         }
         else {
-            series_going = true;
+            series_going = 1;
+            tone_playing = 1;
+            timings[1] = series_going;
+            timings[2] = tone_playing;
             series_start_t = micros();
             tone_start_t   = micros();
+            timing_data_ready = true;
         }
     }    
 }
 
 
 void setup() {
+    for (int i = 0; i < 128; i++)
+        timings[i] = 7;
     timings[0] = 1234567890; // kinda header
 
     c1   = (8.0 - 2.0 * wTsq) / (4.0 + wTsq); // coefficient of first filter term
@@ -125,6 +137,7 @@ void setup() {
     analogReadResolution(10);
     analogWriteResolution(10);
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(DAC0, OUTPUT);
     Timer7.attachInterrupt(firstHandler).start(_T * 1000000);
 
 
@@ -157,7 +170,7 @@ void loop() {
     SerialUSB.write((uint8_t *) buf[obufn], 512); // send it - 512 bytes = 256 uint16_t
     obufn = (obufn + 1) & 3;
     
-    chunk_stop = micros();
-    chunk_stop_p = (byte*) &chunk_stop;
-    SerialUSB.write(chunk_stop_p, 4);
+//    chunk_stop = micros();
+//    chunk_stop_p = (byte*) &chunk_stop;
+//    SerialUSB.write(chunk_stop_p, 4);
 }
