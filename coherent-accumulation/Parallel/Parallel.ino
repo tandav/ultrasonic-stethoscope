@@ -17,15 +17,11 @@ float freq = 1498; // Hz
 // 1  s == 1,000,000 microseconds
 
 
-const unsigned long tone_duration          =   20000;
-const unsigned long series_duration        = 1000000;
-const unsigned long short_silence_duration =   80000;
-const unsigned long long_silence_duration  =       0;
+const uint32_t tone_duration          =   20000;
+const uint32_t short_silence_duration =   80000;
 
-unsigned long series_start_t        = 0;
-unsigned long short_silence_start_t = 0;
-unsigned long long_silence_start_t  = 0;
-unsigned long tone_start_t          = 0;
+uint32_t short_silence_start_t = 0;
+uint32_t tone_start_t          = 0;
 
 unsigned long chunk_stop            = 0;
 byte* chunk_stop_p;
@@ -33,10 +29,11 @@ byte* chunk_stop_p;
 // 0: play  tone
 // 1: short silence
 // 2: long  silence
-byte state = 0;
+//byte state = 0;
 
-unsigned long series_going = 0; // not boolean because it sends via serial
-unsigned long tone_playing = 0; // not shure is it right 
+//unsigned long series_going = 0; // not boolean because it sends via serial
+uint32_t tone_playing    =  1; // not shure is it right 
+uint32_t current_tone_i  =  0;
 
 boolean timing_data_ready = false;
 
@@ -56,80 +53,53 @@ void ADC_Handler() {    // move DMA pointers to next buffer
     int f = ADC->ADC_ISR;
     if (f & (1 << 27)) {
         bufn = (bufn + 1) & 3;
-        ADC->ADC_RNPR = (uint32_t)buf[bufn];
-        ADC->ADC_RNCR = 256;
+        ADC -> ADC_RNPR = (uint32_t)buf[bufn];
+        ADC -> ADC_RNCR = 256;
     }
 }
 
 void firstHandler() {
-    if (series_going) {
-        if (micros() - series_start_t > series_duration) {
-            // stop series, start long silence
-            series_going = 0;
-            long_silence_start_t = micros();
-            timings[1] = series_going;
-            timings[2] = tone_playing;
-//            timings[1] = series_start_t;
-//            timings[2] = series_duration;
-//            timings[3] = tone_duration;
-//            timings[4] = short_silence_duration;
-//            timings[5] = long_silence_duration;
-            timing_data_ready = true;
+    if (tone_playing) {
+        if (micros() - tone_start_t < tone_duration) {
+            // play tone samples (src: https://github.com/cmasenas/SineWaveDue)
+            digitalWrite(LED_BUILTIN, HIGH);
+            a[2] = c1 * a[1] - a[0];       // compute the sample
+            a[0] =      a[1]       ;       // shift the registers in preparation for the next cycle
+            a[1] =      a[2]       ;
+            analogWrite(DAC0, a[2] + 500); // write to DAC
         }
-        else { // handling series of tones
-            if (tone_playing) {
-                if (micros() - tone_start_t < tone_duration) {
-                    // play tone samples
-                    digitalWrite(LED_BUILTIN, HIGH);
-                    a[2] = c1 * a[1] - a[0];       // compute the sample
-                    a[0] =      a[1]       ;       // shift the registers in preparation for the next cycle
-                    a[1] =      a[2]       ;
-                    analogWrite(DAC0, a[2] + 500); // write to DAC
-                }
-                else {
-                    tone_playing = 0;
-                    timings[2] = tone_playing;
-                    short_silence_start_t = micros();
-                    timing_data_ready = true;
-                }
-            }
-            else {
-                if (micros() - short_silence_start_t < short_silence_duration) {
-                    digitalWrite(LED_BUILTIN, LOW);
-                    analogWrite(DAC0, 0);
-                }
-                else {
-                    tone_playing = 1;
-                    timings[2] = tone_playing;
-                    tone_start_t = micros();
-                    timing_data_ready = true;
-                }
-            }        
+        else {
+            tone_playing = 0;
+            timings[1] = tone_playing;
+            short_silence_start_t = micros();
+            timing_data_ready = true;
         }
     }
     else {
-        if (micros() - long_silence_start_t < long_silence_duration) {
+        if (micros() - short_silence_start_t < short_silence_duration) {
             digitalWrite(LED_BUILTIN, LOW);
             analogWrite(DAC0, 0);
         }
         else {
-            series_going = 1;
             tone_playing = 1;
-            timings[1] = series_going;
-            timings[2] = tone_playing;
-            series_start_t = micros();
-            tone_start_t   = micros();
+            current_tone_i += 1;
+            timings[1] = tone_playing;
+            timings[2] = current_tone_i;
+            tone_start_t = micros();
             timing_data_ready = true;
         }
-    }    
-}
+    }        
+}    
+
 
 
 void setup() {
     for (int i = 0; i < 128; i++)
         timings[i] = 7;
     timings[0] = 1234567890; // kinda header
-
+    timings[1] = tone_playing;
+    timings[2] = current_tone_i;
+  
     c1   = (8.0 - 2.0 * wTsq) / (4.0 + wTsq); // coefficient of first filter term
     a[0] = 0.0;                               // initialize filter coefficients
     a[1] = A * sin(omega * _T);
@@ -165,6 +135,7 @@ void loop() {
     if (timing_data_ready) {
         SerialUSB.write((uint8_t *) timings, 512); // 512 bytes = 128 uint32_t (unsigned long == uint32_t on arduino)
         timing_data_ready = false;
+//        current_tone_i = 0;
     }
     while (obufn == bufn); // wait for buffer to be full
     SerialUSB.write((uint8_t *) buf[obufn], 512); // send it - 512 bytes = 256 uint16_t
