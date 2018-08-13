@@ -25,7 +25,7 @@ class SerialReader(threading.Thread):
     """ Defines a thread for reading and buffering serial data.
     By default, about 5MSamples are stored in the buffer.
     Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, data_collected_signal, chunkSize=1024, chunks=5000):
+    def __init__(self, mean_ready_signal, matrix_updated_signal, chunkSize=1024, chunks=5000):
         threading.Thread.__init__(self)
         # circular buffer for storing serial data until it is
         # fetched by the GUI
@@ -40,14 +40,16 @@ class SerialReader(threading.Thread):
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
         self.values_recorded = 0
-        self.data_collected_signal = data_collected_signal
+        self.mean_ready_signal = mean_ready_signal
+        self.matrix_updated_signal = matrix_updated_signal
 
         self.series_n = 10
         # self.series_n = 4
-        self.matrix = np.zeros((self.series_n, self.chunkSize * 110))
+        self.matrix = np.zeros((self.series_n, self.chunkSize * 800))
         self.tone_playing = 0 # 0/1 here instead of False/True
         self.current_tone_i = 0
-        self.out = np.zeros(self.matrix.shape[1])
+        self.mean = np.zeros(self.matrix.shape[1])
+        self.matrix_out = np.zeros_like(self.matrix)
         self.ptr = 0
 
         self.rate = 0
@@ -110,47 +112,36 @@ class SerialReader(threading.Thread):
                     self.tone_playing   = timings[2]
                     self.current_tone_i = timings[3] % self.series_n
                 if self.current_tone_i != current_tone_i_old:
+                    self.matrix_out = self.matrix.copy()
+                    self.matrix_updated_signal.emit()
                     self.ptr = 0
             else:
                 if self.tone_playing:
                     data = np.frombuffer(data, dtype=np.uint16)
                     with dataMutex:
                         if self.current_tone_i == 0 and self.ptr == 0: # end of series (start of new series), need to update plot
-                            self.out = np.mean(self.matrix, axis=0)
-                            self.data_collected_signal.emit() # try pass array via signal?
-                            self.matrix = np.zeros((self.series_n, self.out.shape[0]))
+                            self.mean = np.mean(self.matrix, axis=0) * (3.3 / 2**12) * 2 / 3.3 - 1
                             self.rate = self.count / (time.time() - self.series_start_t)
+                            self.mean_ready_signal.emit()
+                            self.matrix[:, :] = 0
                             self.series_start_t = time.time()
                             self.count = 0
                         self.matrix[self.current_tone_i, self.ptr : self.ptr + self.chunkSize] = data
+                        
                         self.ptr += self.chunkSize
+
                 # collect samples for computing rate 
                 #   - even when tone_playing == False
                 #       - because the whole series dt is measured (with silences between tones))
                 self.count += self.chunkSize
 
-
-
-    def get(self):
-        """ Return a tuple (time_values, voltage_values, rate)
-          - voltage_values will contain the *num* most recently-collected samples
-            as a 32bit float array.
-          - time_values assumes samples are collected at 1MS/s
-          - rate is the running average sample rate.
-        """
-
-
-        # Convert array to float and rescale to voltage.
-        # Assume 3.3V / 12bits
-        # (we need calibration data to do a better job on this)
-        # data = data.astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1
-
+    def get_matrix(self):
         with self.dataMutex:
-            out = self.out
-            rate = self.rate
-        # print(out.dtype)
-        out = out * (3.3 / 2**12) * 2 / 3.3 - 1
-        return out, rate
+            return self.matrix_out
+
+    def get_mean(self):
+        with self.dataMutex:
+            return self.mean, self.rate
 
     def exit(self):
         """ Instruct the serial thread to exit."""
@@ -160,7 +151,8 @@ class SerialReader(threading.Thread):
 
 
 class AppGUI(QtGui.QWidget):
-    data_collected = QtCore.pyqtSignal()
+    mean_ready = QtCore.pyqtSignal()
+    matrix_updated = QtCore.pyqtSignal()
 
     def __init__(self):
         super(AppGUI, self).__init__()
@@ -177,7 +169,38 @@ class AppGUI(QtGui.QWidget):
         self.layout = QtGui.QVBoxLayout()
 
 
+        # matrix plot ----------------------------------------------------------------
+        
+        self.glayout = pg.GraphicsLayoutWidget()
+        self.glayout.ci.layout.setContentsMargins(0, 0, 0, 0)
+        self.glayout.ci.layout.setSpacing(0)
+        self.z_slice_img = pg.ImageItem(autoLevels=True, levels=(0, 100))
+        self.z_slice_plot = self.glayout.addPlot()
+        self.z_slice_plot.setMouseEnabled(x=False, y=False)
+        self.z_slice_plot.invertY(True)
+        self.z_slice_plot.addItem(self.z_slice_img)
+        self.z_slice_img.setZValue(-1)
 
+        #--------------------------- signal plot ------------------------
+
+
+
+
+
+
+        # self.signal_widget = pg.PlotWidget(title='Tones')
+        # self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
+        # self.signal_widget.setYRange(-1, 1)
+        # self.sc0 = self.signal_widget.plot(pen='b')
+        # self.sc1 = self.signal_widget.plot(pen='g')
+        # self.sc2 = self.signal_widget.plot(pen='r')
+        # self.sc3 = self.signal_widget.plot(pen='c')
+        # self.sc4 = self.signal_widget.plot(pen='m')
+        # self.sc5 = self.signal_widget.plot(pen='y')
+        # self.sc6 = self.signal_widget.plot(pen='k')
+
+
+        #--------------------------- fft plot ------------------------
 
         self.fft_widget = pg.PlotWidget(title='FFT')
         self.fft_widget.showGrid(x=True, y=True, alpha=0.1)
@@ -187,7 +210,10 @@ class AppGUI(QtGui.QWidget):
         self.fft_widget.setYRange(-60, 80) # w/ np.log(a)
         self.fft_curve = self.fft_widget.plot(pen='r')
 
+        self.layout.addWidget(self.glayout)
+        # self.layout.addWidget(self.signal_widget)
         self.layout.addWidget(self.fft_widget)
+
 
 
         self.setLayout(self.layout)
@@ -195,14 +221,26 @@ class AppGUI(QtGui.QWidget):
         self.show()
 
     def qt_connections(self):
-        self.data_collected.connect(self.updateplot)
+        self.mean_ready.connect(self.update_mean)
+        self.matrix_updated.connect(self.update_matrix)
+
+
+    def update_matrix(self):
+        matrix = ser_reader_thread.get_matrix()
+        # print('update_matrix')
+        self.z_slice_img.setImage(matrix.T)
+
 
     @QtCore.pyqtSlot()
-    def updateplot(self):
-        y, rate = ser_reader_thread.get()
-        n = len(y)
+    def update_mean(self):
+        print('update_mean')
+        # y, rate = ser_reader_thread.get()
+        # matrix, rate = ser_reader_thread.get()
+        mean, rate = ser_reader_thread.get_mean()
+        # y = np.mean(matrix, axis=0)
+        n = len(mean)
 
-        a = np.fft.rfft(y * np.hanning(n))
+        a = np.fft.rfft(mean * np.hanning(n))
 
         # # в 2 строчки быстрее чем в одну! я замерял!
         a = np.abs(a) # magnitude
@@ -213,6 +251,15 @@ class AppGUI(QtGui.QWidget):
             f = np.fft.rfftfreq(n, d = 1. / rate)
             self.fft_widget.getPlotItem().setTitle(f'Sample Rate: {rate/1000:0.2f} kHz')
             self.fft_curve.setData(f, a)
+
+            # self.sc0.setData(matrix[0])
+            # self.sc1.setData(matrix[1])
+            # self.sc2.setData(matrix[2])
+            # self.sc3.setData(matrix[3])
+            # self.sc4.setData(matrix[4])
+            # self.sc5.setData(matrix[5])
+            # self.sc6.setData(matrix[6])
+
     def closeEvent(self, event):
         global ser_reader_thread
         ser_reader_thread.exit()
@@ -221,19 +268,21 @@ class AppGUI(QtGui.QWidget):
 
 def main():
     # globals
-    global gui, ser_reader_thread, chunkSize, big_dt
+    global gui, ser_reader_thread, chunkSize
     chunkSize = 256
     chunks    = 2000
-    big_dt    = 0
 
     # init gui
     app = QtGui.QApplication(sys.argv)
     gui = AppGUI() # create class instance
 
     # init and run serial arduino reader
-    ser_reader_thread = SerialReader(data_collected_signal=gui.data_collected, 
-                                     chunkSize=chunkSize,
-                                     chunks=chunks)
+    ser_reader_thread = SerialReader(
+        mean_ready_signal=gui.mean_ready, 
+        matrix_updated_signal=gui.matrix_updated, 
+        chunkSize=chunkSize,
+        chunks=chunks
+    )
     ser_reader_thread.start()
 
     # app exit
