@@ -45,7 +45,7 @@ class SerialReader(threading.Thread):
 
         self.series_n = 10
         # self.series_n = 4
-        self.matrix = np.zeros((self.series_n, self.chunkSize * 800))
+        self.matrix = np.zeros((self.series_n, self.chunkSize * 170))
         self.tone_playing = 0 # 0/1 here instead of False/True
         self.current_tone_i = 0
         self.mean = np.zeros(self.matrix.shape[1])
@@ -112,7 +112,7 @@ class SerialReader(threading.Thread):
                     self.tone_playing   = timings[2]
                     self.current_tone_i = timings[3] % self.series_n
                 if self.current_tone_i != current_tone_i_old:
-                    self.matrix_out = self.matrix.copy()
+                    self.matrix_out = self.matrix.copy() * (3.3 / 2**12) * 2 / 3.3 - 1
                     self.matrix_updated_signal.emit()
                     self.ptr = 0
             else:
@@ -137,7 +137,7 @@ class SerialReader(threading.Thread):
 
     def get_matrix(self):
         with self.dataMutex:
-            return self.matrix_out
+            return self.matrix_out 
 
     def get_mean(self):
         with self.dataMutex:
@@ -181,23 +181,7 @@ class AppGUI(QtGui.QWidget):
         self.z_slice_plot.addItem(self.z_slice_img)
         self.z_slice_img.setZValue(-1)
 
-        #--------------------------- signal plot ------------------------
 
-
-
-
-
-
-        # self.signal_widget = pg.PlotWidget(title='Tones')
-        # self.signal_widget.showGrid(x=True, y=True, alpha=0.1)
-        # self.signal_widget.setYRange(-1, 1)
-        # self.sc0 = self.signal_widget.plot(pen='b')
-        # self.sc1 = self.signal_widget.plot(pen='g')
-        # self.sc2 = self.signal_widget.plot(pen='r')
-        # self.sc3 = self.signal_widget.plot(pen='c')
-        # self.sc4 = self.signal_widget.plot(pen='m')
-        # self.sc5 = self.signal_widget.plot(pen='y')
-        # self.sc6 = self.signal_widget.plot(pen='k')
 
 
         #--------------------------- fft plot ------------------------
@@ -211,7 +195,6 @@ class AppGUI(QtGui.QWidget):
         self.fft_curve = self.fft_widget.plot(pen='r')
 
         self.layout.addWidget(self.glayout)
-        # self.layout.addWidget(self.signal_widget)
         self.layout.addWidget(self.fft_widget)
 
 
@@ -229,6 +212,8 @@ class AppGUI(QtGui.QWidget):
         matrix = ser_reader_thread.get_matrix()
         # print('update_matrix')
         self.z_slice_img.setImage(matrix.T)
+
+
 
 
     @QtCore.pyqtSlot()
@@ -251,14 +236,6 @@ class AppGUI(QtGui.QWidget):
             f = np.fft.rfftfreq(n, d = 1. / rate)
             self.fft_widget.getPlotItem().setTitle(f'Sample Rate: {rate/1000:0.2f} kHz')
             self.fft_curve.setData(f, a)
-
-            # self.sc0.setData(matrix[0])
-            # self.sc1.setData(matrix[1])
-            # self.sc2.setData(matrix[2])
-            # self.sc3.setData(matrix[3])
-            # self.sc4.setData(matrix[4])
-            # self.sc5.setData(matrix[5])
-            # self.sc6.setData(matrix[6])
 
     def closeEvent(self, event):
         global ser_reader_thread
