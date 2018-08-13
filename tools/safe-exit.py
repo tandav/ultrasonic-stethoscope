@@ -39,12 +39,10 @@ while True:
 
     if data[:4] == b'\xd2\x02\x96I':
         timings = np.frombuffer(data, dtype=np.uint32)
-        print(f'tone_playing {timings[1]}', end='\t')
-        print(f'current_tone_i {timings[2]}')
+        print(f'tone_playing {timings[1]} current_tone_i {timings[2]} {timings[2] % 10}')
     if data[4:8] == b'\xd2\x02\x96I':
         timings = np.frombuffer(data, dtype=np.uint32)
-        print(f'tone_playing {timings[2]}', end='\t')
-        print(f'current_tone_i {timings[3]}')
+        print(f'tone_playing {timings[2]} current_tone_i {timings[3]} {timings[3] % 10}')
 
     # if b'\xd2\x02\x96I' in data:
         # print(data[:10])

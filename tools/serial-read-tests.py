@@ -86,10 +86,12 @@ class SerialReader(threading.Thread):
 
             # read one full chunk from the serial port
             # data = port.read(self.chunkSize * 2) # *2 probably because of datatypes/bytes/things like that
-            data = port.read(512) # read 512 bytes from USB
-
-            if data[:4] == b'\xd2\x02\x96I':
-                print(np.frombuffer(data, dtype=np.uint32)[:8])
+            # data = port.read(512) # read 512 bytes from USB
+            data = port.read(4) # read 512 bytes from USB
+            print(np.frombuffer(data, dtype=np.uint32))
+            # print(data)
+            # if data[:4] == b'\xd2\x02\x96I':
+                # print(np.frombuffer(data, dtype=np.uint32)[:8])
 
             # print(len(data)) // 512 bytes
             # piece = data[:4]

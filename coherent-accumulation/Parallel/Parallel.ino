@@ -17,7 +17,7 @@ float freq = 1498; // Hz
 // 1  s == 1,000,000 microseconds
 
 
-const uint32_t tone_duration          =   20000;
+const uint32_t tone_duration          =   40000;
 const uint32_t short_silence_duration =   80000;
 
 uint32_t short_silence_start_t = 0;
