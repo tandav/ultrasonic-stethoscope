@@ -43,13 +43,17 @@ class SerialReader(threading.Thread):
         self.mean_ready_signal = mean_ready_signal
         self.matrix_updated_signal = matrix_updated_signal
 
-        self.series_n = 10
+        self.series_n = 200
+        # self.series_n = 20
         # self.series_n = 4
-        self.matrix = np.zeros((self.series_n, self.chunkSize * 170))
+        self.matrix = np.full((self.series_n, self.chunkSize * 170), 4095/2) # if map -1..1 to 0..4095, then 0 maps to 4095/
+        # self.matrix = np.zeros((self.series_n, self.chunkSize * 170))
+        # self.matrix = np.zeros((self.series_n, self.chunkSize * 300))
         self.tone_playing = 0 # 0/1 here instead of False/True
         self.current_tone_i = 0
         self.mean = np.zeros(self.matrix.shape[1])
-        self.matrix_out = np.zeros_like(self.matrix)
+        # self.matrix_out = np.zeros_like(self.matrix)
+        self.matrix_out = self.matrix.copy()
         self.ptr = 0
 
         self.rate = 0
@@ -112,18 +116,21 @@ class SerialReader(threading.Thread):
                     self.tone_playing   = timings[2]
                     self.current_tone_i = timings[3] % self.series_n
                 if self.current_tone_i != current_tone_i_old:
-                    self.matrix_out = self.matrix.copy() * (3.3 / 2**12) * 2 / 3.3 - 1
-                    self.matrix_updated_signal.emit()
+                    self.matrix_out = self.matrix.copy() * 2 / 4095 - 1
+                    # self.matrix_updated_signal.emit()
+                    print(self.current_tone_i, self.series_n)
                     self.ptr = 0
             else:
                 if self.tone_playing:
                     data = np.frombuffer(data, dtype=np.uint16)
                     with dataMutex:
                         if self.current_tone_i == 0 and self.ptr == 0: # end of series (start of new series), need to update plot
-                            self.mean = np.mean(self.matrix, axis=0) * (3.3 / 2**12) * 2 / 3.3 - 1
+                            self.mean = np.mean(self.matrix, axis=0) * 2 / 4095 - 1
                             self.rate = self.count / (time.time() - self.series_start_t)
-                            self.mean_ready_signal.emit()
-                            self.matrix[:, :] = 0
+                            # self.mean_ready_signal.emit()
+                            self.matrix_updated_signal.emit()
+                            print(self.rate)
+                            self.matrix[:, :] = 4095/2 # if map -1..1 to 0..4095, then 0 maps to 4095/2
                             self.series_start_t = time.time()
                             self.count = 0
                         self.matrix[self.current_tone_i, self.ptr : self.ptr + self.chunkSize] = data
@@ -157,6 +164,8 @@ class AppGUI(QtGui.QWidget):
     def __init__(self):
         super(AppGUI, self).__init__()
         
+        self.file_counter = 0
+
         self.init_ui()
         self.qt_connections()
 
@@ -209,9 +218,12 @@ class AppGUI(QtGui.QWidget):
 
 
     def update_matrix(self):
-        matrix = ser_reader_thread.get_matrix()
+        self.matrix = ser_reader_thread.get_matrix()
+        print(f'saving accs/a-{str(self.file_counter)}............................................')
+        np.save('accs/a-' + str(self.file_counter), self.matrix)
+        self.file_counter += 1
         # print('update_matrix')
-        self.z_slice_img.setImage(matrix.T)
+        # self.z_slice_img.setImage(self.matrix.T)
 
 
 
@@ -231,7 +243,6 @@ class AppGUI(QtGui.QWidget):
         a = np.abs(a) # magnitude
         a = 20 * np.log10(a) # часто ошибка - сделать try, else
 
-        
         if rate > 0:
             f = np.fft.rfftfreq(n, d = 1. / rate)
             self.fft_widget.getPlotItem().setTitle(f'Sample Rate: {rate/1000:0.2f} kHz')

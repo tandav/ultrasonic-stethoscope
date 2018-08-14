@@ -59,6 +59,12 @@ void firstHandler() {
         else {
             tone_playing = 0;
             timings[1] = tone_playing;
+
+            // reset sine phase
+            a[0] = 0.0;
+            a[1] = A * sin(omega * _T);
+            a[2] = 0.0;
+            
             short_silence_start_t = micros();
             timing_data_ready = true;
         }
