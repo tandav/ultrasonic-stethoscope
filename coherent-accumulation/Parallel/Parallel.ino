@@ -92,7 +92,6 @@ void setup() {
     a[0] = 0.0;                               // initialize filter coefficients
     a[1] = A * sin(omega * _T);
     a[2] = 0.0;
-    analogReadResolution(10);
     analogWriteResolution(10);
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(DAC0, OUTPUT);
