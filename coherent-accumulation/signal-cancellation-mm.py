@@ -49,6 +49,7 @@ class SerialReader(threading.Thread):
         self.count = 0
         self.record_start_t = 0
 
+        self.recording_requested = False
         self.recording = False
         self.recording_start_tone_i = 0
 
@@ -107,6 +108,12 @@ class SerialReader(threading.Thread):
                 if self.current_tone_i != current_tone_i_old:
                     self.ptr = 0
 
+                    if self.recording_requested:
+                        self.recording = True
+                        self.recording_start_tone_i = self.current_tone_i
+                        self.count = 0
+                        self.recording_requested = False
+                        self.record_start_t = time.time()
                     if self.recording:
                         if self.current_tone_i - self.recording_start_tone_i < self.series_n:
                             print(self.current_tone_i - self.recording_start_tone_i)
@@ -126,12 +133,6 @@ class SerialReader(threading.Thread):
                     self.ptr += self.chunkSize
                     # else:
 
-
-                    # with dataMutex:
-                        # if self.current_tone_i == 0 and self.ptr == 0: # end of series (start of new series), need to update plot
-                            # self.mean = np.mean(self.matrix, axis=0) * 2 / 4095 - 1
-                            # self.matrix_updated_signal.emit()
-
                 self.count += self.chunkSize
 
                 # collect samples for computing rate 
@@ -140,10 +141,7 @@ class SerialReader(threading.Thread):
 
     def start_record(self):
         with self.dataMutex:
-            self.recording = True
-            self.recording_start_tone_i = self.current_tone_i
-            self.count = 0
-            self.record_start_t = time.time()
+            self.recording_requested = True
 
     def get_record(self):
         with self.dataMutex:
@@ -205,6 +203,10 @@ class AppGUI(QtGui.QWidget):
     def qt_connections(self):
         self.new_accumulation_button.clicked.connect(self.start_record)
         self.record_ready.connect(self.save_record)
+        self.spin.valueChanged.connect(self.spinbox_value_changed)
+
+    def spinbox_value_changed(self):
+        self.mm = self.spin.value()
 
     def start_record(self):
         ser_reader_thread.start_record()
