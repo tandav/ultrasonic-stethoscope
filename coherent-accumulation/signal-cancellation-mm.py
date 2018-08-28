@@ -22,36 +22,24 @@ import shutil
 
 
 class SerialReader(threading.Thread):
-    """ Defines a thread for reading and buffering serial data.
-    By default, about 5MSamples are stored in the buffer.
-    Data can be retrieved from the buffer by calling get(N)"""
-    def __init__(self, record_ready_signal, chunkSize=1024, chunks=5000):
+    def __init__(self, record_ready_signal, chunkSize=1024):
         threading.Thread.__init__(self)
-        # circular buffer for storing serial data until it is
-        # fetched by the GUI
-        self.buffer = np.zeros(chunks*chunkSize, dtype=np.uint16)
-        self.chunks = chunks        # number of chunks to store in the buffer
+
+
         self.chunkSize = chunkSize  # size of a single chunk (items, not bytes)
-        self.ptr = 0                # pointer to most (recently collected buffer index) + 1
         # self.port = port            # serial port handle
         self.port = self.find_device_and_return_port()           # serial port handle
 
         self.exitFlag = False
         self.exitMutex = threading.Lock()
         self.dataMutex = threading.Lock()
-        self.values_recorded = 0
+ 
         self.record_ready_signal = record_ready_signal
 
         self.series_n = 50
-        # self.series_n = 20
-        # self.series_n = 4
         self.matrix = np.full((self.series_n, self.chunkSize * 170), 4095/2) # if map -1..1 to 0..4095, then 0 maps to 4095/
-        # self.matrix = np.zeros((self.series_n, self.chunkSize * 170))
-        # self.matrix = np.zeros((self.series_n, self.chunkSize * 300))
         self.tone_playing = 0 # 0/1 here instead of False/True
         self.current_tone_i = 0
-        self.mean = np.zeros(self.matrix.shape[1])
-        # self.matrix_out = np.zeros_like(self.matrix)
         
         self.matrix_record = self.matrix.copy()
         
@@ -61,7 +49,6 @@ class SerialReader(threading.Thread):
         self.count = 0
         self.record_start_t = 0
 
-        self.record_requested = False
         self.recording = False
         self.recording_start_tone_i = 0
 
@@ -91,11 +78,8 @@ class SerialReader(threading.Thread):
     def run(self):
         exitMutex = self.exitMutex
         dataMutex = self.dataMutex
-        buffer = self.buffer
         port = self.port
 
-
-        global record_buffer, values_to_record, t2, record_end_time, NFFT, gui, overlap
 
         while True:
             # see whether an exit was requested
@@ -121,33 +105,27 @@ class SerialReader(threading.Thread):
                     self.tone_playing   = timings[2]
                     self.current_tone_i = timings[3]
                 if self.current_tone_i != current_tone_i_old:
-                    if self.record_requested:
-                        self.recording = True
-                        self.recording_start_tone_i = self.current_tone_i
-                        self.count = 0
-                        self.record_requested = False
-                        self.record_start_t = time.time()
-                    if self.recording:
-                        print(self.current_tone_i - self.recording_start_tone_i)
-
-
-                    # self.matrix_updated_signal.emit()
-                    # print(self.current_tone_i, self.series_n)
                     self.ptr = 0
+
+                    if self.recording:
+                        if self.current_tone_i - self.recording_start_tone_i < self.series_n:
+                            print(self.current_tone_i - self.recording_start_tone_i)
+                        else:
+                            print('record done')
+                            self.recording = False
+                            # save record to file somehow
+                            self.matrix_record = self.matrix.copy() * 2 / 4095 - 1
+                            self.rate_record = self.count / (time.time() - self.record_start_t)
+                            self.record_ready_signal.emit()
+                            self.matrix[:, :] = 4095/2 # if map -1..1 to 0..4095, then 0 maps to 4095/2
             else:
                 if self.recording and self.tone_playing:
-                    if self.current_tone_i - self.recording_start_tone_i < self.series_n:
-                        # keep recording
-                        data = np.frombuffer(data, dtype=np.uint16)
-                        self.matrix[self.current_tone_i - self.recording_start_tone_i, self.ptr : self.ptr + self.chunkSize] = data
-                        self.ptr += self.chunkSize
-                    else:
-                        # save record to file somehow
-                        self.matrix_record = self.matrix.copy() * 2 / 4095 - 1
-                        self.rate_record = self.count / (time.time() - self.record_start_t)
-                        self.record_ready_signal.emit()
-                        self.recording = False
-                        self.matrix[:, :] = 4095/2 # if map -1..1 to 0..4095, then 0 maps to 4095/2
+                    # keep recording
+                    data = np.frombuffer(data, dtype=np.uint16)
+                    self.matrix[self.current_tone_i - self.recording_start_tone_i, self.ptr : self.ptr + self.chunkSize] = data
+                    self.ptr += self.chunkSize
+                    # else:
+
 
                     # with dataMutex:
                         # if self.current_tone_i == 0 and self.ptr == 0: # end of series (start of new series), need to update plot
@@ -160,9 +138,12 @@ class SerialReader(threading.Thread):
                 #   - even when tone_playing == False
                 #       - because the whole series dt is measured (with silences between tones))
 
-    def request_record(self):
+    def start_record(self):
         with self.dataMutex:
-            self.record_requested = True
+            self.recording = True
+            self.recording_start_tone_i = self.current_tone_i
+            self.count = 0
+            self.record_start_t = time.time()
 
     def get_record(self):
         with self.dataMutex:
@@ -196,7 +177,7 @@ class AppGUI(QtGui.QWidget):
         self.qt_connections()
 
     def init_ui(self):
-        global record_name, NFFT, chunkSize, overlap
+        global chunkSize, overlap
 
         self.setWindowTitle('Accumulation')
         self.layout = QtGui.QVBoxLayout()
@@ -222,11 +203,11 @@ class AppGUI(QtGui.QWidget):
         self.show()
 
     def qt_connections(self):
-        self.new_accumulation_button.clicked.connect(self.request_record)
+        self.new_accumulation_button.clicked.connect(self.start_record)
         self.record_ready.connect(self.save_record)
 
-    def request_record(self):
-        ser_reader_thread.request_record()
+    def start_record(self):
+        ser_reader_thread.start_record()
 
     def save_record(self):
         matrix, rate = ser_reader_thread.get_record()
@@ -253,7 +234,6 @@ def main():
     # globals
     global gui, ser_reader_thread, chunkSize
     chunkSize = 256
-    chunks    = 2000
 
     # init gui
     app = QtGui.QApplication(sys.argv)
@@ -262,8 +242,7 @@ def main():
     # init and run serial arduino reader
     ser_reader_thread = SerialReader(
         record_ready_signal=gui.record_ready, 
-        chunkSize=chunkSize,
-        chunks=chunks
+        chunkSize=chunkSize
     )
     ser_reader_thread.start()
 
