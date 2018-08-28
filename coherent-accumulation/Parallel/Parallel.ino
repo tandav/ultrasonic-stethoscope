@@ -60,7 +60,7 @@ void firstHandler() {
             tone_playing = 0;
             timings[1] = tone_playing;
 
-            // reset sine phase
+            // reset sine phase (without reset, phases of sine-tones are constantly shifting)
             a[0] = 0.0;
             a[1] = A * sin(omega * _T);
             a[2] = 0.0;
