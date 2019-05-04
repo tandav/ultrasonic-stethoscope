@@ -3,24 +3,26 @@ import PyQt5.QtCore
 import PyQt5.QtWidgets
 import pyqtgraph as pg
 import numpy as np
+import util
+import serial_port
 
 
 class GUI(PyQt5.QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
+        # self.phase = 0 # todo: del
+        # self.freq = 1 # todo: del
+        # self.n = 256
 
-        self.phase = 0 # todo: del
-        self.freq = 1 # todo: del
+        self.n = 32 # number of readings from arduino per screen
 
-        self.n = 512
-        self.mic = np.empty(self.n)
-        self.bmp0 = np.empty(self.n)
-        self.bmp1 = np.empty(self.n)
+        self.cursor = 0
 
-        self.x = 0
-        self.y = 0
-        self.pl = pg.PlotItem()
+        self.mic  = np.full(self.n * serial_port.mic_chunk_size, np.nan)
+        self.bmp0 = np.full(self.n, np.nan)
+        self.bmp1 = np.full(self.n, np.nan)
+        self.is_tone_playing = None
 
         self.init_ui()
 
@@ -70,7 +72,6 @@ class GUI(PyQt5.QtWidgets.QWidget):
         self.layout.addWidget(self.mic_plot)
 
 
-
     def init_bmp(self):
         self.bmp_plot = pg.PlotWidget()
         self.bmp_plot.showGrid(x=True, y=True, alpha=0.1)
@@ -82,27 +83,52 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
 
     def update(self):
+        bmp0, bmp1, is_tone_playing, mic = serial_port.read_packet()
 
-        t = np.linspace(0, 10, self.n)
-        mic = np.sin(self.freq * t + self.phase) + 0.1 * np.random.random(self.n)
-
-        self.phase += 0.01
-        self.freq += 0.05 * np.random.uniform(low=-1, high=1)
-
-        rate = 44100
-
-        a = np.fft.rfft(mic * np.hanning(self.n))
-        a = np.abs(a) # magnitude
-        a = 20 * np.log10(a) # часто ошибка - сделать try, else
+        self.bmp0[self.cursor] = bmp0
+        self.bmp1[self.cursor] = bmp1
+        self.is_tone_playing = is_tone_playing
 
 
-        freqs = np.fft.rfftfreq(self.n, d = 1. / rate)
+        self.mic[
+            self.cursor      * serial_port.mic_chunk_size :
+            (self.cursor + 1)* serial_port.mic_chunk_size
+        ] = mic
 
-        self.mic_curve.setData(t, mic)
-        self.mic_fft_curve.setData(freqs, a)
-        self.bmp0_curve.setData(t, mic)
-        self.bmp1_curve.setData(t, mic - 0.3)
+        self.cursor = (self.cursor + 1) % self.n
 
+        # t = np.linspace(0, 10, self.n)
+        # mic = np.sin(self.freq * t + self.phase) + 0.1 * np.random.random(self.n)
+        #
+        # self.phase += 0.01
+        # self.freq += 0.05 * np.random.uniform(low=-1, high=1)
+        #
+        # rate = 44100
+        #
+        # a = np.fft.rfft(mic * np.hanning(self.n))
+        # a = np.abs(a) # magnitude
+        # a = 20 * np.log10(a) # часто ошибка - сделать try, else
+        #
+        #
+        # freqs = np.fft.rfftfreq(self.n, d = 1. / rate)
+        #
+        # self.mic_fft_curve.setData(freqs, a)
+        self.bmp0_curve.setData(self.bmp0)
+        self.bmp1_curve.setData(self.bmp1)
+        self.mic_curve.setData(self.mic)
+
+        #
+        # packet = serial_port.read_packet
+        #
+        # b0 = np.frombuffer(packet[:4], dtype=np.float32)
+        # b1 = np.frombuffer(packet[4:8], dtype=np.float32)
+        # is_tone_playing = np.frombuffer(packet[8:9], dtype=np.uint8)[0]
+        # # assert is_tone_playing == 0 or is_tone_playing == 1, f'error: packet offset, {is_tone_playing}'
+        # mic = np.frombuffer(packet[9:], dtype=np.uint16)
+        #
+        # if not (is_tone_playing == 0 or is_tone_playing == 1):
+        #     print(is_tone_playing)
+        #
 
 
 

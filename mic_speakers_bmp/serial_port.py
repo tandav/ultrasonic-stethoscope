@@ -1,14 +1,25 @@
+'''
+lengths are in bytes
+'''
+
 import collections
+import numpy as np
 import sys; sys.path.append('/Users/tandav/Documents/spaces/arduino'); import arduino
 port = arduino.find_device()
 
 header = b'\xd2\x02\x96I'
-# payload_length = 4 + 4 + 1 + 512
-payload_length = 4 + 4 + 1
-packet_length = len(header) + payload_length
+
+bmp_pressure_length    =   4 # float32 number
+mic_length        = 512 # 256 uint16
+mic_chunk_size         = mic_length // 2 # uint16 takes 2 bytes
+
+is_tone_playing_length =   1 # uint8 (used like bool)
+payload_length         = 2 * bmp_pressure_length + is_tone_playing_length + mic_length
+packet_length          = len(header) + payload_length
+
+
 
 n_good_packets = 0
-
 
 
 def wait_header():
@@ -17,15 +28,13 @@ def wait_header():
     while b''.join(deque) != header:
         deque.append(port.read())
 
-    print('done', b''.join(deque), '==', header)
+    print('wait done', b''.join(deque), '==', header)
 
 
-
-
-def read_packet():
+def read_packet_bytes():
     '''
     packet_length: packet length in bytes
-    returns packet without header
+    returns packet without header (bytes)
     '''
 
     global n_good_packets
@@ -43,3 +52,15 @@ def read_packet():
         # time.sleep(1)
         wait_header()
         return port.read(payload_length) # rest of packet
+
+
+def read_packet():
+    packet = read_packet_bytes()
+
+    # parse data from bytes packet
+    bmp0 = np.frombuffer(packet[ :4], dtype=np.float32)[0]
+    bmp1 = np.frombuffer(packet[4:8], dtype=np.float32)[0]
+    is_tone_playing = np.frombuffer(packet[8:9], dtype=np.uint8)[0]
+    mic = np.frombuffer(packet[9:], dtype=np.uint16)
+
+    return bmp0, bmp1, is_tone_playing, mic

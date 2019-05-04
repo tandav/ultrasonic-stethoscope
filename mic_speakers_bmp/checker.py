@@ -4,18 +4,20 @@ import serial_port
 i = 0
 
 while True:
-    packet = serial_port.read_packet()
+    bmp0, bmp1, is_tone_playing, buffer = serial_port.read_packet()
 
     # print(packet)
     # print(len(packet), '\n')
 
-    b0 = np.frombuffer(packet[ :4], dtype=np.float32)
-    b1 = np.frombuffer(packet[4:8], dtype=np.float32)
-    is_tone_playing = np.frombuffer(packet[8:9], dtype=np.uint8)
-    # buffer = np.frombuffer(packet[9:], dtype=np.uint16)
 
 
-    # print(b0, b1, is_tone_playing)
+    # if is_tone_playing == 0:
+    #     assert np.array_equal(buffer, np.arange(256)), f'{buffer}'
+    # if is_tone_playing == 1:
+    #     assert np.array_equal(buffer, np.zeros(256)), f'{buffer}'
+
+
+    # print(b0, b1, is_tone_playing, buffer)
 
     # print(b0, b1, is_tone_playing, buffer, i)
     # print(b0, b1, is_tone_playing, i)
@@ -26,9 +28,6 @@ while True:
 
 
     # wait_header(arduino, header)
-
-
-
 
 
     # with util.DelayedKeyboardInterrupt():
