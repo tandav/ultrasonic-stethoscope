@@ -111,13 +111,8 @@ class GUI(PyQt5.QtWidgets.QWidget):
     def bmp_update(self):
         bmp0, bmp1 = serial_port.get_bmp()
 
-
-        # print(bmp0)
-
-        n = len(bmp0)
-
-        self.bmp0[self.bmp_cursor : self.bmp_cursor + n] = bmp0
-        self.bmp1[self.bmp_cursor : self.bmp_cursor + n] = bmp1
+        self.bmp0[self.bmp_cursor] = bmp0
+        self.bmp1[self.bmp_cursor] = bmp1
 
         self.bmp0_curve.setData(self.bmp0)
         self.bmp1_curve.setData(self.bmp1)
@@ -132,7 +127,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
     def mic_update(self):
         pp = self.mic_n // 2**9
         mic = serial_port.get_mic()
-        print(len(mic))
+        # print(len(mic))
 
         mic = mic.reshape(pp , len(mic) // pp).mean(axis=1)
 
@@ -141,11 +136,11 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
 
 
-        nfft = 1024
-        a = np.fft.rfft(mic * np.hanning(mic.shape[0]))
-        a = np.abs(a) # magnitude
-        a = 20 * np.log10(a) # часто ошибка - сделать try, else
-        self.mic_fft_curve.setData(a)
+        # nfft = 1024
+        # a = np.fft.rfft(mic * np.hanning(mic.shape[0]))
+        # a = np.abs(a) # magnitude
+        # a = 20 * np.log10(a) # часто ошибка - сделать try, else
+        # self.mic_fft_curve.setData(a)
 
         self.mic_cursor += len(mic)
         if self.mic_cursor == self.mic_n:

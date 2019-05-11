@@ -84,26 +84,29 @@ is_tone_playing = None
 # packets_to_emit = 64
 # packets_to_emit = 128
 
-bmp_un = 1 # update n
 # mic_un = 2**16
 # mic_un = 2**15
 # mic_un = 2**14
 mic_un = 2**13
 # mic_un = 24576
 
-bmp0_buffer = CircularBuffer(bmp_un, dtype=np.float32)
-bmp1_buffer = CircularBuffer(bmp_un, dtype=np.float32)
 mic_buffer  = CircularBuffer(mic_un, dtype=np.uint16)
 # mic_buffer_export  = mic_buffer.buffer.reshape(pp, len(mic_buffer.buffer) // pp).mean(axis=1)
 
+'''
+bmp changes are slow so
+every new pair (bmp0, bmp1) emiting plot update
+'''
 
-bmp_i = 0
+bmp0 = 0
+bmp1 = 0
+
 mic_i = 0
 
 
 def run(bmp_signal, mic_signal):
     # global is_tone_playing
-    global bmp_i, mic_i
+    global bmp0, bmp1, mic_i
 
 
     bmp0_prev = 0
@@ -132,22 +135,10 @@ def run(bmp_signal, mic_signal):
 
         if bmp0 != bmp0_prev or bmp1 != bmp1_prev:
 
-            bmp0_buffer.append(bmp0)
-            bmp1_buffer.append(bmp1)
-
-            # print(bmp0, bmp1)
-
-            # print(bmp0, bmp1, bmp0_buffer, bmp1_buffer)
-            bmp_i += 1
-
-            # bmp1_buffer.append(bmp1)
-
             bmp0_prev = bmp0
             bmp1_prev = bmp1
 
-            if bmp_i == bmp_un:
-                bmp_i = 0
-                bmp_signal.emit()
+            bmp_signal.emit()
 
 
 
@@ -167,10 +158,7 @@ def run(bmp_signal, mic_signal):
 
 def get_bmp():
     with lock:
-        return (
-            bmp0_buffer.most_recent(bmp_un),
-            bmp1_buffer.most_recent(bmp_un),
-        )
+        return bmp0, bmp1
 
 def get_mic():
     with lock:
