@@ -47,7 +47,7 @@ def read_packet_bytes():
 
     if packet.startswith(header):
         n_good_packets += 1
-        if n_good_packets % 4000 == 0:
+        if n_good_packets % 5000 == 0:
             print(f'n_good_packets = {n_good_packets}')
         return packet[len(header):]
     else:
@@ -71,12 +71,6 @@ def read_packet():
 
 lock = threading.Lock()
 
-# BUFFER_N = 2 ** 12
-
-
-
-# pp = 4096 // 2  # number of points to plot
-
 
 is_tone_playing = None
 
@@ -90,7 +84,7 @@ is_tone_playing = None
 mic_un = 2**13
 # mic_un = 24576
 
-mic_buffer  = CircularBuffer(mic_un, dtype=np.uint16)
+mic_buffer  = CircularBuffer(mic_un * 16, dtype=np.uint16)
 # mic_buffer_export  = mic_buffer.buffer.reshape(pp, len(mic_buffer.buffer) // pp).mean(axis=1)
 
 '''
@@ -101,37 +95,27 @@ every new pair (bmp0, bmp1) emiting plot update
 bmp0 = 0
 bmp1 = 0
 
-mic_i = 0
+rate = 0
+
 
 
 def run(bmp_signal, mic_signal):
     # global is_tone_playing
-    global bmp0, bmp1, mic_i
-
+    global bmp0, bmp1, rate
 
     bmp0_prev = 0
     bmp1_prev = 0
+    mic_i = 0
+    t0 = time.time()
 
-    # last_change = time.time()
 
-    # with lock here??
     while True:
-        # for _ in range(packets_to_emit):
 
         if stop_flag:
             port.close()
             return
 
         bmp0, bmp1, is_tone_playing, mic = read_packet()
-
-        mic_buffer.extend(mic)
-        mic_i += len(mic)
-
-        if mic_i == mic_un:
-
-            mic_i = 0
-            mic_signal.emit()
-
 
         if bmp0 != bmp0_prev or bmp1 != bmp1_prev:
 
@@ -141,19 +125,20 @@ def run(bmp_signal, mic_signal):
             bmp_signal.emit()
 
 
-
-
-            # print(bmp0, bmp1, time.time() - last_change)
-            # last_change = time.time()
-
         mic_buffer.extend(mic)
+        mic_i += len(mic)
 
-        # with lock:
-        #     bmp0_buffer_export = bmp0_buffer.buffer.copy()
-        #     bmp1_buffer_export = bmp1_buffer.buffer.copy()
-        #     mic_buffer_export  = mic_buffer.buffer.reshape(pp, len(mic_buffer.buffer) // pp).mean(axis=1)
+        if mic_i == mic_un:
+            mic_i = 0
 
-        # signal.emit()
+            t1 = time.time()
+            dt = t1 - t0
+            rate = mic_un / dt
+            print(rate)
+            t0 = t1
+
+            mic_signal.emit()
+
 
 
 def get_bmp():
@@ -163,30 +148,4 @@ def get_bmp():
 def get_mic():
     with lock:
         return mic_buffer.most_recent(mic_un)
-
-
-def get_buffers():
-    with lock:
-        return (
-            bmp0_buffer.buffer.copy(),
-            bmp1_buffer.buffer.copy(),
-            mic_buffer.buffer.reshape(pp, len(mic_buffer.buffer) // pp).mean(axis=1),
-        )
-
-        # return (
-        #     bmp0_buffer_export,
-        #     bmp1_buffer_export,
-        #     mic_buffer_export,
-        # )
-
-
-    # def get(n):
-#     bmp0 = bmp0_buffer.most_recent(n)
-#     bmp1 = bmp1_buffer.most_recent(n)
-#     mic  = mic_buffer.most_recent(n * mic_chunk_size)
-#
-#     return bmp0, bmp1, is_tone_playing, mic
-#
-
-
 
