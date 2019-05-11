@@ -21,17 +21,18 @@
 #include <Adafruit_BMP280.h>
 
 #define BMP_SCK 13
-#define BMP_MISO 12
-#define BMP_MOSI 11 
+#define BMP_MISO 12 // sdo
+#define BMP_MOSI 11 // sdi
 #define BMP_CS 10
 
 #define BMP_2_SCK 4
-#define BMP_2_MISO 6
-#define BMP_2_MOSI 5
+#define BMP_2_MISO 6 // sdo
+#define BMP_2_MOSI 5 // sdi
 #define BMP_2_CS 7
 
 //Adafruit_BMP280 bme; // I2C
 //Adafruit_BMP280 bme(BMP_CS); // hardware SPI
+// software SPI (my varik)
 Adafruit_BMP280 bme1(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
 Adafruit_BMP280 bme2(BMP_2_CS, BMP_2_MOSI, BMP_2_MISO,  BMP_2_SCK);
   
@@ -39,12 +40,12 @@ void setup() {
   Serial.begin(9600);
   Serial.println(F("BMP280 test"));
   
-  if (!bme1.begin()) {  
+  if (!bme1.begin()) {
     Serial.println("Could not find a valid BMP280 1 sensor, check wiring!");
     while (1);
   }
 
-  if (!bme2.begin()) {  
+  if (!bme2.begin()) {
     Serial.println("Could not find a valid BMP280 2 sensor, check wiring!");
     while (1);
   }
@@ -67,7 +68,7 @@ void loop() {
 
     Serial.println();
     
-    // Sensor 2
+    //Sensor 2
     Serial.println("S E N S O R    2");
     Serial.print("Temperature = ");
     Serial.print(bme2.readTemperature());
