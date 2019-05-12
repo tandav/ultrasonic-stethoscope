@@ -58,8 +58,8 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
         # self.mic_n =  2 ** 12
         # self.mic_n =  2 ** 12
-        # self.mic_n =  2 ** 11
-        self.mic_n =  2 ** 10
+        self.mic_n =  2 ** 11
+        # self.mic_n =  2 ** 10
         # self.mic_n =  2 ** 9
         self.mic = np.full(self.mic_n, np.nan)
 
@@ -96,7 +96,6 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
     def init_bmp(self):
 
-
         # self.bmp_n = 200
         self.bmp_n = 100
 
@@ -132,16 +131,9 @@ class GUI(PyQt5.QtWidgets.QWidget):
     @PyQt5.QtCore.pyqtSlot()
     def mic_update(self):
 
-        # if not self.ar_done and time.time() - self.t_start > self.ar_dt:
-        # if not self.ar_done and time.time() - self.t_start > self.ar_dt:
-        #     print(f'autorange after {self.ar_dt} seconds')
-        #     self.autorange()
-        #     self.ar_done = True
-
 
         self.ar_counter += 1
-        # if self.ar_counter % 50 == 0:
-        if self.ar_counter % 25 == 0:
+        if self.ar_counter % 50 == 0:
             self.autorange()
             self.ar_counter = 0
 
