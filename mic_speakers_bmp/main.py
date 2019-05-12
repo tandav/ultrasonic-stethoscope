@@ -1,10 +1,10 @@
 import PyQt5.QtWidgets
 import gui
 import threading
-import serial_port
+# import serial_port
 
 import signal
-# import simple_reader
+import simple_reader as serial_port
 
 
 import sys
@@ -16,14 +16,9 @@ import sys
 #     time.sleep(1)
 
 
-
-
-
 if __name__ == '__main__':
     app = PyQt5.QtWidgets.QApplication(sys.argv)
     gui = gui.GUI()
-
-
 
 
     def ctrl_c_handler(sig, frame):
@@ -31,12 +26,16 @@ if __name__ == '__main__':
         app.quit()
 
 
-
     signal.signal(signal.SIGINT, ctrl_c_handler)
+
+    # serial_reader = threading.Thread(
+    #     target=serial_port.run,
+    #     args=(gui.bmp_signal, gui.mic_signal)
+    # )
 
     serial_reader = threading.Thread(
         target=serial_port.run,
-        args=(gui.bmp_signal, gui.mic_signal)
+        args=(gui.mic_signal,)
     )
 
     # serial_reader = threading.Thread(

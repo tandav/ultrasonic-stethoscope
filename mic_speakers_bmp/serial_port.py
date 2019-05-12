@@ -85,20 +85,18 @@ lock = threading.Lock()
 is_tone_playing = None
 
 
-# packets_to_emit = 64
-# packets_to_emit = 128
 
 # mic_un = 2**16
 # mic_un = 2**15
 # mic_un = 2**14
 # mic_un = 2**13
-mic_un = 2**11
+mic_un = 2**12
+# mic_un = 2**11
 # mic_un = 2**10
 # mic_un = 2**9
 # mic_un = 24576
 
-mic_buffer  = CircularBuffer(mic_un * 16, dtype=np.uint16)
-# mic_buffer_export  = mic_buffer.buffer.reshape(pp, len(mic_buffer.buffer) // pp).mean(axis=1)
+mic_buffer  = CircularBuffer(mic_un * 32, dtype=np.uint16)
 
 '''
 bmp changes are slow so
@@ -109,12 +107,13 @@ bmp0 = 0
 bmp1 = 0
 
 rate = 0
-
-
+_rate_arr = np.ones(10)
+_rate_i = 0
+rate_mean = 1
 
 def run(bmp_signal, mic_signal):
     # global is_tone_playing
-    global bmp0, bmp1, rate
+    global bmp0, bmp1, rate, rate_mean, _rate_i
 
     bmp0_prev = 0
     bmp1_prev = 0
@@ -147,6 +146,11 @@ def run(bmp_signal, mic_signal):
             t1 = time.time()
             dt = t1 - t0
             rate = mic_un / dt
+            _rate_arr[_rate_i] = rate
+            _rate_i += 1
+            if _rate_i == len(_rate_arr):
+                rate_mean = _rate_arr.mean()
+                _rate_i = 0
             # print(rate)
             t0 = t1
 
@@ -177,11 +181,19 @@ def get_bmp():
 #         return mic_raw, mic_new, rate
 
 
-nfft = 2**13
+# nfft = 2**17
+# nfft = 100_000
+# nfft = 110_000
+# nfft = 90_000
+# nfft = 70_000
+nfft = 2**16
+# nfft = 2**16
+# nfft = 2**15
+# nfft = 40_000
 
 def get_mic():
     with lock:
-        pp = 8
+        pp = 16
         mic = (
             mic_buffer
             .most_recent(mic_un)
@@ -191,15 +203,29 @@ def get_mic():
 
         mic_for_fft = mic_buffer.most_recent(nfft)  # with overlap (running window for STFT)
         # mic_new = mic_raw[:-mic_un]
-        f = scipy.fftpack.rfftfreq(nfft, d=1./rate)
-        a = scipy.fftpack.rfft(mic_for_fft * scipy.signal.hanning(nfft))
+        # f = scipy.fftpack.rfftfreq(nfft, d=1/rate)
+        f = scipy.fftpack.rfftfreq(nfft, d=1/rate_mean)
+        # a = scipy.fftpack.rfft(mic_for_fft * scipy.signal.hanning(nfft))
+        # a = scipy.fftpack.rfft(mic_for_fft * np.hanning(nfft))
+        # a = scipy.fftpack.rfft(mic_for_fft * np.blackman(nfft))
+        # a = scipy.fftpack.rfft(mic_for_fft * np.hamming(nfft))
+        a = scipy.fftpack.rfft(mic_for_fft)
         a = np.abs(a)  # magnitude
         a = 20 * np.log10(a)  # часто ошибка - сделать try, else
 
-        fft_pp = 2 ** 10
 
-        fft_f = f[::nfft // fft_pp]
-        fft_a = a[::nfft // fft_pp]
+        # hz_limit  = (f > 40) & (f < 40_000)
+        hz_limit  = (f > 40) & (f < 1000)
+
+        fft_f = f[hz_limit]
+        fft_a = a[hz_limit]
 
 
-        return mic, fft_f, fft_a, rate
+        # fftpp = 2**12
+        #
+        # fft_f = f[80:fftpp]
+        # fft_a = a[80:fftpp]
+
+
+
+        return mic, fft_f, fft_a, rate_mean
