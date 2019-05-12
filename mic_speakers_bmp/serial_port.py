@@ -4,7 +4,8 @@ lengths are in bytes
 import threading
 import collections
 import time
-
+import scipy.fftpack
+import scipy.signal
 from circular_buffer import CircularBuffer
 import numpy as np
 import sys; sys.path.append('/Users/tandav/Documents/spaces/arduino'); import arduino
@@ -66,6 +67,15 @@ def read_packet():
     is_tone_playing = np.frombuffer(packet[8:9], dtype=np.uint8)[0]
     mic = np.frombuffer(packet[9:521], dtype=np.uint16)
 
+    # downsampling = 4
+    downsampling = 8
+
+    mic =  (
+        mic
+        .reshape(len(mic) // downsampling, downsampling)
+        .mean(axis=1)
+    )
+
     return bmp0, bmp1, is_tone_playing, mic
 
 
@@ -81,7 +91,10 @@ is_tone_playing = None
 # mic_un = 2**16
 # mic_un = 2**15
 # mic_un = 2**14
-mic_un = 2**13
+# mic_un = 2**13
+mic_un = 2**11
+# mic_un = 2**10
+# mic_un = 2**9
 # mic_un = 24576
 
 mic_buffer  = CircularBuffer(mic_un * 16, dtype=np.uint16)
@@ -134,7 +147,7 @@ def run(bmp_signal, mic_signal):
             t1 = time.time()
             dt = t1 - t0
             rate = mic_un / dt
-            print(rate)
+            # print(rate)
             t0 = t1
 
             mic_signal.emit()
@@ -145,7 +158,48 @@ def get_bmp():
     with lock:
         return bmp0, bmp1
 
+
+
+# def get_mic(n):
+#     with lock:
+#         mic_raw = mic_buffer.most_recent(n) # with overlap (running window for STFT)
+#         mic_new = mic_raw[:-mic_un]
+#         return mic_raw, mic_new, rate
+#
+
+
+# def get_mic(n):
+#     with lock:
+#         mic_raw = mic_buffer.most_recent(n)  # with overlap (running window for STFT)
+#         # mic_new = mic_raw[:-mic_un]
+#         mic_new = mic_buffer.most_recent(mic_un)
+#
+#         return mic_raw, mic_new, rate
+
+
+nfft = 2**13
+
 def get_mic():
     with lock:
-        return mic_buffer.most_recent(mic_un)
+        pp = 8
+        mic = (
+            mic_buffer
+            .most_recent(mic_un)
+            .reshape(pp, mic_un // pp)
+            .mean(axis=1)
+        )
 
+        mic_for_fft = mic_buffer.most_recent(nfft)  # with overlap (running window for STFT)
+        # mic_new = mic_raw[:-mic_un]
+        f = scipy.fftpack.rfftfreq(nfft, d=1./rate)
+        a = scipy.fftpack.rfft(mic_for_fft * scipy.signal.hanning(nfft))
+        a = np.abs(a)  # magnitude
+        a = 20 * np.log10(a)  # часто ошибка - сделать try, else
+
+        fft_pp = 2 ** 10
+
+        fft_f = f[::nfft // fft_pp]
+        fft_a = a[::nfft // fft_pp]
+
+
+        return mic, fft_f, fft_a, rate
