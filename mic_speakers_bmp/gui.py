@@ -3,8 +3,7 @@ import PyQt5.QtCore
 import PyQt5.QtWidgets
 import pyqtgraph as pg
 import numpy as np
-import scipy.fftpack
-import scipy.signal
+
 import util
 # import serial_port
 import time
@@ -75,7 +74,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
 
         self.fft_plot = pg.PlotWidget(disableAutoRange=True)
-        self.fft_plot.showGrid(x=True, y=True, alpha=0.1)
+        self.fft_plot.showGrid(x=True, y=True, alpha=0.15)
         # self.fft_plot.setLogMode(x=True, y=False)
         self.fft_plot.setLogMode(x=True, y=True)
         self.fft_curve = self.fft_plot.plot(pen='b')

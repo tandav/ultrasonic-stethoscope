@@ -20,6 +20,8 @@ def read():
 
     # downsampling = 8
     downsampling = 1
+    # downsampling = 2
+    # downsampling = 4
 
     mic =  (
         mic
@@ -55,6 +57,7 @@ def read():
 
 
 
+# mic_un = 2**16
 mic_un = 2**15
 # mic_un = 2**12
 # mic_un = 2**11
@@ -92,8 +95,10 @@ def run(mic_signal):
         if mic_i == mic_un:
             mic_i = 0
 
-            t1 = time.time()
-            dt = t1 - t0
+            now = time.time()
+            dt = now - t0
+            t0 = now
+
             rate = mic_un / dt
             _rate_arr[_rate_i] = rate
             _rate_i += 1
@@ -101,11 +106,12 @@ def run(mic_signal):
                 rate_mean = _rate_arr.mean()
                 _rate_i = 0
             # print(rate)
-            t0 = t1
 
             mic_signal.emit()
 
 # nfft = 2**18
+# nfft = 100_000
+# nfft = 200_000
 nfft = 300_000
 
 
@@ -122,7 +128,10 @@ def get_mic():
         mic_for_fft = mic_buffer.most_recent(nfft)  # with overlap (running window for STFT)
         # mic_new = mic_raw[:-mic_un]
         # f = scipy.fftpack.rfftfreq(nfft, d=1/rate)
-        f = np.fft.rfftfreq(nfft, d=1/rate)
+        # f = np.fft.rfftfreq(nfft, d=1/rate)
+        # f = np.fft.rfftfreq(nfft, d=1/rate_mean)
+        f = np.fft.rfftfreq(nfft, d=1/rate_mean/2)
+        # f = np.fft.rfftfreq(nfft, d=1/rate/2)
         # f = scipy.fftpack.rfftfreq(nfft, d=1/rate_mean)
         # a = scipy.fftpack.rfft(mic_for_fft * scipy.signal.hanning(nfft))
         # a = scipy.fftpack.rfft(mic_for_fft * np.hanning(nfft))
@@ -135,10 +144,13 @@ def get_mic():
 
 
         # hz_limit  = (f > 40) & (f < 40_000)
-        hz_limit  = (f > 40) & (f < 3000)
+        hz_limit  = (f > 40) & (f < 10_000)
+        # hz_limit  = (f > 500) & (f < 10_000)
         fft_f = f[hz_limit]
         fft_a = a[hz_limit]
 
+        # fft_f = f
+        # fft_a = a
 
         # fftpp = 2**12
         # fft_f = f[80:fftpp]
