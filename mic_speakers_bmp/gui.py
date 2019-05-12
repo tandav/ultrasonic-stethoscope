@@ -76,7 +76,8 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
         self.fft_plot = pg.PlotWidget(disableAutoRange=True)
         self.fft_plot.showGrid(x=True, y=True, alpha=0.1)
-        self.fft_plot.setLogMode(x=True, y=False)
+        # self.fft_plot.setLogMode(x=True, y=False)
+        self.fft_plot.setLogMode(x=True, y=True)
         self.fft_curve = self.fft_plot.plot(pen='b')
 
         # self.fft_plot.getPlotItem().setXRange(10, 11)
