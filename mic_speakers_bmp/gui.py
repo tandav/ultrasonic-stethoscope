@@ -3,15 +3,12 @@ import PyQt5.QtCore
 import PyQt5.QtWidgets
 import pyqtgraph as pg
 import numpy as np
-
-import util
-# import serial_port
-import time
-import simple_reader as serial_port
+import serial_port
+# import simple_reader as serial_port
 
 
 class GUI(PyQt5.QtWidgets.QWidget):
-    # bmp_signal = PyQt5.QtCore.pyqtSignal()
+    bmp_signal = PyQt5.QtCore.pyqtSignal()
     mic_signal = PyQt5.QtCore.pyqtSignal()
 
 
@@ -22,7 +19,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
         # self.is_tone_playing = None
 
         self.init_ui()
-        # self.bmp_signal.connect(self.bmp_update)
+        self.bmp_signal.connect(self.bmp_update)
         self.mic_signal.connect(self.mic_update)
 
 
@@ -41,7 +38,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
         pg.setConfigOption('foreground', 'k')
         self.layout = PyQt5.QtWidgets.QVBoxLayout()
         self.init_mic()
-        # self.init_bmp()
+        self.init_bmp()
         self.autorange_button = PyQt5.QtWidgets.QPushButton('AutoRange')
         self.autorange_button.clicked.connect(self.autorange)
         self.ar_counter = 0
@@ -49,13 +46,12 @@ class GUI(PyQt5.QtWidgets.QWidget):
         self.layout.addWidget(self.autorange_button)
 
         self.setLayout(self.layout)
-        self.setGeometry(100, 100, 1200, 600)
+        self.setGeometry(100, 100, 1200, 800)
 
     def autorange(self):
         self.fft_plot.autoRange()
-        # print(self.fft_plot.viewRange())
         self.mic_plot.plotItem.autoRange()
-        # self.bmp_plot.plotItem.autoRange()
+        self.bmp_plot.plotItem.autoRange()
 
     def init_mic(self):
 
@@ -98,40 +94,40 @@ class GUI(PyQt5.QtWidgets.QWidget):
         self.layout.addWidget(self.mic_plot)
 
 
-    # def init_bmp(self):
-    #
-    #
-    #     # self.bmp_n = 200
-    #     self.bmp_n = 100
-    #
-    #     self.bmp0 = np.full(self.bmp_n, np.nan)
-    #     self.bmp1 = np.full(self.bmp_n, np.nan)
-    #
-    #     self.bmp_cursor = 0
-    #
-    #     self.bmp_plot = pg.PlotWidget()
-    #     self.bmp_plot.showGrid(x=True, y=True, alpha=0.1)
-    #     self.bmp_plot.plotItem.disableAutoRange()
-    #     self.bmp0_curve = self.bmp_plot.plot(pen='b')
-    #     self.bmp1_curve = self.bmp_plot.plot(pen='r')
-    #     self.layout.addWidget(self.bmp_plot)
-    #
-    #
-    # @PyQt5.QtCore.pyqtSlot()
-    # def bmp_update(self):
-    #     bmp0, bmp1 = serial_port.get_bmp()
-    #
-    #     self.bmp0[self.bmp_cursor] = bmp0
-    #     self.bmp1[self.bmp_cursor] = bmp1
-    #
-    #     self.bmp0_curve.setData(self.bmp0)
-    #     self.bmp1_curve.setData(self.bmp1)
-    #
-    #     self.bmp_cursor += 1
-    #     if self.bmp_cursor == self.bmp_n:
-    #         self.bmp0[:] = np.nan
-    #         self.bmp1[:] = np.nan
-    #         self.bmp_cursor = 0
+    def init_bmp(self):
+
+
+        # self.bmp_n = 200
+        self.bmp_n = 100
+
+        self.bmp0 = np.full(self.bmp_n, np.nan)
+        self.bmp1 = np.full(self.bmp_n, np.nan)
+
+        self.bmp_cursor = 0
+
+        self.bmp_plot = pg.PlotWidget()
+        self.bmp_plot.showGrid(x=True, y=True, alpha=0.1)
+        self.bmp_plot.plotItem.disableAutoRange()
+        self.bmp0_curve = self.bmp_plot.plot(pen='b')
+        self.bmp1_curve = self.bmp_plot.plot(pen='r')
+        self.layout.addWidget(self.bmp_plot)
+
+
+    @PyQt5.QtCore.pyqtSlot()
+    def bmp_update(self):
+        bmp0, bmp1 = serial_port.get_bmp()
+
+        self.bmp0[self.bmp_cursor] = bmp0
+        self.bmp1[self.bmp_cursor] = bmp1
+
+        self.bmp0_curve.setData(self.bmp0)
+        self.bmp1_curve.setData(self.bmp1)
+
+        self.bmp_cursor += 1
+        if self.bmp_cursor == self.bmp_n:
+            self.bmp0[:] = np.nan
+            self.bmp1[:] = np.nan
+            self.bmp_cursor = 0
 
     @PyQt5.QtCore.pyqtSlot()
     def mic_update(self):
@@ -144,8 +140,8 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
 
         self.ar_counter += 1
-        if self.ar_counter % 50 == 0:
-        # if self.ar_counter % 25 == 0:
+        # if self.ar_counter % 50 == 0:
+        if self.ar_counter % 25 == 0:
             self.autorange()
             self.ar_counter = 0
 

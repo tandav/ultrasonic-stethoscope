@@ -1,13 +1,12 @@
+import threading
+import signal
+import sys
 import PyQt5.QtWidgets
 import gui
-import threading
-# import serial_port
 
-import signal
-import simple_reader as serial_port
+import serial_port
+# import simple_reader as serial_port
 
-
-import sys
 
 
 # while True:
@@ -28,15 +27,15 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, ctrl_c_handler)
 
-    # serial_reader = threading.Thread(
-    #     target=serial_port.run,
-    #     args=(gui.bmp_signal, gui.mic_signal)
-    # )
-
     serial_reader = threading.Thread(
         target=serial_port.run,
-        args=(gui.mic_signal,)
+        args=(gui.bmp_signal, gui.mic_signal)
     )
+
+    # serial_reader = threading.Thread(
+    #     target=serial_port.run,
+    #     args=(gui.mic_signal,)
+    # )
 
     # serial_reader = threading.Thread(
     #     target=simple_reader.run,

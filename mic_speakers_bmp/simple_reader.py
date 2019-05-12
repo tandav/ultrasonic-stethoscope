@@ -143,8 +143,8 @@ def get_mic():
         a = 20 * np.log10(a)  # часто ошибка - сделать try, else
 
 
-        # hz_limit  = (f > 40) & (f < 40_000)
-        hz_limit  = (f > 40) & (f < 10_000)
+        hz_limit  = (f > 40) & (f < 40_000)
+        # hz_limit  = (f > 40) & (f < 10_000)
         # hz_limit  = (f > 500) & (f < 10_000)
         fft_f = f[hz_limit]
         fft_a = a[hz_limit]
