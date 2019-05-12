@@ -39,12 +39,20 @@ class GUI(PyQt5.QtWidgets.QWidget):
         self.layout = PyQt5.QtWidgets.QVBoxLayout()
         self.init_mic()
         self.init_bmp()
+
+        self.buttons = PyQt5.QtWidgets.QHBoxLayout()
+
+
         self.autorange_button = PyQt5.QtWidgets.QPushButton('AutoRange')
         self.autorange_button.clicked.connect(self.autorange)
         self.ar_counter = 0
+        self.buttons.addWidget(self.autorange_button)
 
-        self.layout.addWidget(self.autorange_button)
+        self.dp_button = PyQt5.QtWidgets.QPushButton('pressure diff')
+        self.dp_button.clicked.connect(self.pressure_diff)
+        self.buttons.addWidget(self.dp_button)
 
+        self.layout.addLayout(self.buttons)
         self.setLayout(self.layout)
         self.setGeometry(100, 100, 1200, 800)
 
@@ -52,6 +60,10 @@ class GUI(PyQt5.QtWidgets.QWidget):
         self.fft_plot.autoRange()
         self.mic_plot.plotItem.autoRange()
         self.bmp_plot.plotItem.autoRange()
+
+    def pressure_diff(self):
+        self.normal_dp = self.bmp0[~np.isnan(self.bmp0)][-1] - self.bmp1[~np.isnan(self.bmp1)][-1]
+        # print(self.normal_dp)
 
     def init_mic(self):
 
@@ -104,6 +116,10 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
         self.bmp_cursor = 0
 
+        self.pressure_diff_done = False
+
+        self.normal_dp = 0
+
         self.bmp_plot = pg.PlotWidget()
         self.bmp_plot.showGrid(x=True, y=True, alpha=0.1)
         self.bmp_plot.plotItem.disableAutoRange()
@@ -115,6 +131,24 @@ class GUI(PyQt5.QtWidgets.QWidget):
     @PyQt5.QtCore.pyqtSlot()
     def bmp_update(self):
         bmp0, bmp1 = serial_port.get_bmp()
+
+
+        if not self.pressure_diff_done and self.bmp_cursor == 5:
+            self.pressure_diff()
+            self.pressure_diff_done = True
+
+        bmp0 -= self.normal_dp
+
+        dp = 20
+        print(bmp0 - bmp1)
+        if bmp0 - bmp1 > dp:
+            state = 'выдох'
+        elif bmp1 - bmp0 > dp:
+            state = 'вдох'
+        else:
+            state = 'норм'
+
+        self.bmp_plot.setTitle(f'{state}  bmp0 - bmp1 = {bmp0 - bmp1:>+3.2f}')
 
         self.bmp0[self.bmp_cursor] = bmp0
         self.bmp1[self.bmp_cursor] = bmp1
