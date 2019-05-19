@@ -140,7 +140,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
         bmp0 -= self.normal_dp
 
         dp = 20
-        print(bmp0 - bmp1)
+        # print(bmp0 - bmp1)
         if bmp0 - bmp1 > dp:
             state = 'выдох'
         elif bmp1 - bmp0 > dp:
@@ -148,7 +148,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
         else:
             state = 'норм'
 
-        self.bmp_plot.setTitle(f'{state}  bmp0 - bmp1 = {bmp0 - bmp1:>+3.2f}')
+        self.bmp_plot.setTitle(f'<h1>{state}  bmp0 - bmp1 = {bmp0 - bmp1:>+3.2f}</h1>')
 
         self.bmp0[self.bmp_cursor] = bmp0
         self.bmp1[self.bmp_cursor] = bmp1
@@ -220,7 +220,7 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
         # self.fft_reductor += 1
 
-        self.mic_plot.setTitle(f'Sample Rate: {rate/1000:0.2f} kHz')
+        self.mic_plot.setTitle(f'<h1>Sample Rate: {rate/1000:0.2f} kHz</h1>')
 
         self.mic_cursor += len(mic)
 

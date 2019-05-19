@@ -160,16 +160,3 @@ def get_mic():
 
         return mic, fft_f, fft_a, rate_mean
 
-
-# def get():
-#     n = 2 ** 8
-#     with lock:
-#         # return (
-#         #     bmp0_buffer.most_recent(n),
-#         #     bmp1_buffer.most_recent(n),
-#         # )
-#         #
-#         return (
-#             bmp0_buffer.buffer,
-#             bmp1_buffer.buffer,
-#         )
