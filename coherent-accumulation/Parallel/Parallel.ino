@@ -1,8 +1,10 @@
 #include <DueTimer.h>
 #include <SineWaveDue.h>
-
-
 #undef HID_ENABLED
+
+// Input: Analog in A0
+// Output: Raw stream of uint16_t in range 0-4095 on Native USB Serial/ACM
+
 volatile int bufn, obufn;
 uint16_t buf[4][256];   // 4 buffers of 256 readings
 
@@ -54,7 +56,7 @@ void firstHandler() {
             a[2] = c1 * a[1] - a[0];       // compute the sample
             a[0] =      a[1]       ;       // shift the registers in preparation for the next cycle
             a[1] =      a[2]       ;
-            analogWrite(DAC0, a[2] + 500); // write to DAC
+            analogWrite(DAC1, a[2] + 500); // write to DAC
         }
         else {
             tone_playing = 0;
@@ -72,7 +74,7 @@ void firstHandler() {
     else {
         if (micros() - short_silence_start_t < short_silence_duration) {
             digitalWrite(LED_BUILTIN, LOW);
-            analogWrite(DAC0, 0);
+            analogWrite(DAC1, 0);
         }
         else {
             tone_playing = 1;
@@ -84,8 +86,6 @@ void firstHandler() {
         }
     }        
 }    
-
-
 
 void setup() {
     for (int i = 0; i < 128; i++)
@@ -100,7 +100,7 @@ void setup() {
     a[2] = 0.0;
     analogWriteResolution(10);
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(DAC0, OUTPUT);
+    pinMode(DAC1, OUTPUT);
     Timer7.attachInterrupt(firstHandler).start(_T * 1000000);
 
 
@@ -128,9 +128,10 @@ void loop() {
     if (timing_data_ready) {
         SerialUSB.write((uint8_t *) timings, 512); // 512 bytes = 128 uint32_t (unsigned long == uint32_t on arduino)
         timing_data_ready = false;
-//        current_tone_i = 0;
+        // current_tone_i = 0;
     }
     while (obufn == bufn); // wait for buffer to be full
     SerialUSB.write((uint8_t *) buf[obufn], 512); // send it - 512 bytes = 256 uint16_t
-    obufn = (obufn + 1) & 3;
+    obufn = (obufn + 1) & 3; // 0 1 2 3 0 1 2 3 0 1 2 3 ..., like % 3
 }
+
