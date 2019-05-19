@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 
 # r = np.random.random((12, 16, 16))
 # r = np.load('../3d_numpy_array_reduced-58-64-64.npy')#[::4,::4,::4]
-k = 4
+# k = 4
+k = 16
 r = np.load('../cube-full-460-512-512.npy')[::k,::k,::k]
 # r = np.load('../3d_numpy_array_reduced-58-64-64.npy')
 ro  = 1e-5 + 1.24e-3*r - 2.83e-7*r*r + 2.79e-11*r*r*r
@@ -276,6 +277,12 @@ LOOPS = 1
 
 t0 = time()
 for i in range(LOOPS):
+    a0 = old_slow1(P_pp, P_p)
+print(time() - t0)
+
+
+t0 = time()
+for i in range(LOOPS):
     a1 = P_step(P_pp, P_p)
 print(time() - t0)
 
@@ -285,7 +292,10 @@ for i in range(LOOPS):
 print(time() - t0)
 
 # print(alpha_2)
-print(np.allclose(a1, a2))
-print(a1[30, 30, 30])
-print(a2[30, 30, 30])
+assert np.allclose(a0, a1)
+assert np.allclose(a0, a2)
+assert np.allclose(a1, a2)
+print('all tests passed')
+# print(a1[30, 30, 30])
+# print(a2[30, 30, 30])
 # print(np.mean(alpha_1), np.mean(alpha_2), np.max(alpha_2))

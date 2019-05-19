@@ -123,7 +123,7 @@ class LungsModel():
     def step(self):
         self.P_old = self.P
         self.update_P()
-        self.P[self.A, self.B, self.C] = np.sin(2 * np.pi * self.f * self.t)
+        self.P[self.A, self.B, self.C] = np.sin(2 * np.pi * self.f * self.t) # sound source
         self.P_pp  = self.P_p
         self.P_p   = self.P_old
         
@@ -134,8 +134,6 @@ class LungsModel():
         self.observ_signal[-1] = self.P[self.oA, self.oB, self.oC]
 
         self.t += self.l
-        
-
 
 
 class AppGUI(QtGui.QWidget):
@@ -508,7 +506,6 @@ class AppGUI(QtGui.QWidget):
         self.x_slice_plot_y_helper1.setData([self.y_slice    , self.y_slice       ], [0               , self.data.shape[0]])
         self.x_slice_plot_y_helper2.setData([self.y_slice + 1, self.y_slice + 1   ], [0               , self.data.shape[0]])
 
-
     def z_slice_slider_changed(self):
         self.z_slice = self.z_slice_slider.value()
         self.z_slice_label.setText(f'Z axis [{self.z_axis_name[0]} - {self.z_axis_name[1]}] Slice: {self.z_slice + 1}/{self.data.shape[0]}')
@@ -532,8 +529,6 @@ class AppGUI(QtGui.QWidget):
         self.print_mean()
         self.update_observ_slice_plot()
         self.update_slice_helpers_lines()
-
-
 
 
 
