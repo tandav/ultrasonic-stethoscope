@@ -48,12 +48,12 @@ float bmp1_new;
 volatile float bmp_buffer[2];
 
 
-float freq = 1498; // Hz
 
 // times measured in microseconds
 // 1 ms ==     1,000 microseconds
 // 1  s == 1,000,000 microseconds
 
+float freq = 1498; // Hz
 
 const uint32_t tone_duration          =   1000000/16;
 const uint32_t short_silence_duration =   1000000/16;
@@ -63,15 +63,13 @@ uint32_t tone_start_t          = 0;
 uint8_t is_tone_playing = 1; // maybe its better to start with 0, idk
 
 
+const float A = 490;                           // amplitude of sine signal
 const float pi = 3.14159265;
-const float A = 490;                   // amplitude of sine signal
-float _T = 50 / 1000000.0;             // set default sampling time in microseconds
-
-volatile float a[3];                   // filter register for generating tone, updated from interrupt so must be volatile
-float omega = 2.0 * pi * freq;         // angular frequency in radians/second
-float wTsq = _T * _T * omega * omega ; // omega * sampling frequency squared
-
-float c1  = (8.0 - 2.0 * wTsq) / (4.0 + wTsq);                              // c1 = first filter coefficient, c1b used for second tone
+float _T = 50 / 1000000.0;                     // set default sampling time in microseconds
+volatile float a[3];                           // filter register for generating tone, updated from interrupt so must be volatile
+float omega = 2.0 * pi * freq;                 // angular frequency in radians/second
+float wTsq = _T * _T * omega * omega;          // omega * sampling frequency squared
+float c1  = (8.0 - 2.0 * wTsq) / (4.0 + wTsq); // c1 = first filter coefficient, c1b used for second tone
 
 
 // Adafruit_BMP280 bme; // I2C
