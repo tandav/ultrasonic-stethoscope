@@ -1,11 +1,6 @@
-'''
-lengths are in bytes
-'''
 import threading
 import collections
 import time
-import scipy.fftpack
-import scipy.signal
 from circular_buffer import CircularBuffer
 import numpy as np
 import sys; sys.path.append('/Users/tandav/Documents/spaces/arduino'); import arduino
@@ -13,6 +8,7 @@ port = arduino.find_device()
 
 header = b'\xd2\x02\x96I'
 
+# lengths are in bytes
 bmp_pressure_length    =   4 # float32 number
 mic_length             = 512 # 256 uint16
 mic_chunk_size         = mic_length // 2 # uint16 takes 2 bytes
