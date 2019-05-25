@@ -213,7 +213,9 @@ def get_mic():
         # a = scipy.fftpack.rfft(mic_for_fft)
         a = np.fft.rfft(mic_for_fft)
         a = np.abs(a)  # magnitude
-        a = 20 * np.log10(a)  # часто ошибка - сделать try, else
+
+        # a = 20 * np.log10(a)  # часто ошибка - сделать try, else
+        a = 10 * np.log10(a)  # часто ошибка - сделать try, else
 
 
         hz_limit  = (f > 40) & (f < 40_000)
