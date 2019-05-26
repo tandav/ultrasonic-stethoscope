@@ -116,9 +116,11 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
         self.bmp_cursor = 0
 
-        self.pressure_diff_done = False
+        # self.pressure_diff_done = False
 
         self.normal_dp = 0
+
+        self.state = 'норм'
 
         self.bmp_plot = pg.PlotWidget()
         self.bmp_plot.showGrid(x=True, y=True, alpha=0.1)
@@ -130,25 +132,38 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
     @PyQt5.QtCore.pyqtSlot()
     def bmp_update(self):
-        bmp0, bmp1 = serial_port.get_bmp()
+        bmp0, bmp1, state = serial_port.get_bmp()
 
 
-        if not self.pressure_diff_done and self.bmp_cursor == 5:
-            self.pressure_diff()
-            self.pressure_diff_done = True
+        # if not self.pressure_diff_done and self.bmp_cursor == 5:
+        #     self.pressure_diff()
+        #     self.pressure_diff_done = True
 
-        bmp0 -= self.normal_dp
 
-        dp = 20
-        # print(bmp0 - bmp1)
-        if bmp0 - bmp1 > dp:
-            state = 'выдох'
-        elif bmp1 - bmp0 > dp:
-            state = 'вдох'
-        else:
-            state = 'норм'
+        # print(state)
 
+
+
+        # if self.pressure_diff_done:
+        #     dp = 20
+        #     # dp = 10
+        #     # print(bmp0 - bmp1)
+        #     if bmp0 - bmp1 > dp:
+        #         state = 'выдох'
+        #     elif bmp1 - bmp0 > dp:
+        #         state = 'вдох'
+        #     else:
+        #         state = 'норм'
+
+            # if state != self.state:
+                # serial_port.stop_record()
+                #
+                # if state in ('выдох', 'вдох'):
+                #     serial_port.start_record(state)
+                # self.state = state
+                # print(state)
         self.bmp_plot.setTitle(f'<h1>{state}  bmp0 - bmp1 = {bmp0 - bmp1:>+3.2f}</h1>')
+
 
         self.bmp0[self.bmp_cursor] = bmp0
         self.bmp1[self.bmp_cursor] = bmp1

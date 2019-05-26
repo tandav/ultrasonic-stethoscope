@@ -3,6 +3,7 @@ import collections
 import time
 from circular_buffer import CircularBuffer
 import numpy as np
+import scipy.io.wavfile
 import sys; sys.path.append('/Users/tandav/Documents/spaces/arduino'); import arduino
 port = arduino.find_device()
 
@@ -56,22 +57,29 @@ def read_packet_bytes():
 
 
 def read_packet():
+
     packet = read_packet_bytes()
     # parse data from bytes packet
-    bmp0 = np.frombuffer(packet[ :4], dtype=np.float32)[0]
+    bmp0 = np.frombuffer(packet[ :4], dtype=np.float32)[0] # frombuffer has offset and count args
     bmp1 = np.frombuffer(packet[4:8], dtype=np.float32)[0]
     is_tone_playing = np.frombuffer(packet[8:9], dtype=np.uint8)[0]
-    mic = np.frombuffer(packet[9:521], dtype=np.uint16)
+    # mic = np.frombuffer(packet[9:521], dtype=np.uint16)
+
+    mic = np.empty(256, dtype=np.uint16)
+    mic[:] = np.frombuffer(packet[9:521], dtype=np.uint16)
 
     # downsampling = 4
-    # downsampling = 8
+    # downsampling = 8x
     downsampling = 1
+
 
     mic =  (
         mic
         .reshape(len(mic) // downsampling, downsampling)
         .mean(axis=1)
     )
+    # print(mic)
+    # print(sum(mic == 0))
 
     return bmp0, bmp1, is_tone_playing, mic
 
@@ -93,24 +101,70 @@ mic_un = 2**15
 # mic_un = 2**9
 # mic_un = 24576
 
-mic_buffer  = CircularBuffer(mic_un * 32, dtype=np.uint16)
+# mic_buffer = CircularBuffer(mic_un * 32, dtype=np.uint16)
+mic_buffer = CircularBuffer(mic_un * 64, dtype=np.uint16)
 
 '''
 bmp changes are slow so
 every new pair (bmp0, bmp1) emiting plot update
 '''
 
+
+bmp_i = 0 # for callibration
+normal_dp = 0
 bmp0 = 0
 bmp1 = 0
+state = 'норм'
+state_prev = 'норм'
 
 rate = 0
 _rate_arr = np.ones(10)
 _rate_i = 0
 rate_mean = 1
 
+
+is_recording = False
+values_recorded = 0
+record_state = None
+
+def start_record(state):
+    global is_recording, values_recorded, record_state
+    is_recording = True
+    values_recorded = 0
+    record_state = state
+
+
+def stop_record():
+    global is_recording, values_recorded
+    is_recording = False
+
+    if values_recorded > 0:
+
+        timestamp = int(time.time() * 1000)
+
+        signal = mic_buffer.most_recent(values_recorded).astype(np.float32) * (3.3 / 2**12) * 2 / 3.3 - 1
+        # signal = mic_buffer.most_recent(values_recorded)
+        print(type(signal), signal.dtype, signal.shape)
+
+        with open(f'records/{timestamp}-{record_state}.wav', 'wb') as wav_file:
+        # with open(f'records/wav/{timestamp}-{record_state}.npy', 'wb') as wav_file:
+        #     np.save(wav_file, signal)
+
+
+            scipy.io.wavfile.write(
+                wav_file,
+                int(rate_mean),
+                signal,
+            )
+
+        values_recorded = 0
+
+
+
+
 def run(bmp_signal, mic_signal):
     # global is_tone_playing
-    global bmp0, bmp1, rate, rate_mean, _rate_i
+    global bmp0, bmp1, bmp_i, normal_dp, state, state_prev, rate, rate_mean, _rate_i, values_recorded
 
     bmp0_prev = 0
     bmp1_prev = 0
@@ -126,18 +180,64 @@ def run(bmp_signal, mic_signal):
 
         bmp0, bmp1, is_tone_playing, mic = read_packet()
 
+
+        # _mmm = (
+        #     mic_buffer
+        #     .most_recent(mic_un)
+        # )
+        #
+        # print(sum(_mmm == 0))
+
+
         if bmp0 != bmp0_prev or bmp1 != bmp1_prev:
 
             bmp0_prev = bmp0
             bmp1_prev = bmp1
 
-            bmp_signal.emit()
+            bmp_i += 1
 
+            if bmp_i == 8:
+                normal_dp = bmp0 - bmp1
+                print('normal_dp', normal_dp)
+
+            bmp0 -= normal_dp
+
+            if bmp_i > 5:
+                dp = 20
+                # dp = 10
+                # print(bmp0 - bmp1)
+                if bmp0 - bmp1 > dp:
+                    state = 'выдох'
+                elif bmp1 - bmp0 > dp:
+                    state = 'вдох'
+                else:
+                    state = 'норм'
+
+                if state != state_prev:
+                    stop_record()
+
+                    if state in ('выдох', 'вдох'):
+                        start_record(state)
+                    state_prev = state
+                    print(state)
+
+
+
+
+            if not is_recording:
+                bmp_signal.emit()
+
+        # print(sum(mic == 0))
 
         mic_buffer.extend(mic)
+
         mic_i += len(mic)
 
+        if is_recording:
+            values_recorded += len(mic)
+
         if mic_i == mic_un:
+            # print(mic_un, 'done')
             mic_i = 0
 
             t1 = time.time()
@@ -151,13 +251,14 @@ def run(bmp_signal, mic_signal):
             # print(rate)
             t0 = t1
 
-            mic_signal.emit()
+            if not is_recording:
+                mic_signal.emit()
 
 
 
 def get_bmp():
     with lock:
-        return bmp0, bmp1
+        return bmp0, bmp1, state
 
 
 
@@ -198,6 +299,8 @@ def get_mic():
             .reshape(pp, mic_un // pp)
             .mean(axis=1)
         )
+
+
 
         mic_for_fft = mic_buffer.most_recent(nfft)  # with overlap (running window for STFT)
         f = np.fft.rfftfreq(nfft, d=1/rate_mean/2)
