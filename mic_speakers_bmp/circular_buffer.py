@@ -36,15 +36,16 @@ class CircularBuffer:
         # TODO: coment this assert for performance
         # assert len(self.buffer) % len(array_like) == 0, 'chunks of data not aligns into buffer'
 
+        # print(sum(array_like == 0))
         array_like_length = array_like.shape[0]
         self.buffer[self.cursor : self.cursor + array_like_length] = array_like
 
         self.cursor += array_like_length
 
-        # if self.cursor == self.buffer.shape[0]:
-            # self.cursor = 0
-            # self.buffer[:] = np.nan
-        self.cursor = (self.cursor + array_like_length) % self.buffer.shape[0]
+        if self.cursor == self.buffer.shape[0]:
+            self.cursor = 0
+            self.buffer[:] = np.nan
+        # self.cursor = (self.cursor + array_like_length) % self.buffer.shape[0]
 
     def most_recent(self, n):
         assert n <= len(self.buffer), 'requested data is bigger than buffer size'
