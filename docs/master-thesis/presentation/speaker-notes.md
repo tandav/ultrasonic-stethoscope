@@ -51,7 +51,44 @@ bla - bla - bla
 - python - потому что много удобных библиотек для обработки сигналов, графиков итд
 - header, wait_header, packets, deque
 
-### повышение качества спектрограмм
+--------------------------------------------------------------------------------
+
+Расчет спектрограммы это просто перемножение двух матриц, эта операция хорошо выполняется на GPU. Для этого я использовал библиотеку cupy. Вот бенчмарк
+cupy + benchmark plot from my twitter
+
+также для ускорения разбиения аудиозаписи на куски с перекрытиями / скользящее окно для DFT использовался низкоуровневый функционал библиотеки numpy.
+
+В Numpy Массивы, даже многомерные хранятся единым последовательным куском в памяти. Существует много способов представить многомерный массив в одном блоке памяти. В Numpy имплементирован 
+
+Every array has a number of `dimensions`, a `shape`, a `data type`, and `strides`. Strides describe how the items of a multidimensional array are organized in the data buffer.
+
+NumPy implements a strided indexing scheme, where the position of any element is a linear combination of the dimensions, the coefficients being the strides. In other words, strides describe, in any dimension, how many bytes we nee=d to jump over in the data buffer to go from one item to the next.
+
+Artificially changing the strides allows us to make some array operations more efficient than with standard methods, which may involve array copies.
+
+The as_strided() method takes an array, a shape, and strides as arguments. It creates a new array, but uses the same data buffer as the original array. The only thing that changes is the metadata. This trick lets us manipulate NumPy arrays as usual, except that they may take much less memory than what NumPy thinks.
+
+Strides are the number of bytes you need to step in each dimension when traversing the array.
+
+Так вот можно создать новый массив который будет использовать данные старого но будет юзать метадату - новые страйды.
+Короче 
+
+--------------------------------------------------------------------------------
+
+## Lungs model
+также была создана компьютерная модель распространения звука в легких. За основу модели была взята предложенная вот в этой статье.
+
+... все по слайдам
+
+для этой модели для быстрого расчета следующего состояния была использована либа numba. Это по сути jit компилятор. Он на ходу компилирует питоновский код, которые как известно медленный. с помощью LLVM в высоко оптимизированный машинный код с учетом поддержки современных векторизированных инструкций. Пишешь несколько аннотаций к своей функции и она ускоряется в разы.
+
+
+--------------------------------------------------------------------------------
+
+
+<!-- ======================================================================== -->
+
+<!-- ### повышение качества спектрограмм
 обычное Оконное преобразование Фурье / STFT / Short-time Fourier transform
 имеет известный недостаток. Качество спектрограмм в низких частотах достаточно плохое даже при высокой `fs` шаг достаточно получается достаточно большим. Особенно если учитывать что спектрограммы обычно изображаются в логарифмической шкале по оси частот, потому что мы нелинейно воспринимаем высоту звука.
 
@@ -102,25 +139,6 @@ bla - bla - bla
 
 ----
 
-Расчет спектрограммы это просто перемножение двух матриц, эта операция хорошо выполняется на GPU. Для этого я использовал библиотеку cupy. Вот бенчмарк
-cupy + benchmark plot from my twitter
-
-также для ускорения разбиения аудиозаписи на куски с перекрытиями / скользящее окно для DFT использовался низкоуровневый функционал библиотеки numpy.
-
-В Numpy Массивы, даже многомерные хранятся единым последовательным куском в памяти. Существует много способов представить многомерный массив в одном блоке памяти. В Numpy имплементирован 
-
-Every array has a number of `dimensions`, a `shape`, a `data type`, and `strides`. Strides describe how the items of a multidimensional array are organized in the data buffer.
-
-NumPy implements a strided indexing scheme, where the position of any element is a linear combination of the dimensions, the coefficients being the strides. In other words, strides describe, in any dimension, how many bytes we need to jump over in the data buffer to go from one item to the next.
-
-Artificially changing the strides allows us to make some array operations more efficient than with standard methods, which may involve array copies.
-
-The as_strided() method takes an array, a shape, and strides as arguments. It creates a new array, but uses the same data buffer as the original array. The only thing that changes is the metadata. This trick lets us manipulate NumPy arrays as usual, except that they may take much less memory than what NumPy thinks. 
-
-Strides are the number of bytes you need to step in each dimension when traversing the array.
-
-Так вот можно создать новый массив который будет использовать данные старого но будет юзать метадату - новые страйды.
-Короче 
 
 ---
 
@@ -132,15 +150,6 @@ nyquist limit
 
 зачем улучшать качество спектрограммы - потом планируется подавать в CNN, пока не подали потому что мало данных. Мы пробывали ходить по больницам - что то записали, но этого мало. Будем также использовать открытые датасеты источники записей.
 
-ссылка на презентацию будет в конце - можно будет перейти отсюда по ссылке.
+ссылка на презентацию будет в конце - можно будет перейти отсюда по ссылке. -->
 
---------------------------------------------------------------------------------
-## Lungs model
-также была создана компьютерная модель распространения звука в легких. За основу модели была взята предложенная вот в этой статье.
-
-... все по слайдам
-
-для этой модели для быстрого расчета следующего состояния была использована либа numba. Это по сути jit компилятор. Он на ходу компилирует питоновский код, которые как известно медленный. с помощью LLVM в высоко оптимизированный машинный код с учетом поддержки современных векторизированных инструкций. Пишешь несколько аннотаций к своей функции и она ускоряется в разы.
-
-
---------------------------------------------------------------------------------
+<!-- ======================================================================== -->
