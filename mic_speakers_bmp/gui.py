@@ -15,7 +15,6 @@ class GUI(PyQt5.QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.cursor = 0
         # self.is_tone_playing = None
 
         self.init_ui()
@@ -83,7 +82,6 @@ class GUI(PyQt5.QtWidgets.QWidget):
 
         self.fft_plot = pg.PlotWidget(disableAutoRange=True)
         self.fft_plot.showGrid(x=True, y=True, alpha=0.15)
-        # self.fft_plot.setLogMode(x=True, y=False)
         self.fft_plot.setLogMode(x=True, y=True)
         self.fft_curve = self.fft_plot.plot(pen='b')
 
