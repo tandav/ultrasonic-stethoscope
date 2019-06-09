@@ -1,0 +1,107 @@
+%!TEX TS-program = xelatex
+%!TEX encoding = UTF-8 Unicode
+\documentclass[a4paper, 14pt]{extarticle}
+\usepackage[left=3cm, right=1.5cm, top=2cm, bottom=2cm]{geometry}
+\geometry{a4paper}                   % ... or a4paper or a5paper or ...
+\usepackage{fontspec,xltxtra,xunicode}
+\usepackage{listings} 
+\lstset{
+    breaklines=true,
+    basicstyle=\small\ttfamily,
+    inputencoding=utf8
+}
+
+% \setlength{\cftbeforesectionskip}{1.1pt}
+
+\defaultfontfeatures{Mapping=tex-text}
+\setmainfont{Times New Roman}
+\newfontfamily{\cyrillicfontsf}{Arial}
+\setsansfont{Helvetica}
+% \newfontfamily{\cyrillicfonttt}{Menlo}
+\newfontfamily{\cyrillicfonttt}{SF Mono}
+% \setmonofont{Menlo}
+% \setmonofont{SF Mono}
+\setmonofont[Scale=0.5]{SF Mono}
+
+\usepackage{newtxmath}
+
+\usepackage{caption}
+\captionsetup[figure]{name=Рисунок, labelsep=endash}
+\captionsetup[table]{labelsep=endash}
+
+\usepackage{tocloft}
+\cftsetindents{section}{0em}{2em}
+\cftsetindents{subsection}{0em}{2em}
+\setlength{\cftbeforesecskip}{0pt}
+% \setlength{\cftbeforetoctitleskip}{-3pt}
+% \setlength{\cftaftertoctitleskip}{0pt}
+
+\renewcommand\labelitemi{---}
+
+\usepackage{polyglossia}
+\setmainlanguage{russian}
+\setotherlanguage{english}
+\setkeys{russian}{babelshorthands=true}
+
+\makeatletter 
+\renewcommand\@biblabel[1]{#1} 
+\makeatother
+
+
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{subfiles}
+% \usepackage[colorinlistoftodos]{todonotes}
+\renewcommand{\baselinestretch}{1.5}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=black
+}
+\usepackage{relsize}
+\renewcommand*{\UrlFont}{\ttfamily\smaller\relax}
+
+\usepackage{setspace}
+\newcommand{\sectionbreak}{\clearpage}
+\usepackage{titlesec}
+\titleformat{\section}[block]{\normalsize\bfseries\centering}{\thesection}{1ex}{}
+\titleformat{\subsection}[block]{\normalsize\bfseries}{\thesubsection}{1ex}{}
+\titleformat{\subsubsection}[block]{\normalsize\bfseries}{\thesubsubsection}{1ex}{}
+\usepackage{indentfirst}
+
+\addtocontents{toc}{\protect\vskip12pt}
+
+% \usepackage{minted}
+% \setminted[text]{fontsize=12pt}
+
+
+% \usepackage{etoolbox}
+% \patchcmd{\tableofcontents}{\@starttoc}{\vspace{-2cm}\@starttoc}{}{}
+
+\begin{document}
+
+\subfile{sections/0-titlepage}
+\subfile{sections/1-abstract}
+\tableofcontents
+\subfile{sections/2-introduction}
+\subfile{sections/3-motivation}
+\subfile{sections/4-market}
+\subfile{sections/5-hardware}
+\subfile{sections/6-software}
+\subfile{sections/6.1-arduino}
+\subfile{sections/6.2-serial-port}
+\subfile{sections/6.3-gui}
+\subfile{sections/9-lungs-model}
+\subfile{sections/7-conclusion}
+\subfile{sections/7-conclusion2}
+\subfile{sections/8-bibliography}
+\subfile{sections/9.1-appendix1}
+\subfile{sections/9.1-appendix2}
+
+\end{document}
+

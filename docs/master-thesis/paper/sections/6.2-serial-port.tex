@@ -1,0 +1,258 @@
+% !TEX root = ../main.tex
+\documentclass[../main.tex]{subfiles}
+\begin{document}
+\subsection{Програмное обеспечение для компьютера: сбор данных по USB}
+
+% \subsubsection{Cбор сигнала от устройства через usb}
+
+Подключение к ардуино по usb происходит с использованием файла \texttt{arduino.py}. Этот файл используется для многих проектов поэтому он лежит за пределами папки данного проекта. 
+В python чтобы импортировать модуль, который лежит по произвольному пути, этот путь нужно добавтить в \texttt{sys.path}:
+
+\begin{lstlisting}
+import sys; sys.path.append('/Users/tandav/Documents/spaces/arduino'); import arduino
+port = arduino.find_device()
+\end{lstlisting}
+
+Функция \texttt{find\_device} пытается 60 раз просканировать доступные usb-устройства c помощью функции \texttt{serial.tools.list\_ports.comports()} если в описании какого либо из устройств содержаться следующие ключевые слова: 
+
+\begin{lstlisting}
+device_keywords = (
+    'Arduino',
+    'USB Serial Device',
+    'Устройство с последовательным интерфейсом USB',
+)
+\end{lstlisting}
+
+то устройство опознается как Arduino и возвращается. 
+
+Если через 60 попыток Arduino не найдено, то выбрасывается исключение: \texttt{serial.SerialException('device not found, check the connection')}
+
+
+Далее в модуле \verb|serial_port| происходит объявление следующих переменных и констант:
+
+заголовок пакета с данными от Arduino
+должен быть такой же как в коде программы для Arduino
+\begin{lstlisting}
+header = b'\xd2\x02\x96I'
+\end{lstlisting}
+
+длины различных частей пакета в байтах:
+
+длина блока данных, отвечающего за один сенсор давления
+\begin{lstlisting}
+bmp_pressure_length    =   4 # float32 number
+\end{lstlisting}
+
+длина блока данных, отвечающего за данные с микрофона
+\begin{lstlisting}
+mic_length             = 512 # 256 uint16
+mic_chunk_size         = mic_length // 2 # uint16 takes 2 bytes
+\end{lstlisting}
+
+длина блока данных, отвечающего за информацию о том, издают ли звук динамики
+\begin{lstlisting}
+is_tone_playing_length =   1 # uint8 (used like bool)
+\end{lstlisting}
+
+сумарная длина пакета без заголовка
+\begin{lstlisting}
+payload_length         =   2 * bmp_pressure_length + is_tone_playing_length + mic_length
+\end{lstlisting}
+
+сумарная длина пакета с заголовком
+\begin{lstlisting}
+packet_length          = len(header) + payload_length
+\end{lstlisting}
+
+переменная-флаг, отвечающая за то, следует ли продолжать сбор данных
+(используется в момент закрытия приложения)
+\begin{lstlisting}
+stop_flag = 0
+\end{lstlisting}
+
+число пакетов которые прошли без потери данных (используется для дебага)
+\begin{lstlisting}
+n_good_packets = 0
+\end{lstlisting}
+
+Далее в модуле \texttt{serial\_port} объявляются функции \verb|read_packet|, \texttt{read\_packet\_bytes}, \texttt{wait\_header}. Они непосредственно отвечают за сбор данных через серийный порт. 
+
+\subsubsection{чтение пакета в байтах}
+Функция \texttt{read\_packet\_bytes} читает из серийного порта количество байт равное длине пакета. Далее происходит проверка: полученные байты должны начинаться с заголовка. Если условие выполняется, то возвращаются полезные нагрузочные байты (payload) пакета (без заголовка). Если условие не выполняется то вызывается вспомогательная функция \texttt{wait\_header} которая читает данные пока не дождется заголовка. После того как заголовок был считан, читается отавшаяся часть пакета и возвращается.
+
+\begin{lstlisting}
+def read_packet_bytes():
+    '''
+    packet_length: packet length in bytes
+    returns packet (as bytes) without header
+    '''
+
+    global n_good_packets
+
+    packet = port.read(packet_length)
+
+    if packet.startswith(header):
+        n_good_packets += 1
+        if n_good_packets % 5000 == 0:
+            print(f'n_good_packets = {n_good_packets}')
+        return packet[len(header):]
+    else:
+        print(f'wrong header {packet[:len(header)]} before: n_good_packets = {n_good_packets}')
+        n_good_packets = 0
+        # time.sleep(1)
+        wait_header()
+        return port.read(payload_length) # rest of packet
+\end{lstlisting}
+
+Ожидание заголовка в функции \texttt{wait\_header} реализовано с помощью использования структуры данных \texttt{deque} из модуля стандартной библиотеки питона \texttt{collections}. \texttt{deque} - двухстороння очередь. Эту структуру можно использовать и как для очередей с порядком LIFO (Stack, используется только одна сторона \texttt{deque}), так и для очереди с порядком FIFO (используется 2 стороны \texttt{deque}). В данной функции \texttt{deque} используется как очередь с порядком \texttt{FIFO} с максимальным количеством элементов равным 4 (количество байт в заголовке).
+
+Данные читаются с серийного порта по одному байту и помещаются в очередь справа (\texttt{append}). Старые байты автоматически вытесняются с другого конца (слева). Данные читаются до тех пор, пока 4 байта, которые хранятся в очереди не будут равняться четырем байтам заголовка (с учетом порядка). Как только это условие выполняется, происходит выход из функции.
+
+\subsubsection{ожидание заголовка в случае потери пакета}
+
+\begin{lstlisting}
+def wait_header():
+    deque = collections.deque(maxlen=len(header))
+
+    while b''.join(deque) != header:
+        deque.append(port.read())
+
+    print('wait done', b''.join(deque), '==', header)
+\end{lstlisting}
+
+Функция \texttt{read\_packet} использует функцию \texttt{read\_packet\_bytes}, чтобы получить байты пакета без заголовка. Затем происходит разделение байт на различные переменные с использованием функции библиотеки \texttt{numpy} \texttt{np.frombuffer} с кастингом байт в необходимые типы данных:
+
+\subsubsection{разбиение байтов пакета на части}
+
+\begin{lstlisting}
+def read_packet():
+    packet = read_packet_bytes()
+    
+    # данные 1 датчика давления
+    bmp0 = np.frombuffer(packet[ :4], dtype=np.float32)[0]
+    
+    # данные 2 датчика давления
+    bmp1 = np.frombuffer(packet[4:8], dtype=np.float32)[0]
+    
+    # переменная, хранящая информацию о том, издают ли звук динамики
+    is_tone_playing = np.frombuffer(packet[8:9], dtype=np.uint8)[0]
+    
+    # данные с микрофона
+    mic = np.frombuffer(packet[9:521], dtype=np.uint16)
+
+    # возможное прорежение сигнала / понижение частоты дискретизации
+    # (используется на слабых компьютерах)
+    # downsampling = 4
+    # downsampling = 8
+    downsampling = 1
+
+    mic =  (
+        mic
+        .reshape(len(mic) // downsampling, downsampling)
+        .mean(axis=1)
+    )
+
+    return bmp0, bmp1, is_tone_playing, mic
+\end{lstlisting}
+
+далее в модуле \texttt{serial\_port} объявляется замок, который будет в дальнейшем использоваться в тех местах где потенциально 2 процесса могут обращаться к одной переменной:
+
+\begin{lstlisting}
+lock = threading.Lock()
+\end{lstlisting}
+
+Поток \texttt{serial\_port} собирает данные в буффер-очередь. Этот буффер нужен является временным хранилищем прочитанных данных до тех пор, пока поток графического интерфейса не прочитает их.
+
+\subsubsection{основной цикл чтения данных}
+В основной функции \texttt{run}, которую будет исполнять тред присутсвует бесконечный цикл. 
+
+В начале цикла проверяется не включен ли флаг \texttt{stop\_flag} (который может быть включен если пользователь закроет окно (метод \texttt{closeEvent} в классе \texttt{gui}) или через прерывание с клавиатуры в коммандной строке (CTRL-C). Если флаг включен то соединение с устройством через серийный порт закрывается:
+
+\begin{lstlisting}
+while True:
+
+    if stop_flag:
+        port.close()
+        return
+\end{lstlisting}
+
+Далее по циклу происходит вызов функции \texttt{read\_packet}:
+\begin{lstlisting}
+bmp0, bmp1, is_tone_playing, mic = read_packet()
+\end{lstlisting}
+
+Графический интерфейс будет читать данные не каждый раз когда они появились а реже (слишком частое чтение тормозит графический интерфейс и делает его неотзывчивым). Более точно, поток \texttt{serial\_port} посылает потоку графического интерфейса сигнал о том, что нужно получить новую порцию данных всякий раз когда:
+- считалось новое значение на сенсорах давления, отличающеесе от предыдущего значения (скорость обновления давления на сенсорах значительно медленнее чем скорость обновления данных с микрофона, поэтому перерисовка происходит сразу как только данные пришли)
+- так как данные микрофона обновляются очень часто, то сигнал о том что нужно обноивить графики в графическом интерфейсе посылается через каждые 128 чтений.
+
+Эта логика реализована в оставшейся части функции \texttt{run}:
+
+\begin{lstlisting}
+if bmp0 != bmp0_prev or bmp1 != bmp1_prev:
+
+    bmp0_prev = bmp0
+    bmp1_prev = bmp1
+
+    bmp_signal.emit()
+
+
+mic_buffer.extend(mic)
+mic_i += len(mic)
+
+if mic_i == mic_un:
+    mic_i = 0
+
+    t1 = time.time()
+    dt = t1 - t0
+    rate = mic_un / dt
+    _rate_arr[_rate_i] = rate
+    _rate_i += 1
+    if _rate_i == len(_rate_arr):
+        rate_mean = _rate_arr.mean()
+        _rate_i = 0
+    t0 = t1
+    mic_signal.emit()
+\end{lstlisting}
+
+Также здесь замеряется средняя частота дискретизации \texttt{rate\_mean} - сколько в среднем приходило значений в секунду с микрофона.
+
+Когда потоку графического интерфейса посылаются сигналы \texttt{bmp\_signal.emit()} и \texttt{mic\_signal.emit()} чтобы он запросил новые данные, то поток `gui` вызывает функции \texttt{get\_bmp} и \texttt{get\_mic}. В \texttt{get\_bmp} просто возвращаются последние значения с сенсоров. В \texttt{get\_mic} берутся последние несколько значений из \texttt{mic\_buffer} и также делается преобразование фурье:
+
+\subsubsection{пребразование Фурье сигнала}
+
+получаются последние nfft значений
+\begin{lstlisting}
+mic_for_fft = mic_buffer.most_recent(nfft)  # with overlap (running window for STFT)
+\end{lstlisting}
+
+формируем массив частот для графика спектра
+\begin{lstlisting}
+f = np.fft.rfftfreq(nfft, d=1/rate_mean/2)
+\end{lstlisting}
+
+преобразуем сигнал в коэффициенты фурье
+\begin{lstlisting}
+a = np.fft.rfft(mic_for_fft)
+\end{lstlisting}
+
+берем модуль комплексного числа
+\begin{lstlisting}
+a = np.abs(a)  # magnitude
+\end{lstlisting}
+
+преобразуем магнитуду в децибеллы
+\begin{lstlisting}
+a = 10 * np.log10(a)
+\end{lstlisting}
+
+ограничение возвращаемых частот спектра (интересующий нас диапазон)
+\begin{lstlisting}
+hz_limit  = (f > 40) & (f < 40_000)
+fft_f = f[hz_limit]
+fft_a = a[hz_limit]
+
+return mic, fft_f, fft_a, rate_mean
+\end{lstlisting}
+\newpage
+
+\end{document}
