@@ -6,11 +6,95 @@
 
 В рамках данной работы было написано програмное обеспечение для работы с аппаратным обеспечением описаным выше. Программа обеспечение представляет собой кросплатформенное Desktop приложение, написанное на языке python с использованием графического фреймворка PyQt.
 
+Чтобы запустить программу, предварительно нужно скачать и установить python для выбранной операционной системы. Установочные файлы и инструкции по установке есть на официальном сайте python.org. Также необходимо установить следующих набор библиотек c помощью комманд:
+
+\begin{lstlisting}
+pip install PyQt5
+pip install numpy
+pip install pyqtgraph
+pip install pyserial
+\end{lstlisting}
+
+
+программа запускается с помощью команды:
+
+\begin{lstlisting}
+python main.py
+\end{lstlisting}
+
+
 Программное обеспечение состоит из 2х основных компонент:
 \begin{itemize}
     \item программа для микроконтроллера Arduino Due
     \item программа для компьютера
 \end{itemize}
-\newpage
 
+Перед тем, как рассматривать эти модули отдельно, рассмотрим файл \verb|main.py|. С начала в нем производится импорт следующих модулей:
+
+создание тредов (модуль стандартной библиотеки)
+\begin{lstlisting}
+import threading       
+\end{lstlisting}
+
+общение между тредами с использованием сигналов (модуль стандартной библиотеки)
+\begin{lstlisting}
+import signal
+\end{lstlisting}
+
+используется для парсинга аргументов коммандной строки
+\begin{lstlisting}
+import sys
+\end{lstlisting}
+
+фреймворк для графического интерфейса
+\begin{lstlisting}
+import PyQt5.QtWidgets
+\end{lstlisting}
+
+модуль отвечающий за графический интерфейс программы
+\begin{lstlisting}
+import gui
+\end{lstlisting}
+
+сбор сигнала от устройства через usb(серийный порт)
+\begin{lstlisting}
+import serial_port
+\end{lstlisting}
+
+чтобы запустить приложение с испольованием \verb|PyQt5|, нужно создать объект \verb|QApplication| а также объект \verb|gui.GUI| - основной класс в котором описывается графический интерфейс:
+
+\begin{lstlisting}
+app = PyQt5.QtWidgets.QApplication(sys.argv)
+gui = gui.GUI()
+\end{lstlisting}
+
+Чтобы приложение можно было правильно закрыть по нажатию Ctrl-C, регистрируется функцию которая будет обрабатываеть сигнал \verb|SIGINT| (Keyboard Interrupt, прерывание с клавиатуры):
+
+\begin{lstlisting}
+def ctrl_c_handler(sig, frame):
+    serial_port.stop_flag = True
+    app.quit()
+
+signal.signal(signal.SIGINT, ctrl_c_handler)
+\end{lstlisting}
+
+при прерывании с клавиатуры переменная \verb|stop_flag| принимает значение \verb|True| что говорит модулю \verb|serial_port| что следует прекратить сбор данных с usb и закрыть соединение. Также производится выход из графического приложения.
+
+модули \verb|serial_port| и \verb|gui| работают в разных потоках. Это нужно для того, чтобы сбор сигнала производился без пауз, а также чтобы графический интерфейс программы не зависал и быстро реагировал на действия пользователя.
+
+Графический интерфейс будет испольняться в основном треде программы. Для моудуля \verb|serial_port| создается дополнительные тред:
+
+
+\begin{lstlisting}
+serial_reader = threading.Thread(
+    target=serial_port.run,
+    args=(gui.bmp_signal, gui.mic_signal)
+)
+\end{lstlisting}
+
+\verb|target| - функция, которую будет исполнять тред, \verb|args| - аргументы функции - 2 Qt-сигнала, о которых будет сказано далее.
+
+Рассмотрим программу для микроконтроллера Arduino а затем рассмотрим более детально, что происходит в модулях \verb|serial_port| и \verb|gui|
+
+\newpage
 \end{document}
