@@ -102,7 +102,7 @@ mic_un = 2**15
 # mic_un = 24576
 
 # mic_buffer = CircularBuffer(mic_un * 32, dtype=np.uint16)
-mic_buffer = CircularBuffer(mic_un * 64, dtype=np.uint16)
+mic_buffer = CircularBuffer(mic_un * 128, dtype=np.uint16)
 
 '''
 bmp changes are slow so
@@ -224,8 +224,8 @@ def run(bmp_signal, mic_signal):
 
 
 
-            if not is_recording:
-                bmp_signal.emit()
+            # if not is_recording:
+            bmp_signal.emit()
 
         # print(sum(mic == 0))
 
@@ -251,8 +251,8 @@ def run(bmp_signal, mic_signal):
             # print(rate)
             t0 = t1
 
-            if not is_recording:
-                mic_signal.emit()
+            # if not is_recording:
+            mic_signal.emit()
 
 
 
