@@ -29,7 +29,8 @@
 \captionsetup[figure]{name=Рисунок, labelsep=endash}
 \captionsetup[table]{labelsep=endash}
 
-\usepackage{tocloft}
+% \usepackage{tocloft}
+\usepackage[titles]{tocloft}
 \cftsetindents{section}{0em}{2em}
 \cftsetindents{subsection}{0em}{2em}
 \setlength{\cftbeforesecskip}{0pt}
@@ -69,15 +70,17 @@
 \usepackage{setspace}
 \newcommand{\sectionbreak}{\clearpage}
 \usepackage{titlesec}
-\titleformat{\section}[block]{\normalsize\bfseries\centering}{\thesection}{1ex}{}
-\titleformat{\subsection}[block]{\normalsize\bfseries}{\thesubsection}{1ex}{}
-\titleformat{\subsubsection}[block]{\normalsize\bfseries}{\thesubsubsection}{1ex}{}
+
+
+\titleformat{\section   }{\normalsize\bfseries}{\thesection   }{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titleformat{name=\section,numberless}{\normalsize\bfseries\centering}{}{0em}{}
+\titlespacing*{\section}{\parindent}{1ex}{1em}
+\titlespacing*{\subsection}{\parindent}{1ex}{1em}
+
 \usepackage{indentfirst}
 
 \addtocontents{toc}{\protect\vskip12pt}
-
-% \usepackage{minted}
-% \setminted[text]{fontsize=12pt}
 
 
 % \usepackage{etoolbox}
@@ -88,11 +91,11 @@
 \newgeometry{left=3cm, right=1cm, top=2cm, bottom=2cm}
 \subfile{sections/0-titlepage}
 
-% \newgeometry{left=2cm, right=1cm, top=2cm, bottom=2cm}
-% \addtocounter{page}{1}
-% \subfile{sections/zadanie}
-% \subfile{sections/recenzia}
-% \subfile{sections/otzyv}
+\newgeometry{left=2cm, right=1cm, top=2cm, bottom=2cm}
+\addtocounter{page}{1}
+\subfile{sections/zadanie}
+\subfile{sections/recenzia}
+\subfile{sections/otzyv}
 
 \newgeometry{left=3cm, right=1cm, top=2cm, bottom=2cm}
 \subfile{sections/1-abstract}
