@@ -303,6 +303,7 @@ def get_mic():
 
 
         mic_for_fft = mic_buffer.most_recent(nfft)  # with overlap (running window for STFT)
+        # короче не понял по какой причине - но нужно делить rate/2 Если делишь - то вроде все четко - потом разберусь.
         f = np.fft.rfftfreq(nfft, d=1/rate_mean/2)
 
 

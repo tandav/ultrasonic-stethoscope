@@ -2,14 +2,17 @@
 Александр Родионов, МКН
 Руководитель Я.А. Туровский
 
+Уважаемая Государственная аттестационная комиссия, позвольте представить Вашему вниманию выпускную работу бакалавра по направлению «Математика и компьютерные науки» (дипломную работу, магистерскую диссертацию)
+
+Я, ФИО (полностью) студент кафедры цифровых технологий, научный руководитель – должность (профессор, доцент, ассистент) кафедры (название полностью). Тема работы - ...........
+
+Защита..............
+
+В конце защиты: «Спасибо за внимание» (Никаких лишних слов)
+
 --------------------------------------------------------------------------------
 
 # Цели работы
-целью моей работы являлись
-- устройство для оценки состояния легких
-- написание ПО для этого устройства
-- разработка комп модели легких
-
 Предполагается, что:
 с помощью данного устройства можно производить обследования пациента следующего рода:
 - к пациенту прикладывается стетоскоп в области легких
@@ -21,7 +24,9 @@
 
 Звук проходит через легкие и регистрируется микрофоном в стетоскопе и передается на компьютер. 
 На компьютере звук исследуется различными спектральными методами. 
+
 В зависимости от состояния легких пациента, звук может подвергаться различным искажениям во время прохождения, спектр звука может меняться. 
+
 С помощью данного устройства предполагается исследование состояния легких и выявление отклонений от нормы.
     
 --------------------------------------------------------------------------------
@@ -60,13 +65,13 @@ cupy + benchmark plot from my twitter
 
 В Numpy Массивы, даже многомерные хранятся единым последовательным куском в памяти. Существует много способов представить многомерный массив в одном блоке памяти. В Numpy имплементирован 
 
-Every array has a number of `dimensions`, a `shape`, a `data type`, and `strides`. Strides describe how the items of a multidimensional array are organized in the data buffer.
+<!-- Every array has a number of `dimensions`, a `shape`, a `data type`, and `strides`. Strides describe how the items of a multidimensional array are organized in the data buffer. -->
 
-NumPy implements a strided indexing scheme, where the position of any element is a linear combination of the dimensions, the coefficients being the strides. In other words, strides describe, in any dimension, how many bytes we nee=d to jump over in the data buffer to go from one item to the next.
+<!-- NumPy implements a strided indexing scheme, where the position of any element is a linear combination of the dimensions, the coefficients being the strides. In other words, strides describe, in any dimension, how many bytes we nee=d to jump over in the data buffer to go from one item to the next. -->
 
-Artificially changing the strides allows us to make some array operations more efficient than with standard methods, which may involve array copies.
+<!-- Artificially changing the strides allows us to make some array operations more efficient than with standard methods, which may involve array copies. -->
 
-The as_strided() method takes an array, a shape, and strides as arguments. It creates a new array, but uses the same data buffer as the original array. The only thing that changes is the metadata. This trick lets us manipulate NumPy arrays as usual, except that they may take much less memory than what NumPy thinks.
+<!-- The as_strided() method takes an array, a shape, and strides as arguments. It creates a new array, but uses the same data buffer as the original array. The only thing that changes is the metadata. This trick lets us manipulate NumPy arrays as usual, except that they may take much less memory than what NumPy thinks. -->
 
 Strides are the number of bytes you need to step in each dimension when traversing the array.
 
@@ -82,6 +87,9 @@ Strides are the number of bytes you need to step in each dimension when traversi
 
 для этой модели для быстрого расчета следующего состояния была использована либа numba. Это по сути jit компилятор. Он на ходу компилирует питоновский код, которые как известно медленный. с помощью LLVM в высоко оптимизированный машинный код с учетом поддержки современных векторизированных инструкций. Пишешь несколько аннотаций к своей функции и она ускоряется в разы.
 
+--------------------------------------------------------------------------------
+
+Чем отл от УЗИ: в узи используется диапазон от 2х до 15 MHz. Наличие в легких воздуха мешает делать узи. У нас используется более низкий диапазон.
 
 --------------------------------------------------------------------------------
 
