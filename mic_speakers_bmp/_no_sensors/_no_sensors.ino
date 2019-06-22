@@ -75,8 +75,8 @@ float c1  = (8.0 - 2.0 * wTsq) / (4.0 + wTsq); // c1 = first filter coefficient,
 // Adafruit_BMP280 bme; // I2C
 // Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 // software SPI (my varik)
-Adafruit_BMP280 bmp0(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
-Adafruit_BMP280 bmp1(BMP_2_CS, BMP_2_MOSI, BMP_2_MISO,  BMP_2_SCK);
+//Adafruit_BMP280 bmp0(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
+//Adafruit_BMP280 bmp1(BMP_2_CS, BMP_2_MOSI, BMP_2_MISO,  BMP_2_SCK);
 
 
 
@@ -153,10 +153,10 @@ void beep_handler() {
     }
 }
 
-void bmp_handler() {
-    bmp_buffer[0] = bmp0.readPressure();
-    bmp_buffer[1] = bmp1.readPressure();
-}
+//void bmp_handler() {
+//    bmp_buffer[0] = bmp0.readPressure();
+//    bmp_buffer[1] = bmp1.readPressure();
+//}
 
 //int min0  = 50;
 //int min1  = 10000;
@@ -173,15 +173,15 @@ void bmp_handler() {
 
 void setup() {
 
-    if (!bmp0.begin()) {
+//    if (!bmp0.begin()) {
         // SerialUSB.println(F("Could not find a valid BMP280 0 sensor, check wiring!"));
-        while (1);
-    }
+//        while (1);
+//    }
 
-    if (!bmp1.begin()) {
+//    if (!bmp1.begin()) {
         // SerialUSB.println(F("Could not find a valid BMP280 1 sensor, check wiring!"));
-        while (1);
-    }
+//        while (1);
+//    }
 
     analogWriteResolution(10);
     pinMode(LED_BUILTIN, OUTPUT);
@@ -190,7 +190,7 @@ void setup() {
 //    Timer1.attachInterrupt(beep_handler).start(100);
 //    Timer1.attachInterrupt(beep_handler).start(800);
 //    Timer2.attachInterrupt(bmp_handler).start(1250);
-    Timer2.attachInterrupt(bmp_handler).start(100000/2);
+//    Timer2.attachInterrupt(bmp_handler).start(100000/2);
 
     SerialUSB.begin(0); // Initialize Native USB port
     while (!SerialUSB); // Wait until connection is established
